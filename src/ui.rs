@@ -1,7 +1,6 @@
 use bevy::prelude::*;
 
-use crate::arena::PLATEAU_COORDS;
-use crate::koth::{KothManager, ZoneContestState};
+use crate::koth::KothManager;
 use crate::player::Player;
 use crate::types::{Character, Health, Stamina, TackleAbility, Team};
 
@@ -770,44 +769,30 @@ fn update_hud(
         **text = format!("{:02}:{:02}", mins, secs);
     }
 
-    // Active Zone Name & Rotation Countdown
-    let (_, name, _, _) = PLATEAU_COORDS[koth.active_index];
+    // Active CTF Objective Subtitle
     if let Ok(mut text) = name_text.get_single_mut() {
-        **text = format!("{} [{:.0}s]", name.to_uppercase(), koth.rotation_timer);
+        if koth.blue_carrier.is_some() {
+            **text = "LEVER RØDT FLAGG TIL BLÅ BASE!".to_string();
+        } else if !koth.blue_flag_at_base {
+            **text = "TAKLE FIENDEN FOR Å REDDE BLÅTT FLAGG!".to_string();
+        } else {
+            **text = "CAPTURE THE FLAG (FØRSTE TIL 5)".to_string();
+        }
     }
 
-    // 3. Dynamic Warning Alert («VÅRT FLAGG ER STJÅLET!» / «FLAGG SIKRET!»)
+    // 3. Dynamic CTF Warning & Event Alert
     if let Ok((mut text, mut color)) = status_text.get_single_mut() {
-        match koth.contest_state {
-            ZoneContestState::Neutral => {
-                **text = "«SIKRE SENTRUMSSONEN!»".to_string();
-                color.0 = Color::srgb(0.65, 0.75, 0.9);
-            }
-            ZoneContestState::Contested => {
-                **text = format!(
-                    "«FLAGGSONE OMKJEMPET! [BLÅ: {} | RØD: {}]»",
-                    koth.blue_occupants, koth.red_occupants
-                );
-                color.0 = Color::srgb(1.0, 0.85, 0.1);
-            }
-            ZoneContestState::BlueControlling => {
-                **text = "«FLAGG SIKRET!»".to_string();
-                color.0 = Color::srgb(0.2, 0.95, 0.45);
-            }
-            ZoneContestState::RedControlling => {
-                **text = "«VÅRT FLAGG ER STJÅLET!»".to_string();
-                color.0 = Color::srgb(1.0, 0.22, 0.22);
-            }
-        }
+        **text = koth.status_banner.clone();
+        color.0 = koth.status_color;
 
         if let Some(winner) = koth.winner {
             match winner {
                 Team::Blue => {
-                    **text = "«SEIER! BLÅTT TEAM HAR VUNNET!»".to_string();
+                    **text = "«SEIER! BLÅTT LAG VANT CAPTURE THE FLAG!»".to_string();
                     color.0 = Color::srgb(0.2, 1.0, 0.6);
                 }
                 Team::Red => {
-                    **text = "«NEDERLAG! RØDT TEAM DOMINERT!»".to_string();
+                    **text = "«NEDERLAG! RØDT LAG VANT CAPTURE THE FLAG!»".to_string();
                     color.0 = Color::srgb(1.0, 0.2, 0.2);
                 }
             }

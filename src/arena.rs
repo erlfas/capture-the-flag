@@ -349,13 +349,13 @@ fn setup_arena(
         Transform::from_xyz(beta_center.x, 1.83, beta_center.z),
     ));
 
-    // Blue Flagpole & Waving Blue Flag (matching left side of art/skybox.jpg)
+    // Blue Flag Base Pedestal (interactive flagpole spawned in koth.rs)
     spawn_flagpole(
         &mut commands,
         &mut meshes,
         &steel_mat,
         &blue_flag_mat,
-        Vec3::new(beta_center.x - 2.2, 1.8, beta_center.z - 1.2),
+        beta_center,
         1.0,
     );
 
@@ -418,13 +418,13 @@ fn setup_arena(
         Transform::from_xyz(gamma_center.x, 1.83, gamma_center.z),
     ));
 
-    // Red Flagpole & Waving Red Flag (matching right side of art/skybox.jpg)
+    // Red Flag Base Pedestal (interactive flagpole spawned in koth.rs)
     spawn_flagpole(
         &mut commands,
         &mut meshes,
         &steel_mat,
         &red_flag_mat,
-        Vec3::new(gamma_center.x + 1.2, 1.8, gamma_center.z - 1.0),
+        gamma_center,
         -1.0,
     );
 
@@ -758,25 +758,18 @@ fn spawn_flagpole(
     pole_mat: &Handle<StandardMaterial>,
     flag_mat: &Handle<StandardMaterial>,
     base_pos: Vec3,
-    dir_sign: f32,
+    _dir_sign: f32,
 ) {
-    // Round base pedestal
+    // Round base pedestal socket on platform floor
     commands.spawn((
-        Mesh3d(meshes.add(Cylinder::new(0.42, 0.22))),
+        Mesh3d(meshes.add(Cylinder::new(0.48, 0.22))),
         MeshMaterial3d(flag_mat.clone()),
         Transform::from_translation(base_pos + Vec3::new(0.0, 0.11, 0.0)),
     ));
-    // Tall steel flagpole
     commands.spawn((
-        Mesh3d(meshes.add(Cylinder::new(0.07, 5.2))),
+        Mesh3d(meshes.add(Cylinder::new(0.18, 0.32))),
         MeshMaterial3d(pole_mat.clone()),
-        Transform::from_translation(base_pos + Vec3::new(0.0, 2.6, 0.0)),
-    ));
-    // Waving cloth banner
-    commands.spawn((
-        Mesh3d(meshes.add(Cuboid::new(2.2, 1.25, 0.06))),
-        MeshMaterial3d(flag_mat.clone()),
-        Transform::from_translation(base_pos + Vec3::new(dir_sign * 1.1, 4.4, 0.0)),
+        Transform::from_translation(base_pos + Vec3::new(0.0, 0.16, 0.0)),
     ));
 }
 

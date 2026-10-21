@@ -3,6 +3,7 @@ use bevy::prelude::*;
 
 use crate::camera::OrbitCamera;
 use crate::combat::{TACKLE_COOLDOWN, TACKLE_LUNGE_SPEED, TACKLE_STAMINA_COST};
+use crate::koth::KothManager;
 use crate::types::{Character, Health, StaggerState, Stamina, TackleAbility, Team};
 
 #[derive(Component)]
@@ -467,8 +468,8 @@ fn spawn_player(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut camera_query: Query<&mut OrbitCamera>,
 ) {
-    // Spawn Anders on the West Blue Platform matching the reference art
-    let spawn_pos = Vec3::new(-18.5, 3.0, -1.5);
+    // Spawn Anders on the West Blue Platform just in front of the Blue Flag pedestal
+    let spawn_pos = Vec3::new(-15.5, 2.8, -1.5);
 
     let player_entity = commands
         .spawn((
@@ -489,8 +490,8 @@ fn spawn_player(
             RigidBody::Dynamic,
             Collider::capsule(0.35, 1.2),
             LockedAxes::new().lock_rotation_x().lock_rotation_z(),
-            Friction::new(0.4),
-            Restitution::new(0.05),
+            Friction::new(0.45),
+            Restitution::new(0.0),
             LinearVelocity::default(),
             AngularVelocity::default(),
             Transform::from_translation(spawn_pos)
@@ -518,31 +519,50 @@ fn handle_player_movement(
     keys: Res<ButtonInput<KeyCode>>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     time: Res<Time>,
+    koth: Res<KothManager>,
+    spatial_query: SpatialQuery,
     camera_query: Query<&OrbitCamera>,
-    mut player_query: Query<(
-        &mut Transform,
-        &mut LinearVelocity,
-        &mut Stamina,
-        &mut TackleAbility,
-        &StaggerState,
-    ), With<Player>>,
+    mut jump_cooldown: Local<f32>,
+    mut player_query: Query<
+        (
+            Entity,
+            &mut Transform,
+            &mut LinearVelocity,
+            &mut Stamina,
+            &mut TackleAbility,
+            &StaggerState,
+        ),
+        With<Player>,
+    >,
 ) {
     let Ok(camera) = camera_query.get_single() else {
         return;
     };
 
-    let Ok((mut transform, mut lin_vel, mut stamina, mut tackle, stagger)) =
+    let Ok((player_ent, mut transform, mut lin_vel, mut stamina, mut tackle, stagger)) =
         player_query.get_single_mut()
     else {
         return;
     };
 
+    let dt = time.delta_secs();
+    *jump_cooldown = (*jump_cooldown - dt).max(0.0);
+
+    // Downward raycast from capsule center (0.95m to soles of boots + 0.12m ground margin = 1.07m)
+    let filter = SpatialQueryFilter::from_excluded_entities([player_ent]);
+    let is_grounded = spatial_query
+        .cast_ray(transform.translation, Dir3::NEG_Y, 1.07, true, &filter)
+        .is_some();
+
+    // Apply realistic extra downward gravity during descent so jumps aren't floaty
+    if !is_grounded && lin_vel.y < 0.0 {
+        lin_vel.y -= 3.5 * dt;
+    }
+
     // Stagger blocks input
     if stagger.duration > 0.0 {
         return;
     }
-
-    let dt = time.delta_secs();
 
     // Direction vectors relative to camera yaw
     let forward_dir = Quat::from_axis_angle(Vec3::Y, camera.yaw) * Vec3::NEG_Z;
@@ -565,45 +585,66 @@ fn handle_player_movement(
     move_input.y = 0.0;
     let move_len = move_input.length();
 
-    // Sprinting logic
-    let is_sprinting = keys.pressed(KeyCode::ShiftLeft) && stamina.current > 5.0 && move_len > 0.1;
-    let speed = if is_sprinting { 11.5 } else { 7.0 };
+    // Realistic tactical operator running speeds (m/s)
+    // Normal run: 5.0 m/s (~18 km/h) | Sprint (Hastighetsboost): 7.4 m/s (~26.6 km/h)
+    let is_carrying_flag = koth
+        .blue_carrier
+        .as_ref()
+        .map(|(e, _)| *e == player_ent)
+        .unwrap_or(false);
+    let carry_mult = if is_carrying_flag { 0.88 } else { 1.0 };
 
-    if is_sprinting {
-        stamina.current = (stamina.current - 22.0 * dt).max(0.0);
+    let is_sprinting = keys.pressed(KeyCode::ShiftLeft) && stamina.current > 5.0 && move_len > 0.1;
+    let speed = (if is_sprinting { 7.4 } else { 5.0 }) * carry_mult;
+
+    if is_sprinting && is_grounded {
+        stamina.current = (stamina.current - 20.0 * dt).max(0.0);
     }
 
-    // Apply horizontal velocity smoothing
+    // Grounded traction vs realistic mid-air momentum preservation
+    let accel_rate = if is_grounded { 9.0 } else { 2.2 };
+    let decel_rate = if is_grounded { 10.0 } else { 0.6 };
+
     if move_len > 0.05 {
         let desired_vel = move_input.normalize() * speed;
-        lin_vel.x = lin_vel.x.lerp(desired_vel.x, 14.0 * dt);
-        lin_vel.z = lin_vel.z.lerp(desired_vel.z, 14.0 * dt);
+        lin_vel.x = lin_vel.x.lerp(desired_vel.x, (accel_rate * dt).min(1.0));
+        lin_vel.z = lin_vel.z.lerp(desired_vel.z, (accel_rate * dt).min(1.0));
 
         // Turn character towards movement direction around Y axis (visual front is +Z)
         let target_rot = Quat::from_rotation_y(desired_vel.x.atan2(desired_vel.z));
-        transform.rotation = transform.rotation.slerp(target_rot, 16.0 * dt);
+        transform.rotation = transform.rotation.slerp(target_rot, (14.0 * dt).min(1.0));
     } else {
-        // Friction dampening
-        lin_vel.x = lin_vel.x.lerp(0.0, 10.0 * dt);
-        lin_vel.z = lin_vel.z.lerp(0.0, 10.0 * dt);
+        // Friction dampening on ground; preserve horizontal momentum in air
+        lin_vel.x = lin_vel.x.lerp(0.0, (decel_rate * dt).min(1.0));
+        lin_vel.z = lin_vel.z.lerp(0.0, (decel_rate * dt).min(1.0));
     }
 
-    // Jump (ground check via low vertical velocity)
-    if keys.just_pressed(KeyCode::Space) && lin_vel.y.abs() < 0.35 {
-        lin_vel.y = 7.5;
+    // Realistic Jump (only when physically grounded, v0 = 4.2 m/s -> ~0.85m vertical jump height)
+    if keys.just_pressed(KeyCode::Space)
+        && is_grounded
+        && *jump_cooldown <= 0.0
+        && stamina.current >= 8.0
+    {
+        lin_vel.y = 4.2;
+        stamina.current = (stamina.current - 8.0).max(0.0);
+        *jump_cooldown = 0.45;
     }
 
-    // Tackle Attack (LMB or F)
+    // Tackle / Kastbart Nett Lunge (LMB or F)
     let tackle_pressed =
         mouse_buttons.just_pressed(MouseButton::Left) || keys.just_pressed(KeyCode::KeyF);
-    if tackle_pressed && tackle.cooldown <= 0.0 && stamina.current >= TACKLE_STAMINA_COST {
+    if tackle_pressed
+        && is_grounded
+        && tackle.cooldown <= 0.0
+        && stamina.current >= TACKLE_STAMINA_COST
+    {
         tackle.is_tackling = true;
         tackle.tackle_timer = 0.28;
         tackle.cooldown = TACKLE_COOLDOWN;
         stamina.current -= TACKLE_STAMINA_COST;
 
         let tackle_dir = transform.rotation * Vec3::Z;
-        lin_vel.0 += tackle_dir * TACKLE_LUNGE_SPEED + Vec3::Y * 2.0;
+        lin_vel.0 += tackle_dir * TACKLE_LUNGE_SPEED + Vec3::Y * 1.1;
     }
 }
 

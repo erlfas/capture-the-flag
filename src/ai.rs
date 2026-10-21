@@ -10,7 +10,7 @@ use crate::types::{Character, Health, StaggerState, Stamina, TackleAbility, Team
 #[allow(dead_code)]
 #[derive(Component)]
 pub struct Bot {
-    pub target_pos: Vec3,
+    pub role_attacker: bool,
     pub state_timer: f32,
     pub reaction_cooldown: f32,
 }
@@ -31,11 +31,11 @@ fn spawn_bots(
 ) {
     // 2 Teammates on Team Blue on West Blue Platform (Anders is player, Morten and Jonas are teammates)
     let blue_bots = [
-        ("Morten", Vec3::new(-20.5, 3.0, -3.8)),
-        ("Jonas", Vec3::new(-20.5, 3.0, 1.2)),
+        ("Morten", Vec3::new(-21.2, 2.8, -4.2), true),
+        ("Jonas", Vec3::new(-21.2, 2.8, 1.5), false),
     ];
 
-    for (name, spawn_pos) in blue_bots.iter() {
+    for (name, spawn_pos, role_attacker) in blue_bots.iter() {
         spawn_single_bot(
             &mut commands,
             &mut meshes,
@@ -43,17 +43,18 @@ fn spawn_bots(
             Team::Blue,
             name,
             *spawn_pos,
+            *role_attacker,
         );
     }
 
     // 3 Opponents on Team Red on East Red Platform (Siri, Lisa, Per)
     let red_bots = [
-        ("Siri", Vec3::new(16.5, 3.0, -3.0)),
-        ("Lisa", Vec3::new(19.5, 3.0, -5.2)),
-        ("Per", Vec3::new(19.5, 3.0, -0.8)),
+        ("Siri", Vec3::new(14.5, 2.8, -3.0), true),
+        ("Lisa", Vec3::new(20.2, 2.8, -5.8), true),
+        ("Per", Vec3::new(20.2, 2.8, 0.2), false),
     ];
 
-    for (name, spawn_pos) in red_bots.iter() {
+    for (name, spawn_pos, role_attacker) in red_bots.iter() {
         spawn_single_bot(
             &mut commands,
             &mut meshes,
@@ -61,6 +62,7 @@ fn spawn_bots(
             Team::Red,
             name,
             *spawn_pos,
+            *role_attacker,
         );
     }
 }
@@ -72,11 +74,12 @@ fn spawn_single_bot(
     team: Team,
     name: &str,
     spawn_pos: Vec3,
+    role_attacker: bool,
 ) {
     let bot_entity = commands
         .spawn((
             Bot {
-                target_pos: Vec3::ZERO,
+                role_attacker,
                 state_timer: 0.0,
                 reaction_cooldown: 0.0,
             },
@@ -96,8 +99,8 @@ fn spawn_single_bot(
             RigidBody::Dynamic,
             Collider::capsule(0.35, 1.2),
             LockedAxes::new().lock_rotation_x().lock_rotation_z(),
-            Friction::new(0.4),
-            Restitution::new(0.05),
+            Friction::new(0.45),
+            Restitution::new(0.0),
             LinearVelocity::default(),
             AngularVelocity::default(),
             Transform::from_translation(spawn_pos),
@@ -107,27 +110,67 @@ fn spawn_single_bot(
     spawn_character_visuals(commands, bot_entity, meshes, materials, team, name);
 }
 
+/// Guides a bot onto an elevated platform via its ramp/stairs if the bot is on the ground floor
+fn route_via_platform_ramp(my_pos: Vec3, raw_target: Vec3) -> Vec3 {
+    let blue_base = PLATEAU_COORDS[1].2; // (-18.5, 1.8, -1.5)
+    let red_base = PLATEAU_COORDS[2].2; // (17.5, 1.8, -3.0)
+
+    // If bot is on the courtyard floor (y < 1.35) and wants to reach the West Blue Platform
+    if my_pos.y < 1.35 && raw_target.distance(blue_base) < 6.0 {
+        let side_ramp_entry = Vec3::new(-8.2, 0.2, -4.2);
+        let front_ramp_entry = Vec3::new(-15.5, 0.2, 9.8);
+        let ramp_entry = if my_pos.distance(side_ramp_entry) < my_pos.distance(front_ramp_entry) {
+            side_ramp_entry
+        } else {
+            front_ramp_entry
+        };
+        if Vec2::new(my_pos.x - blue_base.x, my_pos.z - blue_base.z).length() > 7.8 {
+            return ramp_entry;
+        }
+    }
+
+    // If bot is on the courtyard floor (y < 1.35) and wants to reach the East Red Platform
+    if my_pos.y < 1.35 && raw_target.distance(red_base) < 6.0 {
+        let west_ramp_entry = Vec3::new(7.2, 0.2, -3.5);
+        let south_stairs_entry = Vec3::new(16.5, 0.2, 7.8);
+        let ramp_entry = if my_pos.distance(west_ramp_entry) < my_pos.distance(south_stairs_entry)
+        {
+            west_ramp_entry
+        } else {
+            south_stairs_entry
+        };
+        if Vec2::new(my_pos.x - red_base.x, my_pos.z - red_base.z).length() > 7.8 {
+            return ramp_entry;
+        }
+    }
+
+    raw_target
+}
+
 fn update_bot_behaviors(
     time: Res<Time>,
     koth: Res<KothManager>,
     mut queries: ParamSet<(
         Query<(Entity, &Transform, &Character)>,
-        Query<(
-            Entity,
-            &mut Transform,
-            &mut LinearVelocity,
-            &mut TackleAbility,
-            &mut Stamina,
-            &StaggerState,
-            &Character,
-            &mut Bot,
-        ), Without<crate::player::Player>>,
+        Query<
+            (
+                Entity,
+                &mut Transform,
+                &mut LinearVelocity,
+                &mut TackleAbility,
+                &mut Stamina,
+                &StaggerState,
+                &Character,
+                &mut Bot,
+            ),
+            Without<crate::player::Player>,
+        >,
     )>,
 ) {
     let dt = time.delta_secs();
-    let (_, _, active_hill_center, hill_radius) = PLATEAU_COORDS[koth.active_index];
+    let blue_base = PLATEAU_COORDS[1].2;
+    let red_base = PLATEAU_COORDS[2].2;
 
-    // Collect snapshots of character positions & teams first to avoid query aliasing
     let char_snapshots: Vec<(Entity, Vec3, Team)> = queries
         .p0()
         .iter()
@@ -145,14 +188,39 @@ fn update_bot_behaviors(
         mut bot_data,
     ) in queries.p1().iter_mut()
     {
-        if stagger.duration > 0.0 {
+        // Apply realistic extra downward gravity when falling
+        if lin_vel.y < -0.2 {
+            lin_vel.y -= 3.5 * dt;
+        }
+
+        if stagger.duration > 0.0 || koth.winner.is_some() {
             continue;
         }
 
         bot_data.reaction_cooldown = (bot_data.reaction_cooldown - dt).max(0.0);
         let my_pos = transform.translation;
 
-        // Find nearest opponent
+        // Check if this bot is currently carrying the enemy flag
+        let am_carrying = match bot_char.team {
+            Team::Blue => koth
+                .blue_carrier
+                .as_ref()
+                .map(|(e, _)| *e == bot_ent)
+                .unwrap_or(false),
+            Team::Red => koth
+                .red_carrier
+                .as_ref()
+                .map(|(e, _)| *e == bot_ent)
+                .unwrap_or(false),
+        };
+
+        // Check if an enemy is carrying our team's flag
+        let enemy_flag_carrier = match bot_char.team {
+            Team::Blue => koth.red_carrier.as_ref().map(|(e, _)| *e),
+            Team::Red => koth.blue_carrier.as_ref().map(|(e, _)| *e),
+        };
+
+        // Find nearest opponent (prioritizing the enemy flag carrier!)
         let mut nearest_enemy_dist = f32::MAX;
         let mut nearest_enemy_pos = Vec3::ZERO;
 
@@ -161,70 +229,109 @@ fn update_bot_behaviors(
                 continue;
             }
             let d = my_pos.distance(*other_pos);
-            if d < nearest_enemy_dist {
+            let effective_d = if Some(*other_ent) == enemy_flag_carrier {
+                d * 0.6 // Strongly prioritize tackling the flag thief
+            } else {
+                d
+            };
+            if effective_d < nearest_enemy_dist {
                 nearest_enemy_dist = d;
                 nearest_enemy_pos = *other_pos;
             }
         }
 
-        // Tactical Decision Tree:
-        // 1. If enemy is close (< 3.0m), face them and execute tackle!
-        if nearest_enemy_dist < 3.2
+        // 1. If enemy is in tackle range (< 2.3m) and we are not carrying the flag, tackle them!
+        if !am_carrying
+            && nearest_enemy_dist < 2.3
             && tackle.cooldown <= 0.0
             && stamina.current >= TACKLE_STAMINA_COST
             && bot_data.reaction_cooldown <= 0.0
+            && lin_vel.y.abs() < 0.5
         {
-            let to_enemy = (nearest_enemy_pos - my_pos).normalize_or_zero();
-            let target_rot = Quat::from_rotation_y(to_enemy.x.atan2(to_enemy.z));
-            transform.rotation = target_rot;
+            let mut to_enemy = nearest_enemy_pos - my_pos;
+            to_enemy.y = 0.0;
+            let to_enemy = to_enemy.normalize_or_zero();
+            transform.rotation = Quat::from_rotation_y(to_enemy.x.atan2(to_enemy.z));
 
             tackle.is_tackling = true;
             tackle.tackle_timer = 0.28;
-            tackle.cooldown = TACKLE_COOLDOWN + 0.3; // Slight variance
+            tackle.cooldown = TACKLE_COOLDOWN + 0.5;
             stamina.current -= TACKLE_STAMINA_COST;
-            bot_data.reaction_cooldown = 0.4;
+            bot_data.reaction_cooldown = 0.6;
 
-            lin_vel.0 += to_enemy * TACKLE_LUNGE_SPEED + Vec3::Y * 2.0;
+            lin_vel.0 += to_enemy * TACKLE_LUNGE_SPEED + Vec3::Y * 1.1;
             continue;
         }
 
-        // 2. Navigation Target:
-        // If enemy is on the hill, contest them. Otherwise, move to the active hill center with slight offset
-        let target = if nearest_enemy_dist < 10.0 && nearest_enemy_pos.distance(active_hill_center) < hill_radius + 2.0 {
-            nearest_enemy_pos
+        // 2. Capture the Flag Tactical Target Selection:
+        let raw_target = if am_carrying {
+            // Run straight back to our Home Base capture circle to score!
+            match bot_char.team {
+                Team::Blue => blue_base,
+                Team::Red => red_base,
+            }
         } else {
-            // Offset slightly by entity id hash so bots don't all stack on top of each other
-            let hash_offset = (bot_ent.index() as f32 * 1.3).sin() * 2.5;
-            active_hill_center + Vec3::new(hash_offset, 0.0, hash_offset.cos() * 2.5)
+            let (own_flag_at_base, own_flag_pos, enemy_flag_pos) = match bot_char.team {
+                Team::Blue => (
+                    koth.blue_flag_at_base,
+                    koth.blue_flag_world_pos,
+                    koth.red_flag_world_pos,
+                ),
+                Team::Red => (
+                    koth.red_flag_at_base,
+                    koth.red_flag_world_pos,
+                    koth.blue_flag_world_pos,
+                ),
+            };
+
+            if !own_flag_at_base && (!bot_data.role_attacker || my_pos.distance(own_flag_pos) < 18.0)
+            {
+                // Chase down our stolen/dropped flag to tackle the thief or return it!
+                own_flag_pos
+            } else if bot_data.role_attacker {
+                // Raid the enemy base to steal their flag!
+                enemy_flag_pos
+            } else {
+                // Defender patrols near own flag or intercepts nearby enemies
+                if nearest_enemy_dist < 14.0 {
+                    nearest_enemy_pos
+                } else {
+                    let hash_offset = (bot_ent.index() as f32 * 1.7).sin() * 2.8;
+                    own_flag_pos + Vec3::new(hash_offset, 0.0, hash_offset.cos() * 2.8)
+                }
+            }
         };
+
+        let target = route_via_platform_ramp(my_pos, raw_target);
 
         let mut move_dir = target - my_pos;
         move_dir.y = 0.0;
         let dist_to_target = move_dir.length();
 
-        if dist_to_target > 0.8 {
+        if dist_to_target > 0.65 {
             let dir = move_dir.normalize();
-            let bot_speed = 7.5;
+            // Realistic bot running speed (4.5 m/s normal, 4.1 m/s when carrying flag)
+            let bot_speed = if am_carrying { 4.1 } else { 4.55 };
             let desired_vel = dir * bot_speed;
 
-            lin_vel.x = lin_vel.x.lerp(desired_vel.x, 10.0 * dt);
-            lin_vel.z = lin_vel.z.lerp(desired_vel.z, 10.0 * dt);
+            lin_vel.x = lin_vel.x.lerp(desired_vel.x, (7.5 * dt).min(1.0));
+            lin_vel.z = lin_vel.z.lerp(desired_vel.z, (7.5 * dt).min(1.0));
 
-            // Turn towards movement around Y axis
             let target_rot = Quat::from_rotation_y(desired_vel.x.atan2(desired_vel.z));
-            transform.rotation = transform.rotation.slerp(target_rot, 12.0 * dt);
+            transform.rotation = transform.rotation.slerp(target_rot, (11.0 * dt).min(1.0));
 
-            // Auto-jump if hitting a ramp edge or stuck
-            if my_pos.y < active_hill_center.y - 0.5 && lin_vel.y.abs() < 0.2 && dist_to_target < 15.0 {
-                // If approaching ramp
-                if lin_vel.length() < 2.0 {
-                    lin_vel.y = 6.0;
-                }
+            // Realistic hop if blocked by a low obstacle
+            if lin_vel.y.abs() < 0.15
+                && Vec2::new(lin_vel.x, lin_vel.z).length() < 1.1
+                && dist_to_target > 2.5
+                && bot_data.reaction_cooldown <= 0.0
+            {
+                lin_vel.y = 4.1;
+                bot_data.reaction_cooldown = 0.9;
             }
         } else {
-            // Patrol / stand ground
-            lin_vel.x = lin_vel.x.lerp(0.0, 8.0 * dt);
-            lin_vel.z = lin_vel.z.lerp(0.0, 8.0 * dt);
+            lin_vel.x = lin_vel.x.lerp(0.0, (8.0 * dt).min(1.0));
+            lin_vel.z = lin_vel.z.lerp(0.0, (8.0 * dt).min(1.0));
         }
     }
 }

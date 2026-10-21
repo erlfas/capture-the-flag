@@ -32,8 +32,9 @@ fn main() {
                     ..default()
                 }),
         )
-        // Avian3D ECS Physics Plugin
+        // Avian3D ECS Physics Plugin with realistic Earth gravity (9.81 m/s²)
         .add_plugins(PhysicsPlugins::default())
+        .insert_resource(Gravity(Vec3::new(0.0, -9.81, 0.0)))
         // Game Systems
         .add_plugins((
             camera::CameraPlugin,

@@ -3,12 +3,12 @@ use bevy::prelude::*;
 
 use crate::types::{Character, Health, StaggerState, TackleAbility};
 
-pub const TACKLE_COOLDOWN: f32 = 1.2;
+pub const TACKLE_COOLDOWN: f32 = 1.4;
 pub const TACKLE_STAMINA_COST: f32 = 25.0;
-pub const TACKLE_LUNGE_SPEED: f32 = 15.0;
-pub const KNOCKBACK_FORCE: f32 = 24.0;
-pub const UPWARD_LIFT: f32 = 8.5;
-pub const HIT_RANGE: f32 = 3.2;
+pub const TACKLE_LUNGE_SPEED: f32 = 8.2;
+pub const KNOCKBACK_FORCE: f32 = 8.0;
+pub const UPWARD_LIFT: f32 = 2.4;
+pub const HIT_RANGE: f32 = 2.4;
 
 pub struct CombatPlugin;
 
@@ -94,8 +94,8 @@ fn check_tackle_hits(
                     knockback_dir.y = 0.0;
                     knockback_dir = knockback_dir.normalize_or(Vec3::Z);
 
-                    target_vel.0 += knockback_dir * KNOCKBACK_FORCE + Vec3::Y * UPWARD_LIFT;
-                    target_stagger.duration = 0.55;
+                    target_vel.0 = knockback_dir * KNOCKBACK_FORCE + Vec3::Y * UPWARD_LIFT;
+                    target_stagger.duration = 0.75;
 
                     if let Some(ref mut health) = maybe_health {
                         health.current = (health.current - 20.0).max(10.0);
