@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+    <meta http-equiv="Pragma" content="no-cache"/>
+    <meta http-equiv="Expires" content="0"/>
+    <title>Cyber-Athletic Coliseum — 3v3 King of the Hill</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #080c14;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+        }
+        #bevy {
+            width: 100vw !important;
+            height: 100vh !important;
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            outline: none;
+        }
+        #instructions {
+            position: absolute;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(5, 7, 10, 0.75);
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            border-radius: 6px;
+            padding: 6px 16px;
+            color: #a0aec0;
+            font-size: 12px;
+            letter-spacing: 1px;
+            pointer-events: none;
+            z-index: 100;
+        }
+        #instructions span {
+            color: #00f0ff;
+            font-weight: 600;
+        }
+    </style>
+    
+<script type="module">
+import init, * as bindings from '/cyber_coliseum_koth-d2675bdf4dd78e43.js';
+const wasm = await init({ module_or_path: '/cyber_coliseum_koth-7a0adf022f16bbb3_bg.wasm' });
+
+
+window.wasmBindings = bindings;
+
+
+dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
+
+</script>
+    
+<link rel="modulepreload" href="/cyber_coliseum_koth-d2675bdf4dd78e43.js" crossorigin="anonymous" integrity="sha384-e+iJHiJyU1UG81NRgNEXshxbu+hEa0oprunRGz18mWsd68vc3wL1WfyRm0j2Taj7"><link rel="preload" href="/cyber_coliseum_koth-7a0adf022f16bbb3_bg.wasm" crossorigin="anonymous" integrity="sha384-u1OfyR99SFm4VnVA5foJfDvDD//0O7r05QgxtbdeL2pZT61PpZ80IZ/YrwgpT7c0" as="fetch" type="application/wasm"></head>
+<body>
+    <canvas id="bevy"></canvas>
+    <div id="instructions">
+        <span>CLICK</span> to Lock Mouse &bull; <span>WASD</span> Move &bull; <span>SHIFT</span> Sprint &bull; <span>SPACE</span> Jump &bull; <span>LMB / F</span> Kinetic Tackle
+    </div>
+</body>
+</html>
