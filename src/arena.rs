@@ -1176,22 +1176,38 @@ fn spawn_exterior_skybox_and_vista(
         ..default()
     });
 
-    // Panoramic sky backdrop rings
-    commands.spawn((
-        Mesh3d(meshes.add(Cylinder::new(155.0, 26.0))),
-        MeshMaterial3d(horizon_gold),
-        Transform::from_xyz(0.0, 10.0, 0.0),
-    ));
-    commands.spawn((
-        Mesh3d(meshes.add(Cylinder::new(154.0, 28.0))),
-        MeshMaterial3d(mid_peach),
-        Transform::from_xyz(0.0, 36.0, 0.0),
-    ));
-    commands.spawn((
-        Mesh3d(meshes.add(Cylinder::new(153.0, 45.0))),
-        MeshMaterial3d(upper_sky_blue),
-        Transform::from_xyz(0.0, 70.0, 0.0),
-    ));
+    // Panoramic sky backdrop panels arranged around a 165m perimeter circle
+    // (Using vertical wall panels instead of closed Cylinders so there are no horizontal
+    // top/bottom cylinder end-caps obstructing high-altitude overview cameras!)
+    let num_sky_segments = 24;
+    let sky_radius = 165.0_f32;
+    let seg_width = 2.0 * std::f32::consts::PI * sky_radius / (num_sky_segments as f32) + 2.5;
+    let band_low_mesh = meshes.add(Cuboid::new(seg_width, 28.0, 1.0));
+    let band_mid_mesh = meshes.add(Cuboid::new(seg_width, 30.0, 1.0));
+    let band_high_mesh = meshes.add(Cuboid::new(seg_width, 50.0, 1.0));
+
+    for i in 0..num_sky_segments {
+        let angle = (i as f32) * 2.0 * std::f32::consts::PI / (num_sky_segments as f32);
+        let sx = sky_radius * angle.sin();
+        let sz = sky_radius * angle.cos();
+        let rot = Quat::from_rotation_y(angle);
+
+        commands.spawn((
+            Mesh3d(band_low_mesh.clone()),
+            MeshMaterial3d(horizon_gold.clone()),
+            Transform::from_xyz(sx, 10.0, sz).with_rotation(rot),
+        ));
+        commands.spawn((
+            Mesh3d(band_mid_mesh.clone()),
+            MeshMaterial3d(mid_peach.clone()),
+            Transform::from_xyz(sx, 38.0, sz).with_rotation(rot),
+        ));
+        commands.spawn((
+            Mesh3d(band_high_mesh.clone()),
+            MeshMaterial3d(upper_sky_blue.clone()),
+            Transform::from_xyz(sx, 76.0, sz).with_rotation(rot),
+        ));
+    }
 
     // Golden-hour clouds across the northern sky
     for (cx, cy, cz, cw) in [

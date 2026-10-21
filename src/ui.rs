@@ -68,6 +68,8 @@ impl Plugin for UiPlugin {
 }
 
 fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let ui_font: Handle<Font> = asset_server.load("fonts/Ubuntu-B.ttf");
+
     // 1. Root full-screen container
     commands
         .spawn((
@@ -117,6 +119,7 @@ fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 blue_box.spawn((
                                     Text::new("BLÅ FLAGG: 1"),
                                     TextFont {
+                                        font: ui_font.clone(),
                                         font_size: 22.0,
                                         ..default()
                                     },
@@ -141,6 +144,7 @@ fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 center_box.spawn((
                                     Text::new("07:42"),
                                     TextFont {
+                                        font: ui_font.clone(),
                                         font_size: 26.0,
                                         ..default()
                                     },
@@ -150,6 +154,7 @@ fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 center_box.spawn((
                                     Text::new("SONE ALPHA"),
                                     TextFont {
+                                        font: ui_font.clone(),
                                         font_size: 11.0,
                                         ..default()
                                     },
@@ -173,6 +178,7 @@ fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 red_box.spawn((
                                     Text::new("RØD FLAGG: 0"),
                                     TextFont {
+                                        font: ui_font.clone(),
                                         font_size: 22.0,
                                         ..default()
                                     },
@@ -186,6 +192,7 @@ fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
                 top_section.spawn((
                     Text::new("«VÅRT FLAGG ER STJÅLET!»"),
                     TextFont {
+                        font: ui_font.clone(),
                         font_size: 24.0,
                         ..default()
                     },
@@ -257,6 +264,7 @@ fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
                             stats_col.spawn((
                                 Text::new("ANDERS"),
                                 TextFont {
+                                    font: ui_font.clone(),
                                     font_size: 18.0,
                                     ..default()
                                 },
@@ -267,6 +275,7 @@ fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
                             stats_col.spawn((
                                 Text::new("HP: 100"),
                                 TextFont {
+                                    font: ui_font.clone(),
                                     font_size: 12.0,
                                     ..default()
                                 },
@@ -302,6 +311,7 @@ fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
                             stats_col.spawn((
                                 Text::new("STAMINA: 75"),
                                 TextFont {
+                                    font: ui_font.clone(),
                                     font_size: 12.0,
                                     ..default()
                                 },
@@ -373,6 +383,7 @@ fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 box_node.spawn((
                                     Text::new("Kastbart nett (x2)"),
                                     TextFont {
+                                        font: ui_font.clone(),
                                         font_size: 11.0,
                                         ..default()
                                     },
@@ -410,6 +421,7 @@ fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 box_node.spawn((
                                     Text::new("Hastighetsboost"),
                                     TextFont {
+                                        font: ui_font.clone(),
                                         font_size: 11.0,
                                         ..default()
                                     },
@@ -435,12 +447,14 @@ fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn sync_overhead_nametags(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     overhead_root_query: Query<Entity, With<OverheadRoot>>,
     new_chars: Query<(Entity, &Character), Added<Character>>,
 ) {
     let Ok(root_ent) = overhead_root_query.get_single() else {
         return;
     };
+    let ui_font: Handle<Font> = asset_server.load("fonts/Ubuntu-B.ttf");
 
     for (char_ent, char_info) in new_chars.iter() {
         let is_blue = char_info.team == Team::Blue;
@@ -485,6 +499,7 @@ fn sync_overhead_nametags(
                         char_info.team.name()
                     )),
                     TextFont {
+                        font: ui_font.clone(),
                         font_size: 12.0,
                         ..default()
                     },
