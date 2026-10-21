@@ -341,7 +341,10 @@ fn setup_arena(
         Transform::from_xyz(beta_center.x, 1.82, beta_center.z),
     ));
     commands.spawn((
-        Mesh3d(meshes.add(Torus::new(4.2, 0.10))),
+        Mesh3d(meshes.add(Torus {
+            minor_radius: 0.06,
+            major_radius: 4.2,
+        })),
         MeshMaterial3d(blue_flag_mat.clone()),
         Transform::from_xyz(beta_center.x, 1.83, beta_center.z),
     ));
@@ -361,7 +364,7 @@ fn setup_arena(
         &mut commands,
         &mut meshes,
         &concrete_light_mat,
-        Vec3::new(-14.5, 0.9, 6.8),
+        Vec3::new(-15.5, 0.72, 6.8),
         Vec3::new(6.8, 0.5, 7.2),
         0.30,
         Vec3::X,
@@ -371,7 +374,7 @@ fn setup_arena(
         &mut commands,
         &mut meshes,
         &concrete_light_mat,
-        Vec3::new(-11.2, 0.9, -4.2),
+        Vec3::new(-10.6, 0.72, -4.2),
         Vec3::new(5.2, 0.5, 3.6),
         -0.34,
         Vec3::Z,
@@ -407,7 +410,10 @@ fn setup_arena(
         Transform::from_xyz(gamma_center.x, 1.82, gamma_center.z),
     ));
     commands.spawn((
-        Mesh3d(meshes.add(Torus::new(4.2, 0.10))),
+        Mesh3d(meshes.add(Torus {
+            minor_radius: 0.06,
+            major_radius: 4.2,
+        })),
         MeshMaterial3d(red_flag_mat.clone()),
         Transform::from_xyz(gamma_center.x, 1.83, gamma_center.z),
     ));
@@ -428,7 +434,7 @@ fn setup_arena(
         &mut meshes,
         &concrete_light_mat,
         &steel_mat,
-        Vec3::new(16.5, 0.9, 4.8),
+        Vec3::new(16.5, 0.9, 5.2),
         3.8,
         1.8,
         5.0,
@@ -438,7 +444,7 @@ fn setup_arena(
         &mut commands,
         &mut meshes,
         &concrete_light_mat,
-        Vec3::new(10.2, 0.9, -3.5),
+        Vec3::new(9.6, 0.72, -3.5),
         Vec3::new(5.0, 0.5, 4.2),
         0.34,
         Vec3::Z,
@@ -631,13 +637,13 @@ fn setup_arena(
         &mut commands,
         &mut meshes,
         &drum_brown_mat,
-        Vec3::new(9.5, 0.55, -5.8),
+        Vec3::new(9.2, 0.55, -7.8),
     );
     spawn_oil_drum(
         &mut commands,
         &mut meshes,
         &drum_green_mat,
-        Vec3::new(10.2, 0.55, -4.6),
+        Vec3::new(10.5, 0.55, -7.2),
     );
     spawn_oil_drum(
         &mut commands,
