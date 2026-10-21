@@ -64,8 +64,8 @@ fn setup_hologram_beacon(
 ) {
     let (_idx, _, center, radius) = PLATEAU_COORDS[0];
 
-    // Translucent holographic beacon cylinder
-    let cylinder_mesh = meshes.add(Cylinder::new(radius, 4.0));
+    // Low-profile glowing ground capture disc matching the reference art
+    let cylinder_mesh = meshes.add(Cylinder::new(radius, 0.14));
     let holo_mat = materials.add(StandardMaterial {
         base_color: Color::srgba(0.0, 0.9, 1.0, 0.25),
         emissive: LinearRgba::new(0.0, 3.0, 4.0, 1.0),
@@ -78,7 +78,7 @@ fn setup_hologram_beacon(
     commands.spawn((
         Mesh3d(cylinder_mesh),
         MeshMaterial3d(holo_mat),
-        Transform::from_translation(center + Vec3::new(0.0, 2.0, 0.0)),
+        Transform::from_translation(center + Vec3::new(0.0, 0.08, 0.0)),
         HologramZone,
     ));
 }
@@ -158,8 +158,8 @@ fn update_hologram_visuals(
     let (_, _, target_center, _radius) = PLATEAU_COORDS[koth.active_index];
 
     for (mut transform, mat_handle) in query.iter_mut() {
-        // Smoothly position over active plateau
-        transform.translation = target_center + Vec3::new(0.0, 2.0, 0.0);
+        // Position ground capture disc over active plateau
+        transform.translation = target_center + Vec3::new(0.0, 0.08, 0.0);
 
         if let Some(mat) = materials.get_mut(mat_handle) {
             match koth.contest_state {

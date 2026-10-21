@@ -468,7 +468,7 @@ fn spawn_player(
     mut camera_query: Query<&mut OrbitCamera>,
 ) {
     // Spawn Anders on the West Blue Platform matching the reference art
-    let spawn_pos = Vec3::new(-21.0, 3.2, 0.0);
+    let spawn_pos = Vec3::new(-18.5, 3.0, -1.5);
 
     let player_entity = commands
         .spawn((

@@ -31,8 +31,8 @@ fn spawn_bots(
 ) {
     // 2 Teammates on Team Blue on West Blue Platform (Anders is player, Morten and Jonas are teammates)
     let blue_bots = [
-        ("Morten", Vec3::new(-24.5, 3.2, -3.2)),
-        ("Jonas", Vec3::new(-24.5, 3.2, 3.2)),
+        ("Morten", Vec3::new(-20.5, 3.0, -3.8)),
+        ("Jonas", Vec3::new(-20.5, 3.0, 1.2)),
     ];
 
     for (name, spawn_pos) in blue_bots.iter() {
@@ -48,9 +48,9 @@ fn spawn_bots(
 
     // 3 Opponents on Team Red on East Red Platform (Siri, Lisa, Per)
     let red_bots = [
-        ("Siri", Vec3::new(21.0, 3.2, 0.0)),
-        ("Lisa", Vec3::new(24.5, 3.2, -3.2)),
-        ("Per", Vec3::new(24.5, 3.2, 3.2)),
+        ("Siri", Vec3::new(16.5, 3.0, -3.0)),
+        ("Lisa", Vec3::new(19.5, 3.0, -5.2)),
+        ("Per", Vec3::new(19.5, 3.0, -0.8)),
     ];
 
     for (name, spawn_pos) in red_bots.iter() {
