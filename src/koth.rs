@@ -128,32 +128,38 @@ fn setup_ctf_flags(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let steel_mat = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.65, 0.68, 0.72),
+        base_color: Color::srgb(0.45, 0.48, 0.52),
         metallic: 0.85,
-        perceptual_roughness: 0.3,
+        perceptual_roughness: 0.35,
         ..default()
     });
 
-    let gold_finial_mat = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.95, 0.80, 0.25),
-        emissive: LinearRgba::new(1.5, 1.1, 0.2, 1.0),
-        metallic: 0.7,
-        perceptual_roughness: 0.25,
+    let blue_beacon_mat = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.4, 0.85, 1.0),
+        emissive: LinearRgba::new(1.5, 6.0, 12.0, 1.0),
+        unlit: true,
+        ..default()
+    });
+
+    let red_beacon_mat = materials.add(StandardMaterial {
+        base_color: Color::srgb(1.0, 0.35, 0.25),
+        emissive: LinearRgba::new(12.0, 1.5, 0.8, 1.0),
+        unlit: true,
         ..default()
     });
 
     let blue_flag_mat = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.12, 0.50, 0.96),
-        emissive: LinearRgba::new(0.1, 0.8, 2.5, 1.0),
-        perceptual_roughness: 0.5,
+        base_color: Color::srgb(0.14, 0.42, 0.78),
+        emissive: LinearRgba::new(0.08, 0.45, 1.2, 1.0),
+        perceptual_roughness: 0.65,
         cull_mode: None,
         ..default()
     });
 
     let red_flag_mat = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.92, 0.18, 0.15),
-        emissive: LinearRgba::new(2.5, 0.2, 0.1, 1.0),
-        perceptual_roughness: 0.5,
+        base_color: Color::srgb(0.75, 0.16, 0.14),
+        emissive: LinearRgba::new(1.2, 0.12, 0.08, 1.0),
+        perceptual_roughness: 0.65,
         cull_mode: None,
         ..default()
     });
@@ -165,7 +171,7 @@ fn setup_ctf_flags(
         &mut commands,
         &mut meshes,
         &steel_mat,
-        &gold_finial_mat,
+        &blue_beacon_mat,
         &blue_flag_mat,
         Team::Blue,
         blue_home,
@@ -176,11 +182,11 @@ fn setup_ctf_flags(
         &mut commands,
         &mut meshes,
         &steel_mat,
-        &gold_finial_mat,
+        &red_beacon_mat,
         &red_flag_mat,
         Team::Red,
         red_home,
-        -1.0,
+        1.0,
     );
 }
 
@@ -194,6 +200,11 @@ fn spawn_single_ctf_flag(
     home_pos: Vec3,
     dir_sign: f32,
 ) {
+    let light_color = match team {
+        Team::Blue => Color::srgb(0.18, 0.72, 1.0),
+        Team::Red => Color::srgb(1.0, 0.22, 0.14),
+    };
+
     commands
         .spawn((
             Transform::from_translation(home_pos),
@@ -207,21 +218,45 @@ fn spawn_single_ctf_flag(
         .with_children(|parent| {
             // Tall steel flagpole
             parent.spawn((
-                Mesh3d(meshes.add(Cylinder::new(0.065, 4.4))),
+                Mesh3d(meshes.add(Cylinder::new(0.065, 4.6))),
                 MeshMaterial3d(pole_mat.clone()),
-                Transform::from_xyz(0.0, 2.2, 0.0),
+                Transform::from_xyz(0.0, 2.3, 0.0),
             ));
-            // Golden top finial sphere
+            // Glowing beacon bulb at the top of the flagpole (matching art/scene/post_apocalyptic_scene.jpg)
             parent.spawn((
-                Mesh3d(meshes.add(Sphere::new(0.16))),
+                Mesh3d(meshes.add(Sphere::new(0.18))),
                 MeshMaterial3d(finial_mat.clone()),
-                Transform::from_xyz(0.0, 4.45, 0.0),
+                Transform::from_xyz(0.0, 4.65, 0.0),
             ));
-            // Waving cloth banner
+            // Dynamic PointLight on the flag so it glows on the pedestal and while carried!
             parent.spawn((
-                Mesh3d(meshes.add(Cuboid::new(2.0, 1.15, 0.06))),
+                PointLight {
+                    color: light_color,
+                    intensity: 650_000.0,
+                    range: 14.0,
+                    shadows_enabled: false,
+                    ..default()
+                },
+                Transform::from_xyz(0.0, 4.2, 0.0),
+            ));
+            // Tattered post-apocalyptic cloth banner (main body + ragged tail strips)
+            parent.spawn((
+                Mesh3d(meshes.add(Cuboid::new(1.6, 1.15, 0.05))),
                 MeshMaterial3d(banner_mat.clone()),
-                Transform::from_xyz(dir_sign * 1.0, 3.75, 0.0),
+                Transform::from_xyz(dir_sign * 0.85, 3.85, 0.0)
+                    .with_rotation(Quat::from_rotation_z(-0.08)),
+            ));
+            parent.spawn((
+                Mesh3d(meshes.add(Cuboid::new(0.75, 0.42, 0.04))),
+                MeshMaterial3d(banner_mat.clone()),
+                Transform::from_xyz(dir_sign * 1.85, 4.10, 0.04)
+                    .with_rotation(Quat::from_rotation_z(-0.14)),
+            ));
+            parent.spawn((
+                Mesh3d(meshes.add(Cuboid::new(0.65, 0.36, 0.04))),
+                MeshMaterial3d(banner_mat.clone()),
+                Transform::from_xyz(dir_sign * 1.78, 3.52, -0.03)
+                    .with_rotation(Quat::from_rotation_z(-0.18)),
             ));
         });
 }
