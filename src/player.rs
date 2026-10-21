@@ -467,7 +467,8 @@ fn spawn_player(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut camera_query: Query<&mut OrbitCamera>,
 ) {
-    let spawn_pos = Vec3::new(0.0, 2.0, 28.0);
+    // Spawn Anders on the West Blue Platform matching the reference art
+    let spawn_pos = Vec3::new(-21.0, 3.2, 0.0);
 
     let player_entity = commands
         .spawn((
@@ -492,7 +493,8 @@ fn spawn_player(
             Restitution::new(0.05),
             LinearVelocity::default(),
             AngularVelocity::default(),
-            Transform::from_translation(spawn_pos),
+            Transform::from_translation(spawn_pos)
+                .with_rotation(Quat::from_rotation_y(std::f32::consts::FRAC_PI_2)),
         ))
         .id();
 
@@ -509,7 +511,6 @@ fn spawn_player(
     // Link orbit camera to follow player
     if let Ok(mut cam) = camera_query.get_single_mut() {
         cam.target = Some(player_entity);
-        cam.yaw = 3.14159; // Face towards arena center
     }
 }
 
@@ -578,9 +579,8 @@ fn handle_player_movement(
         lin_vel.x = lin_vel.x.lerp(desired_vel.x, 14.0 * dt);
         lin_vel.z = lin_vel.z.lerp(desired_vel.z, 14.0 * dt);
 
-        // Turn character towards movement direction
-        let target_rot =
-            Quat::from_rotation_arc(Vec3::Z, Vec3::new(desired_vel.x, 0.0, desired_vel.z).normalize());
+        // Turn character towards movement direction around Y axis (visual front is +Z)
+        let target_rot = Quat::from_rotation_y(desired_vel.x.atan2(desired_vel.z));
         transform.rotation = transform.rotation.slerp(target_rot, 16.0 * dt);
     } else {
         // Friction dampening
@@ -602,7 +602,7 @@ fn handle_player_movement(
         tackle.cooldown = TACKLE_COOLDOWN;
         stamina.current -= TACKLE_STAMINA_COST;
 
-        let tackle_dir = transform.forward().as_vec3();
+        let tackle_dir = transform.rotation * Vec3::Z;
         lin_vel.0 += tackle_dir * TACKLE_LUNGE_SPEED + Vec3::Y * 2.0;
     }
 }

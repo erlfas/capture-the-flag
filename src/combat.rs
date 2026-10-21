@@ -70,7 +70,7 @@ fn check_tackle_hits(
             continue;
         }
 
-        let forward = tackler_trans.forward().as_vec3();
+        let forward = tackler_trans.rotation * Vec3::Z;
         let tackler_pos = tackler_trans.translation;
 
         for (target_ent, target_trans, mut target_vel, mut target_stagger, mut maybe_health, target_char) in

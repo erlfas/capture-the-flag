@@ -7,8 +7,8 @@ use crate::player::Player;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum CameraMode {
     #[default]
-    ThirdPersonAction,
     TacticalIsometric,
+    ThirdPersonAction,
 }
 
 #[derive(Component)]
@@ -26,7 +26,7 @@ pub struct OrbitCamera {
     pub tp_pitch: f32,
     pub tp_distance: f32,
     pub tp_height: f32,
-    // Tactical isometric mode parameters
+    // Tactical isometric (high-distance overview) mode parameters
     pub iso_yaw: f32,
     pub iso_pitch: f32,
     pub iso_distance: f32,
@@ -39,24 +39,27 @@ pub struct OrbitCamera {
 
 impl Default for OrbitCamera {
     fn default() -> Self {
-        let iso_yaw = -std::f32::consts::FRAC_PI_4; // -45 degrees isometric angle
-        let iso_pitch = 0.82; // ~47 degrees downward angle
-        let iso_dist = 26.0; // High-angle tactical vantage
-        let iso_height = 1.2;
+        // High-distance tactical overview angle matching the reference art:
+        // Positioned on the South (+Z) looking North (-Z) with a slight isometric angle,
+        // high up so the entire compound and platforms are clearly visible while following the player.
+        let iso_yaw = -0.18; // Slight isometric angle (~ -10 deg)
+        let iso_pitch = 0.88; // ~50 degrees downward angle from high altitude
+        let iso_dist = 42.0; // High vantage distance giving a broad overview of the compound
+        let iso_height = 1.5;
 
-        let tp_yaw = std::f32::consts::PI; // Facing forward towards arena center
-        let tp_pitch = 0.22;
-        let tp_dist = 6.0;
+        let tp_yaw = -std::f32::consts::FRAC_PI_2; // Facing East (+X) towards center from West Blue base
+        let tp_pitch = 0.35;
+        let tp_dist = 8.5;
         let tp_height = 2.0;
 
         Self {
             target: None,
-            mode: CameraMode::ThirdPersonAction,
-            yaw: tp_yaw,
-            pitch: tp_pitch,
-            distance: tp_dist,
-            height: tp_height,
-            sensitivity: 0.0035,
+            mode: CameraMode::TacticalIsometric,
+            yaw: iso_yaw,
+            pitch: iso_pitch,
+            distance: iso_dist,
+            height: iso_height,
+            sensitivity: 0.004,
             tp_yaw,
             tp_pitch,
             tp_distance: tp_dist,
@@ -93,15 +96,15 @@ fn handle_cursor_lock(
     let is_third_person = camera_query
         .get_single()
         .map(|c| c.mode == CameraMode::ThirdPersonAction)
-        .unwrap_or(true);
+        .unwrap_or(false);
 
-    // Left click locks mouse in third person
+    // Only lock cursor on Left-Click in Third-Person mode; in Tactical Overview mode keep cursor free
     if mouse_buttons.just_pressed(MouseButton::Left) && is_third_person {
         window.cursor_options.grab_mode = CursorGrabMode::Locked;
         window.cursor_options.visible = false;
     }
 
-    if keys.just_pressed(KeyCode::Escape) {
+    if keys.just_pressed(KeyCode::Escape) || !is_third_person {
         window.cursor_options.grab_mode = CursorGrabMode::None;
         window.cursor_options.visible = true;
     }
@@ -124,7 +127,9 @@ fn update_camera(
 
     let dt = time.delta_secs();
     let is_locked = window.cursor_options.grab_mode == CursorGrabMode::Locked;
-    let is_dragging = mouse_buttons.pressed(MouseButton::Right) || (mouse_buttons.pressed(MouseButton::Left) && !is_locked);
+    // Allow steering camera by holding Right Mouse Button or Middle Mouse Button
+    let is_dragging =
+        mouse_buttons.pressed(MouseButton::Right) || mouse_buttons.pressed(MouseButton::Middle);
 
     // Sum up mouse movement this frame
     let mut mouse_delta = Vec2::ZERO;
@@ -139,7 +144,7 @@ fn update_camera(
     }
 
     for (mut orbit, mut cam_transform) in camera_query.iter_mut() {
-        // 1. Ensure camera target is attached to the player (resolves startup race condition)
+        // 1. Ensure camera target is attached to the player
         if orbit.target.is_none() {
             if let Ok(player_entity) = player_query.get_single() {
                 orbit.target = Some(player_entity);
@@ -149,9 +154,7 @@ fn update_camera(
         // 2. Toggle camera mode with KeyV or Tab
         if keys.just_pressed(KeyCode::KeyV) || keys.just_pressed(KeyCode::Tab) {
             orbit.mode = match orbit.mode {
-                CameraMode::TacticalIsometric => {
-                    CameraMode::ThirdPersonAction
-                }
+                CameraMode::TacticalIsometric => CameraMode::ThirdPersonAction,
                 CameraMode::ThirdPersonAction => {
                     window.cursor_options.grab_mode = CursorGrabMode::None;
                     window.cursor_options.visible = true;
@@ -160,10 +163,17 @@ fn update_camera(
             };
         }
 
-        // 3. Keyboard Steering (Q / E and Arrow Keys rotate camera)
+        // 3. Reset camera angle with R
+        if keys.just_pressed(KeyCode::KeyR) {
+            orbit.iso_yaw = -0.18;
+            orbit.iso_pitch = 0.88;
+            orbit.iso_distance = 42.0;
+        }
+
+        // 4. Keyboard Steering (Q / E and Arrow Keys rotate & tilt camera)
         let mut key_yaw_delta = 0.0;
         let mut key_pitch_delta = 0.0;
-        let rot_speed = 2.4 * dt;
+        let rot_speed = 2.0 * dt;
 
         if keys.pressed(KeyCode::KeyQ) || keys.pressed(KeyCode::ArrowLeft) {
             key_yaw_delta += rot_speed;
@@ -172,56 +182,58 @@ fn update_camera(
             key_yaw_delta -= rot_speed;
         }
         if keys.pressed(KeyCode::ArrowUp) {
-            key_pitch_delta += rot_speed * 0.7;
+            key_pitch_delta += rot_speed * 0.6;
         }
         if keys.pressed(KeyCode::ArrowDown) {
-            key_pitch_delta -= rot_speed * 0.7;
+            key_pitch_delta -= rot_speed * 0.6;
         }
 
-        // 4. Mouse Wheel Zoom
+        // 5. Mouse Wheel Zoom
         if scroll_delta.abs() > 0.01 {
             match orbit.mode {
                 CameraMode::TacticalIsometric => {
-                    orbit.iso_distance = (orbit.iso_distance - scroll_delta * 2.5).clamp(14.0, 45.0);
+                    orbit.iso_distance =
+                        (orbit.iso_distance - scroll_delta * 3.0).clamp(18.0, 68.0);
                 }
                 CameraMode::ThirdPersonAction => {
-                    orbit.tp_distance = (orbit.tp_distance - scroll_delta * 0.8).clamp(3.0, 15.0);
+                    orbit.tp_distance = (orbit.tp_distance - scroll_delta * 1.0).clamp(4.0, 18.0);
                 }
             }
         }
 
-        // 5. Update Angles based on Mode & Input
+        // 6. Update Angles based on Mode & Input
         match orbit.mode {
-            CameraMode::ThirdPersonAction => {
-                // Steer if cursor locked OR dragging with mouse
-                if is_locked || is_dragging {
-                    orbit.tp_yaw -= mouse_delta.x * orbit.sensitivity;
-                    orbit.tp_pitch -= mouse_delta.y * orbit.sensitivity;
-                }
-                orbit.tp_yaw += key_yaw_delta;
-                orbit.tp_pitch = (orbit.tp_pitch + key_pitch_delta).clamp(-0.85, 1.3);
-
-                orbit.yaw = orbit.tp_yaw;
-                orbit.pitch = orbit.tp_pitch;
-                orbit.distance = orbit.tp_distance;
-                orbit.height = orbit.tp_height;
-            }
             CameraMode::TacticalIsometric => {
-                // In Isometric, steer via dragging or Q/E
+                // High-distance overview mode: steer with RMB/MMB drag or Q/E/Arrows
                 if is_dragging {
-                    orbit.iso_yaw -= mouse_delta.x * orbit.sensitivity * 0.8;
+                    orbit.iso_yaw -= mouse_delta.x * orbit.sensitivity;
+                    orbit.iso_pitch =
+                        (orbit.iso_pitch + mouse_delta.y * orbit.sensitivity).clamp(0.45, 1.35);
                 }
                 orbit.iso_yaw += key_yaw_delta;
-                orbit.iso_pitch = (orbit.iso_pitch + key_pitch_delta).clamp(0.4, 1.4);
+                orbit.iso_pitch = (orbit.iso_pitch + key_pitch_delta).clamp(0.45, 1.35);
 
                 orbit.yaw = orbit.iso_yaw;
                 orbit.pitch = orbit.iso_pitch;
                 orbit.distance = orbit.iso_distance;
                 orbit.height = orbit.iso_height;
             }
+            CameraMode::ThirdPersonAction => {
+                if is_locked || is_dragging {
+                    orbit.tp_yaw -= mouse_delta.x * orbit.sensitivity;
+                    orbit.tp_pitch -= mouse_delta.y * orbit.sensitivity;
+                }
+                orbit.tp_yaw += key_yaw_delta;
+                orbit.tp_pitch = (orbit.tp_pitch + key_pitch_delta).clamp(0.1, 1.25);
+
+                orbit.yaw = orbit.tp_yaw;
+                orbit.pitch = orbit.tp_pitch;
+                orbit.distance = orbit.tp_distance;
+                orbit.height = orbit.tp_height;
+            }
         }
 
-        // 6. Smooth Damping & Target Tracking
+        // 7. Smooth Damping & High-Distance Target Tracking
         let Some(target_entity) = orbit.target else {
             continue;
         };
@@ -229,28 +241,39 @@ fn update_camera(
             continue;
         };
 
-        let target_pos = target_transform.translation + Vec3::Y * orbit.height;
+        // In Tactical Overview mode, follow the character while blending 20% towards arena center
+        // so the player always sees both their character and a great overview of the compound.
+        let focus_point = match orbit.mode {
+            CameraMode::TacticalIsometric => {
+                let player_pos = target_transform.translation;
+                Vec3::new(player_pos.x * 0.78, player_pos.y, player_pos.z * 0.78)
+                    + Vec3::Y * orbit.height
+            }
+            CameraMode::ThirdPersonAction => {
+                target_transform.translation + Vec3::Y * orbit.height
+            }
+        };
 
         let rotation = Quat::from_axis_angle(Vec3::Y, orbit.yaw)
             * Quat::from_axis_angle(Vec3::X, -orbit.pitch);
 
-        let desired_cam_pos = target_pos + rotation * Vec3::new(0.0, 0.0, orbit.distance);
+        let desired_cam_pos = focus_point + rotation * Vec3::new(0.0, 0.0, orbit.distance);
 
         if !orbit.initialized {
             orbit.current_pos = desired_cam_pos;
-            orbit.current_look_at = target_pos;
+            orbit.current_look_at = focus_point;
             orbit.initialized = true;
         } else {
             let follow_speed = match orbit.mode {
-                CameraMode::TacticalIsometric => 10.0,
-                CameraMode::ThirdPersonAction => 16.0,
+                CameraMode::TacticalIsometric => 8.0,
+                CameraMode::ThirdPersonAction => 14.0,
             };
             orbit.current_pos = orbit
                 .current_pos
                 .lerp(desired_cam_pos, (follow_speed * dt).min(1.0));
             orbit.current_look_at = orbit
                 .current_look_at
-                .lerp(target_pos, (follow_speed * dt).min(1.0));
+                .lerp(focus_point, (follow_speed * dt).min(1.0));
         }
 
         cam_transform.translation = orbit.current_pos;

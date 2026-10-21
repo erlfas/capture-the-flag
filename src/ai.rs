@@ -29,10 +29,10 @@ fn spawn_bots(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // 2 Teammates on Team Blue (Anders is player, Morten and Jonas are teammates)
+    // 2 Teammates on Team Blue on West Blue Platform (Anders is player, Morten and Jonas are teammates)
     let blue_bots = [
-        ("Morten", Vec3::new(-4.5, 1.5, 24.0)),
-        ("Jonas", Vec3::new(4.5, 1.5, 24.0)),
+        ("Morten", Vec3::new(-24.5, 3.2, -3.2)),
+        ("Jonas", Vec3::new(-24.5, 3.2, 3.2)),
     ];
 
     for (name, spawn_pos) in blue_bots.iter() {
@@ -46,11 +46,11 @@ fn spawn_bots(
         );
     }
 
-    // 3 Opponents on Team Red (Siri, Lisa, Per)
+    // 3 Opponents on Team Red on East Red Platform (Siri, Lisa, Per)
     let red_bots = [
-        ("Siri", Vec3::new(0.0, 1.5, -24.0)),
-        ("Lisa", Vec3::new(-5.0, 1.5, -24.0)),
-        ("Per", Vec3::new(5.0, 1.5, -24.0)),
+        ("Siri", Vec3::new(21.0, 3.2, 0.0)),
+        ("Lisa", Vec3::new(24.5, 3.2, -3.2)),
+        ("Per", Vec3::new(24.5, 3.2, 3.2)),
     ];
 
     for (name, spawn_pos) in red_bots.iter() {
@@ -175,7 +175,7 @@ fn update_bot_behaviors(
             && bot_data.reaction_cooldown <= 0.0
         {
             let to_enemy = (nearest_enemy_pos - my_pos).normalize_or_zero();
-            let target_rot = Quat::from_rotation_arc(Vec3::Z, Vec3::new(to_enemy.x, 0.0, to_enemy.z).normalize());
+            let target_rot = Quat::from_rotation_y(to_enemy.x.atan2(to_enemy.z));
             transform.rotation = target_rot;
 
             tackle.is_tackling = true;
@@ -210,9 +210,8 @@ fn update_bot_behaviors(
             lin_vel.x = lin_vel.x.lerp(desired_vel.x, 10.0 * dt);
             lin_vel.z = lin_vel.z.lerp(desired_vel.z, 10.0 * dt);
 
-            // Turn towards movement
-            let target_rot =
-                Quat::from_rotation_arc(Vec3::Z, Vec3::new(desired_vel.x, 0.0, desired_vel.z).normalize());
+            // Turn towards movement around Y axis
+            let target_rot = Quat::from_rotation_y(desired_vel.x.atan2(desired_vel.z));
             transform.rotation = transform.rotation.slerp(target_rot, 12.0 * dt);
 
             // Auto-jump if hitting a ramp edge or stuck
