@@ -138,14 +138,18 @@ fn route_via_platform_ramp(my_pos: Vec3, raw_target: Vec3) -> Vec3 {
     // If bot is on the courtyard floor (y < 1.8) and wants to reach the East Red Platform
     if my_pos.y < 1.8 && raw_target.distance(red_base) < 7.0 {
         let west_ramp_entry = Vec3::new(9.5, 0.2, 2.5);
-        let south_stairs_entry = Vec3::new(19.5, 0.2, 15.2);
+        let south_stairs_entry = Vec3::new(20.0, -0.3, 15.2);
+        if my_pos.z > 10.5 && (my_pos.x - 20.0).abs() < 2.2 {
+            // Already aligned with the South Staircase -> walk straight up onto the Red Platform!
+            return red_base;
+        }
         let ramp_entry = if my_pos.distance(west_ramp_entry) < my_pos.distance(south_stairs_entry)
         {
             west_ramp_entry
         } else {
             south_stairs_entry
         };
-        if my_pos.x < 14.2 {
+        if my_pos.x < 14.2 || my_pos.z > 10.5 {
             return ramp_entry;
         }
     }
@@ -335,6 +339,30 @@ fn update_bot_behaviors(
 
             lin_vel.x = lin_vel.x.lerp(desired_vel.x, (11.5 * dt).min(1.0));
             lin_vel.z = lin_vel.z.lerp(desired_vel.z, (11.5 * dt).min(1.0));
+
+            // Smooth uphill slope/staircase climbing for bots
+            let curr_y = crate::terrain_heights::sample_terrain_height(
+                transform.translation.x,
+                transform.translation.z,
+            );
+            let ahead_y = crate::terrain_heights::sample_terrain_height(
+                transform.translation.x + dir.x * 0.48,
+                transform.translation.z + dir.z * 0.48,
+            );
+            let dh = ahead_y - curr_y;
+            if dh > 0.01 && dh < 1.15 && transform.translation.y <= curr_y + 1.15 {
+                let climb_vy = (bot_speed * (dh / 0.48)).clamp(0.0, 12.0);
+                if lin_vel.y < climb_vy {
+                    lin_vel.y = climb_vy;
+                }
+                let target_center_y = ahead_y + 0.92;
+                if transform.translation.y < target_center_y {
+                    transform.translation.y = transform
+                        .translation
+                        .y
+                        .lerp(target_center_y, (16.0 * dt).min(1.0));
+                }
+            }
 
             let target_rot = Quat::from_rotation_y(desired_vel.x.atan2(desired_vel.z));
             transform.rotation = transform.rotation.slerp(target_rot, (14.0 * dt).min(1.0));

@@ -137,73 +137,19 @@ fn setup_arena(
         Collider::cuboid(68.0, 1.0, 52.0),
     ));
 
-    // West Blue Platform Deck Collider (x in [-24.8, -15.4], z in [-7.5, 10.2], top at y = 2.53m)
-    let (beta_idx, beta_name, beta_center, beta_radius) = PLATEAU_COORDS[1];
-    commands.spawn((
-        Transform::from_xyz(-20.1, 1.265, 1.35),
-        RigidBody::Static,
-        Collider::cuboid(9.4, 2.53, 17.7),
-        Plateau {
-            index: beta_idx,
-            name: beta_name,
-            center: beta_center,
-            radius: beta_radius,
-        },
-    ));
-
-    // West Blue Platform — Upper East Stepped Ramp (connects x = -15.4, y = 2.53 down to x = -10.4, y = 0.0)
-    commands.spawn((
-        Transform::from_xyz(-12.9, 1.26, -0.5).with_rotation(Quat::from_rotation_z(-0.44)),
-        RigidBody::Static,
-        Collider::cuboid(5.8, 0.4, 3.6),
-    ));
-
-    // West Blue Platform — Lower East Concrete Slab Ramp (connects x = -15.4, y = 2.53 down to x = -10.2, y = 0.0)
-    commands.spawn((
-        Transform::from_xyz(-12.8, 1.26, 6.5).with_rotation(Quat::from_rotation_z(-0.44)),
-        RigidBody::Static,
-        Collider::cuboid(6.0, 0.4, 4.2),
-    ));
-
-    // East Red Platform Deck Collider (x in [15.0, 23.8], z in [-7.5, 10.2], top at y = 2.53m)
-    let (gamma_idx, gamma_name, gamma_center, gamma_radius) = PLATEAU_COORDS[2];
-    commands.spawn((
-        Transform::from_xyz(19.4, 1.265, 1.35),
-        RigidBody::Static,
-        Collider::cuboid(8.8, 2.53, 17.7),
-        Plateau {
-            index: gamma_idx,
-            name: gamma_name,
-            center: gamma_center,
-            radius: gamma_radius,
-        },
-    ));
-
-    // East Red Platform — West Crumbled Ramp & Stairs (connects x = 15.0, y = 2.53 down to x = 10.2, y = 0.0)
-    commands.spawn((
-        Transform::from_xyz(12.6, 1.26, 2.5).with_rotation(Quat::from_rotation_z(0.44)),
-        RigidBody::Static,
-        Collider::cuboid(5.8, 0.4, 7.6),
-    ));
-
-    // East Red Platform — South Staircase (connects z = 10.2, y = 2.53 down to z = 14.6, y = 0.0)
-    commands.spawn((
-        Transform::from_xyz(19.5, 1.26, 12.4).with_rotation(Quat::from_rotation_x(0.46)),
-        RigidBody::Static,
-        Collider::cuboid(3.4, 0.4, 5.2),
-    ));
-
-    // Central Courtyard Objective Marker
-    let (alpha_idx, alpha_name, alpha_center, alpha_radius) = PLATEAU_COORDS[0];
-    commands.spawn((
-        Transform::from_translation(alpha_center),
-        Plateau {
-            index: alpha_idx,
-            name: alpha_name,
-            center: alpha_center,
-            radius: alpha_radius,
-        },
-    ));
+    // Plateau Objective Markers (all ground, platform, ramp, and staircase collision
+    // is handled seamlessly by the 0.5m-resolution 3D Terrain Trimesh Collider above)
+    for (idx, name, center, radius) in PLATEAU_COORDS {
+        commands.spawn((
+            Transform::from_translation(center),
+            Plateau {
+                index: idx,
+                name,
+                center,
+                radius,
+            },
+        ));
+    }
 
     // Shipping Containers in the Upper Courtyard (matching 3D model)
     // Left-North Olive Container

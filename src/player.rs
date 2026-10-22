@@ -629,9 +629,32 @@ fn handle_player_movement(
     let decel_rate = if is_grounded { 14.0 } else { 0.8 };
 
     if move_len > 0.05 {
-        let desired_vel = move_input.normalize() * speed;
+        let move_dir = move_input.normalize();
+        let desired_vel = move_dir * speed;
         lin_vel.x = lin_vel.x.lerp(desired_vel.x, (accel_rate * dt).min(1.0));
         lin_vel.z = lin_vel.z.lerp(desired_vel.z, (accel_rate * dt).min(1.0));
+
+        // Smooth uphill slope/staircase climbing so capsules glide up all ramps and stairs without snagging
+        if is_grounded {
+            let ahead_y = crate::terrain_heights::sample_terrain_height(
+                transform.translation.x + move_dir.x * 0.48,
+                transform.translation.z + move_dir.z * 0.48,
+            );
+            let dh = ahead_y - terrain_y;
+            if dh > 0.01 && dh < 1.15 {
+                let climb_vy = (speed * (dh / 0.48)).clamp(0.0, 12.5);
+                if lin_vel.y < climb_vy {
+                    lin_vel.y = climb_vy;
+                }
+                let target_center_y = ahead_y + 0.92;
+                if transform.translation.y < target_center_y {
+                    transform.translation.y = transform
+                        .translation
+                        .y
+                        .lerp(target_center_y, (18.0 * dt).min(1.0));
+                }
+            }
+        }
 
         // Turn character towards movement direction around Y axis (visual front is +Z)
         let target_rot = Quat::from_rotation_y(desired_vel.x.atan2(desired_vel.z));
