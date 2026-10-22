@@ -83,3 +83,59 @@ pub struct TackleAbility {
 pub struct StaggerState {
     pub duration: f32,
 }
+
+/// Structured character voice callout differentiating which character says what,
+/// their team affiliation, the voice line identifier, the exact spoken transcript,
+/// and the corresponding audio asset path (`voices/<speaker_id>/<line_id>.mp3`).
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct VoiceCallout {
+    pub speaker: String,
+    pub speaker_team: Team,
+    pub line_id: &'static str,
+    pub spoken_text: String,
+    pub color: Color,
+    pub timer: f32,
+}
+
+impl VoiceCallout {
+    pub fn new(
+        speaker: impl Into<String>,
+        speaker_team: Team,
+        line_id: &'static str,
+        spoken_text: impl Into<String>,
+        color: Color,
+        timer: f32,
+    ) -> Self {
+        Self {
+            speaker: speaker.into(),
+            speaker_team,
+            line_id,
+            spoken_text: spoken_text.into(),
+            color,
+            timer,
+        }
+    }
+
+    /// Relative asset path under `assets/` for this character's voice clip:
+    /// e.g. `"voices/anders/match_start.mp3"` or `"voices/siri/took_flag.mp3"`.
+    #[allow(dead_code)]
+    pub fn audio_asset_path(&self) -> String {
+        format!(
+            "voices/{}/{}.mp3",
+            self.speaker.to_lowercase(),
+            self.line_id
+        )
+    }
+
+    /// Formats the on-screen radio banner so the player can immediately see which character is speaking:
+    /// e.g. `ANDERS [BLUE]: «Capture the Red Flag on the East Platform and bring it to Blue Base!»`
+    pub fn formatted_banner(&self) -> String {
+        format!(
+            "{} [{}]: «{}»",
+            self.speaker.to_uppercase(),
+            self.speaker_team.name(),
+            self.spoken_text
+        )
+    }
+}

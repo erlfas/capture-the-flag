@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::arena::PLATEAU_COORDS;
-use crate::types::{Character, StaggerState, Team};
+use crate::types::{Character, StaggerState, Team, VoiceCallout};
 
 pub const WIN_SCORE: f32 = 5.0; // First to 5 captured flags wins
 pub const INITIAL_MATCH_TIME: f32 = 462.0; // 07:42 in seconds, matching art reference
@@ -42,7 +42,8 @@ pub struct KothManager {
     pub winner: Option<Team>,
     pub status_banner: String,
     pub status_color: Color,
-    pub event_notice: Option<(String, Color, f32)>,
+    pub active_speaker: Option<(String, Team)>,
+    pub event_notice: Option<VoiceCallout>,
     pub blue_carrier: Option<(Entity, String)>,
     pub red_carrier: Option<(Entity, String)>,
     pub blue_flag_world_pos: Vec3,
@@ -59,8 +60,11 @@ impl Default for KothManager {
             red_score: 0.0,  // Matches initial "Red Flag: 0" from art
             contest_state: ZoneContestState::Neutral,
             winner: None,
-            status_banner: "«STEAL THE RED FLAG ON THE EAST PLATFORM!»".to_string(),
+            status_banner:
+                "ANDERS [BLUE]: «Capture the Red Flag on the East Platform and bring it to Blue Base!»"
+                    .to_string(),
             status_color: Color::srgb(0.3, 0.9, 1.0),
+            active_speaker: Some(("Anders".to_string(), Team::Blue)),
             event_notice: None,
             blue_carrier: None,
             red_carrier: None,
@@ -266,9 +270,9 @@ fn update_ctf_flags_and_scoring(
     }
 
     // Tick event notice banner timer
-    if let Some((_, _, ref mut timer)) = koth.event_notice {
-        *timer -= dt;
-        if *timer <= 0.0 {
+    if let Some(ref mut callout) = koth.event_notice {
+        callout.timer -= dt;
+        if callout.timer <= 0.0 {
             koth.event_notice = None;
         }
     }
@@ -331,18 +335,26 @@ fn update_ctf_flags_and_scoring(
                                 return_timer: FLAG_AUTO_RETURN_SECS,
                                 pickup_cooldown: 1.1,
                             };
-                            let msg = match flag.team {
-                                Team::Blue => format!(
-                                    "«{} DROPPED THE BLUE FLAG! RECOVER IT!»",
-                                    carrier_name.to_uppercase()
-                                ),
-                                Team::Red => format!(
-                                    "«{} DROPPED THE RED FLAG!»",
-                                    carrier_name.to_uppercase()
-                                ),
+                            let spoken = match carrier_name.to_lowercase().as_str() {
+                                "anders" => "I dropped the Red Flag! Someone grab it!",
+                                "morten" => "I lost the Red Flag! Pick it up!",
+                                "jonas" => "Dropped the Red Flag! Recover it fast!",
+                                "siri" => "Ugh, I dropped the Blue Flag! Recover it!",
+                                "lisa" => "I lost the Blue Flag! Don't let them touch it!",
+                                "per" => "Dropped the Blue Flag! Hold them back!",
+                                _ => match flag.team {
+                                    Team::Blue => "I dropped the Blue Flag! Recover it!",
+                                    Team::Red => "I dropped the Red Flag! Pick it up!",
+                                },
                             };
-                            koth.event_notice =
-                                Some((msg, Color::srgb(1.0, 0.85, 0.2), 3.2));
+                            koth.event_notice = Some(VoiceCallout::new(
+                                carrier_name.clone(),
+                                *carrier_team,
+                                "dropped_flag",
+                                spoken,
+                                Color::srgb(1.0, 0.85, 0.2),
+                                3.2,
+                            ));
                         }
                         continue;
                     }
@@ -365,11 +377,17 @@ fn update_ctf_flags_and_scoring(
                         match carrier_team {
                             Team::Blue => {
                                 koth.blue_score += 1.0;
-                                koth.event_notice = Some((
-                                    format!(
-                                        "«FLAG CAPTURED BY {}! +1 BLUE POINT!»",
-                                        carrier_name.to_uppercase()
-                                    ),
+                                let spoken = match carrier_name.to_lowercase().as_str() {
+                                    "anders" => "Flag captured! Plus one point for Blue Team!",
+                                    "morten" => "Touchdown! I captured the Red Flag for Blue Team!",
+                                    "jonas" => "Red Flag delivered! Point for Blue Team!",
+                                    _ => "Flag captured! Plus one Blue point!",
+                                };
+                                koth.event_notice = Some(VoiceCallout::new(
+                                    carrier_name.clone(),
+                                    Team::Blue,
+                                    "captured_flag",
+                                    spoken,
                                     Color::srgb(0.2, 1.0, 0.5),
                                     4.5,
                                 ));
@@ -379,11 +397,17 @@ fn update_ctf_flags_and_scoring(
                             }
                             Team::Red => {
                                 koth.red_score += 1.0;
-                                koth.event_notice = Some((
-                                    format!(
-                                        "«{} CAPTURED OUR FLAG! +1 RED POINT!»",
-                                        carrier_name.to_uppercase()
-                                    ),
+                                let spoken = match carrier_name.to_lowercase().as_str() {
+                                    "siri" => "I captured the Blue Flag! Point for Red Team!",
+                                    "lisa" => "Score! Another flag capture for Red Team!",
+                                    "per" => "Blue Flag delivered to Red Base! Point scored!",
+                                    _ => "We captured the Blue Flag! Plus one Red point!",
+                                };
+                                koth.event_notice = Some(VoiceCallout::new(
+                                    carrier_name.clone(),
+                                    Team::Red,
+                                    "captured_flag",
+                                    spoken,
                                     Color::srgb(1.0, 0.25, 0.25),
                                     4.5,
                                 ));
@@ -421,11 +445,26 @@ fn update_ctf_flags_and_scoring(
 
                 if return_timer <= 0.0 {
                     flag.state = FlagState::AtBase;
-                    let msg = match flag.team {
-                        Team::Blue => "«BLUE FLAG RETURNED TO BASE!»".to_string(),
-                        Team::Red => "«RED FLAG RETURNED TO BASE!»".to_string(),
+                    let (speaker, speaker_team, spoken) = match flag.team {
+                        Team::Blue => (
+                            "Jonas",
+                            Team::Blue,
+                            "Blue Flag automatically returned to base!",
+                        ),
+                        Team::Red => (
+                            "Per",
+                            Team::Red,
+                            "Red Flag automatically returned to base!",
+                        ),
                     };
-                    koth.event_notice = Some((msg, Color::srgb(0.4, 0.85, 1.0), 3.0));
+                    koth.event_notice = Some(VoiceCallout::new(
+                        speaker,
+                        speaker_team,
+                        "flag_auto_returned",
+                        spoken,
+                        Color::srgb(0.4, 0.85, 1.0),
+                        3.0,
+                    ));
                     continue;
                 }
 
@@ -446,18 +485,23 @@ fn update_ctf_flags_and_scoring(
                         if *c_team == flag.team {
                             // Teammate touched their own dropped flag -> Instant Return to Base!
                             new_state = FlagState::AtBase;
-                            let msg = match flag.team {
-                                Team::Blue => format!(
-                                    "«{} RETURNED OUR BLUE FLAG TO BASE!»",
-                                    c_name.to_uppercase()
-                                ),
-                                Team::Red => format!(
-                                    "«{} RETURNED THE RED FLAG!»",
-                                    c_name.to_uppercase()
-                                ),
+                            let spoken = match c_name.to_lowercase().as_str() {
+                                "anders" => "I returned our Blue Flag to base!",
+                                "morten" => "Blue Flag returned to base! We're safe!",
+                                "jonas" => "I recovered our Blue Flag! Base is secure!",
+                                "siri" => "I returned the Red Flag to our base!",
+                                "lisa" => "Red Flag is back at base!",
+                                "per" => "I secured the Red Flag! Back at base!",
+                                _ => "Flag returned to base!",
                             };
-                            koth.event_notice =
-                                Some((msg, Color::srgb(0.3, 0.95, 0.6), 3.5));
+                            koth.event_notice = Some(VoiceCallout::new(
+                                c_name.clone(),
+                                *c_team,
+                                "returned_flag",
+                                spoken,
+                                Color::srgb(0.3, 0.95, 0.6),
+                                3.5,
+                            ));
                             break;
                         } else if pickup_cooldown <= 0.0 && !current_carriers.contains(ent) {
                             // Enemy picked up the dropped flag!
@@ -485,22 +529,34 @@ fn update_ctf_flags_and_scoring(
                         match flag.team {
                             Team::Blue => {
                                 red_carrier_info = Some((*ent, c_name.clone()));
-                                koth.event_notice = Some((
-                                    format!(
-                                        "«OUR FLAG WAS STOLEN BY {}! TACKLE THEM!»",
-                                        c_name.to_uppercase()
-                                    ),
+                                let spoken = match c_name.to_lowercase().as_str() {
+                                    "siri" => "I stole the Blue Flag! Catch me if you can!",
+                                    "lisa" => "Blue Flag is mine! Sprinting to Red Base!",
+                                    "per" => "I have the Blue Flag! Clear the way to Red Base!",
+                                    _ => "I took the Blue Flag! Run to Red Base!",
+                                };
+                                koth.event_notice = Some(VoiceCallout::new(
+                                    c_name.clone(),
+                                    Team::Red,
+                                    "took_flag",
+                                    spoken,
                                     Color::srgb(1.0, 0.22, 0.22),
                                     4.0,
                                 ));
                             }
                             Team::Red => {
                                 blue_carrier_info = Some((*ent, c_name.clone()));
-                                koth.event_notice = Some((
-                                    format!(
-                                        "«{} TOOK THE RED FLAG! RUN TO BLUE BASE!»",
-                                        c_name.to_uppercase()
-                                    ),
+                                let spoken = match c_name.to_lowercase().as_str() {
+                                    "anders" => "I've got the Red Flag! Cover me back to Blue Base!",
+                                    "morten" => "I took the Red Flag! Run to Blue Base!",
+                                    "jonas" => "Red Flag secured! Heading back to Blue Base!",
+                                    _ => "I took the Red Flag! Run to Blue Base!",
+                                };
+                                koth.event_notice = Some(VoiceCallout::new(
+                                    c_name.clone(),
+                                    Team::Blue,
+                                    "took_flag",
+                                    spoken,
                                     Color::srgb(0.2, 0.95, 0.55),
                                     4.0,
                                 ));
@@ -540,37 +596,54 @@ fn update_ctf_flags_and_scoring(
         }
     }
 
-    // Determine primary status headline when no short event notice is overriding
-    if let Some((ref msg, color, _)) = koth.event_notice {
-        koth.status_banner = msg.clone();
+    // Determine primary status headline and active speaker when no short event notice is overriding
+    if let Some((banner, color, spk)) = koth.event_notice.as_ref().map(|c| {
+        (
+            c.formatted_banner(),
+            c.color,
+            (c.speaker.clone(), c.speaker_team),
+        )
+    }) {
+        koth.status_banner = banner;
         koth.status_color = color;
+        koth.active_speaker = Some(spk);
     } else if let (Some((_, b_name)), Some((_, r_name))) = (&blue_carrier_info, &red_carrier_info)
     {
         koth.contest_state = ZoneContestState::Contested;
+        koth.active_speaker = Some(("Jonas".to_string(), Team::Blue));
         koth.status_banner = format!(
-            "«BOTH FLAGS STOLEN! {} [BLUE] vs {} [RED]»",
-            b_name.to_uppercase(),
-            r_name.to_uppercase()
+            "JONAS [BLUE]: «Both flags stolen! Protect {} and tackle {}!»",
+            b_name, r_name
         );
         koth.status_color = Color::srgb(1.0, 0.85, 0.15);
     } else if let Some((_, r_name)) = &red_carrier_info {
         koth.contest_state = ZoneContestState::RedControlling;
+        koth.active_speaker = Some(("Anders".to_string(), Team::Blue));
         koth.status_banner = format!(
-            "«OUR FLAG WAS STOLEN BY {}! TACKLE THEM!»",
-            r_name.to_uppercase()
+            "ANDERS [BLUE]: «Our flag was stolen by {}! Tackle them!»",
+            r_name
         );
         koth.status_color = Color::srgb(1.0, 0.22, 0.22);
     } else if let Some((_, b_name)) = &blue_carrier_info {
         koth.contest_state = ZoneContestState::BlueControlling;
+        let speaker = if b_name.eq_ignore_ascii_case("anders") {
+            "Morten"
+        } else {
+            "Anders"
+        };
+        koth.active_speaker = Some((speaker.to_string(), Team::Blue));
         koth.status_banner = format!(
-            "«{} HAS THE RED FLAG! CLEAR THE WAY TO BLUE BASE!»",
-            b_name.to_uppercase()
+            "{} [BLUE]: «{} has the Red Flag! Clear the way to Blue Base!»",
+            speaker.to_uppercase(),
+            b_name
         );
         koth.status_color = Color::srgb(0.2, 0.95, 0.45);
     } else {
         koth.contest_state = ZoneContestState::Neutral;
+        koth.active_speaker = Some(("Anders".to_string(), Team::Blue));
         koth.status_banner =
-            "«CAPTURE THE RED FLAG ON THE EAST PLATFORM AND BRING IT TO BLUE BASE!»".to_string();
+            "ANDERS [BLUE]: «Capture the Red Flag on the East Platform and bring it to Blue Base!»"
+                .to_string();
         koth.status_color = Color::srgb(0.75, 0.88, 1.0);
     }
 }

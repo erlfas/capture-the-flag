@@ -1,98 +1,128 @@
-# On-Screen Messages & HUD Text Reference (`SCREEN_MESSAGES.md`)
+# On-Screen Messages & Character Voice Script (`SCREEN_MESSAGES.md`)
 
-This document catalogs all on-screen messages, HUD labels, dynamic Capture the Flag (CTF) event alerts, ability indicators, overhead character nametags, and control prompts in **Cyber-Athletic Coliseum**, including their original Norwegian text and their English translations.
-
----
-
-## 1. Top Match Scoreboard & Objective Subtitles ([`src/ui.rs`](src/ui.rs))
-
-| Screen Location | Trigger / State | Original Text (Norwegian) | English Translation (Active in Game) |
-| :--- | :--- | :--- | :--- |
-| **Top-Left Score Box** | Always visible (`koth.blue_score`) | `BLÅ FLAGG: {score}` | `BLUE FLAG: {score}` |
-| **Top-Center Timer** | Match countdown (`MM:SS`) | `{mins:02}:{secs:02}` | `{mins:02}:{secs:02}` |
-| **Top-Center Subtitle** | Initial startup placeholder | `SONE ALPHA` | `ZONE ALPHA` |
-| **Top-Center Subtitle** | Default / neutral flag state | `CAPTURE THE FLAG (FØRSTE TIL 5)` | `CAPTURE THE FLAG (FIRST TO 5)` |
-| **Top-Center Subtitle** | Blue Team is carrying the Red Flag | `LEVER RØDT FLAGG TIL BLÅ BASE!` | `DELIVER RED FLAG TO BLUE BASE!` |
-| **Top-Center Subtitle** | Blue Flag is away from Blue Base | `TAKLE FIENDEN FOR Å REDDE BLÅTT FLAGG!` | `TACKLE THE ENEMY TO SAVE BLUE FLAG!` |
-| **Top-Right Score Box** | Always visible (`koth.red_score`) | `RØD FLAGG: {score}` | `RED FLAG: {score}` |
+This document catalogs all on-screen HUD messages, objective subtitles, and **character-differentiated voice callouts** in **Cyber-Athletic Coliseum**, including which character speaks each line, the exact spoken English transcript for voice generation, and the expected audio file path (`assets/voices/<character>/<line_id>.mp3`).
 
 ---
 
-## 2. Prominent Center-Top Dynamic Status & Alert Banner ([`src/koth.rs`](src/koth.rs) & [`src/ui.rs`](src/ui.rs))
+## 1. Character Roster & Voice Profiles
 
-### A. Persistent Objective Headlines (when no short event notice is active)
+| Character ID | Display Name | Team | Role | Voice Folder Path |
+| :--- | :--- | :--- | :--- | :--- |
+| `anders` | **ANDERS** | `BLUE` | Main Player / Squad Leader | `assets/voices/anders/` |
+| `morten` | **MORTEN** | `BLUE` | Vanguard / Flag Striker | `assets/voices/morten/` |
+| `jonas` | **JONAS** | `BLUE` | Base Defender / Tactical Comms | `assets/voices/jonas/` |
+| `siri` | **SIRI** | `RED` | Lead Striker / Flag Runner | `assets/voices/siri/` |
+| `lisa` | **LISA** | `RED` | Flanker / Scout | `assets/voices/lisa/` |
+| `per` | **PER** | `RED` | Heavy Defender / Enforcer | `assets/voices/per/` |
 
-| State | Original Text (Norwegian) | English Translation (Active in Game) |
+When any character speaks a line:
+1. **Top Radio Banner (`ZoneStatusText`)** displays:
+   `{SPEAKER} [{TEAM}]: «{Spoken English Line}»`
+2. **3D Overhead Character Nametag (`CharacterNametag`)** above that character in the 3D arena highlights with:
+   `[SPEAKING] {SPEAKER} [{TEAM}]`
+3. **Voice Audio Path (`VoiceCallout::audio_asset_path`)** resolves to:
+   `assets/voices/{character_id}/{line_id}.mp3`
+
+---
+
+## 2. Character-by-Character Voice Lines (For Voice Generation)
+
+### A. Anders (`BLUE` — Main Player / Squad Leader)
+
+| Line ID | Audio File Path | Trigger Event | Exact Spoken English Text (TTS Prompt) | On-Screen Banner Display |
+| :--- | :--- | :--- | :--- | :--- |
+| `match_start` | `assets/voices/anders/match_start.mp3` | Match start / neutral state | `"Capture the Red Flag on the East Platform and bring it to Blue Base!"` | `ANDERS [BLUE]: «Capture the Red Flag on the East Platform and bring it to Blue Base!»` |
+| `took_flag` | `assets/voices/anders/took_flag.mp3` | Anders steals the Red Flag | `"I've got the Red Flag! Cover me back to Blue Base!"` | `ANDERS [BLUE]: «I've got the Red Flag! Cover me back to Blue Base!»` |
+| `dropped_flag` | `assets/voices/anders/dropped_flag.mp3` | Anders is tackled & drops Red Flag | `"I dropped the Red Flag! Someone grab it!"` | `ANDERS [BLUE]: «I dropped the Red Flag! Someone grab it!»` |
+| `returned_flag` | `assets/voices/anders/returned_flag.mp3` | Anders touch-returns Blue Flag | `"I returned our Blue Flag to base!"` | `ANDERS [BLUE]: «I returned our Blue Flag to base!»` |
+| `captured_flag` | `assets/voices/anders/captured_flag.mp3` | Anders captures Red Flag at Blue Base | `"Flag captured! Plus one point for Blue Team!"` | `ANDERS [BLUE]: «Flag captured! Plus one point for Blue Team!»` |
+| `tackle_hit` | `assets/voices/anders/tackle_hit.mp3` | Anders tackles an enemy | `"Target neutralized! Stay down!"` | `ANDERS [BLUE]: «Target neutralized! Stay down!»` |
+| `flag_stolen_alert` | `assets/voices/anders/flag_stolen_alert.mp3` | Enemy is carrying Blue Flag | `"Our flag was stolen by {ENEMY}! Tackle them!"` | `ANDERS [BLUE]: «Our flag was stolen by {ENEMY}! Tackle them!»` |
+| `escort_carrier` | `assets/voices/anders/escort_carrier.mp3` | Teammate (`Morten`/`Jonas`) has Red Flag | `"{ALLY} has the Red Flag! Clear the way to Blue Base!"` | `ANDERS [BLUE]: «{ALLY} has the Red Flag! Clear the way to Blue Base!»` |
+| `victory` | `assets/voices/anders/victory.mp3` | Blue Team wins the match | `"Victory! Blue Team won Capture the Flag!"` | `ANDERS [BLUE]: «Victory! Blue Team won Capture the Flag!»` |
+
+---
+
+### B. Morten (`BLUE` — Vanguard / Flag Striker)
+
+| Line ID | Audio File Path | Trigger Event | Exact Spoken English Text (TTS Prompt) | On-Screen Banner Display |
+| :--- | :--- | :--- | :--- | :--- |
+| `took_flag` | `assets/voices/morten/took_flag.mp3` | Morten steals the Red Flag | `"I took the Red Flag! Run to Blue Base!"` | `MORTEN [BLUE]: «I took the Red Flag! Run to Blue Base!»` |
+| `dropped_flag` | `assets/voices/morten/dropped_flag.mp3` | Morten is tackled & drops Red Flag | `"I lost the Red Flag! Pick it up!"` | `MORTEN [BLUE]: «I lost the Red Flag! Pick it up!»` |
+| `returned_flag` | `assets/voices/morten/returned_flag.mp3` | Morten touch-returns Blue Flag | `"Blue Flag returned to base! We're safe!"` | `MORTEN [BLUE]: «Blue Flag returned to base! We're safe!»` |
+| `captured_flag` | `assets/voices/morten/captured_flag.mp3` | Morten captures Red Flag at Blue Base | `"Touchdown! I captured the Red Flag for Blue Team!"` | `MORTEN [BLUE]: «Touchdown! I captured the Red Flag for Blue Team!»` |
+| `tackle_hit` | `assets/voices/morten/tackle_hit.mp3` | Morten tackles an enemy | `"Boom! Direct tackle hit!"` | `MORTEN [BLUE]: «Boom! Direct tackle hit!»` |
+| `escort_carrier` | `assets/voices/morten/escort_carrier.mp3` | Anders is carrying Red Flag | `"Anders has the Red Flag! Clear the way to Blue Base!"` | `MORTEN [BLUE]: «Anders has the Red Flag! Clear the way to Blue Base!»` |
+
+---
+
+### C. Jonas (`BLUE` — Base Defender / Tactical Comms)
+
+| Line ID | Audio File Path | Trigger Event | Exact Spoken English Text (TTS Prompt) | On-Screen Banner Display |
+| :--- | :--- | :--- | :--- | :--- |
+| `took_flag` | `assets/voices/jonas/took_flag.mp3` | Jonas steals the Red Flag | `"Red Flag secured! Heading back to Blue Base!"` | `JONAS [BLUE]: «Red Flag secured! Heading back to Blue Base!»` |
+| `dropped_flag` | `assets/voices/jonas/dropped_flag.mp3` | Jonas is tackled & drops Red Flag | `"Dropped the Red Flag! Recover it fast!"` | `JONAS [BLUE]: «Dropped the Red Flag! Recover it fast!»` |
+| `returned_flag` | `assets/voices/jonas/returned_flag.mp3` | Jonas touch-returns Blue Flag | `"I recovered our Blue Flag! Base is secure!"` | `JONAS [BLUE]: «I recovered our Blue Flag! Base is secure!»` |
+| `flag_auto_returned` | `assets/voices/jonas/flag_auto_returned.mp3` | Dropped Blue Flag auto-returns (15s) | `"Blue Flag automatically returned to base!"` | `JONAS [BLUE]: «Blue Flag automatically returned to base!»` |
+| `captured_flag` | `assets/voices/jonas/captured_flag.mp3` | Jonas captures Red Flag at Blue Base | `"Red Flag delivered! Point for Blue Team!"` | `JONAS [BLUE]: «Red Flag delivered! Point for Blue Team!»` |
+| `tackle_hit` | `assets/voices/jonas/tackle_hit.mp3` | Jonas tackles an enemy | `"Enemy stopped in their tracks!"` | `JONAS [BLUE]: «Enemy stopped in their tracks!»` |
+| `both_flags_stolen` | `assets/voices/jonas/both_flags_stolen.mp3` | Both flags are carried simultaneously | `"Both flags stolen! Protect {BLUE_CARRIER} and tackle {RED_CARRIER}!"` | `JONAS [BLUE]: «Both flags stolen! Protect {BLUE_CARRIER} and tackle {RED_CARRIER}!»` |
+
+---
+
+### D. Siri (`RED` — Lead Striker / Flag Runner)
+
+| Line ID | Audio File Path | Trigger Event | Exact Spoken English Text (TTS Prompt) | On-Screen Banner Display |
+| :--- | :--- | :--- | :--- | :--- |
+| `took_flag` | `assets/voices/siri/took_flag.mp3` | Siri steals the Blue Flag | `"I stole the Blue Flag! Catch me if you can!"` | `SIRI [RED]: «I stole the Blue Flag! Catch me if you can!»` |
+| `dropped_flag` | `assets/voices/siri/dropped_flag.mp3` | Siri is tackled & drops Blue Flag | `"Ugh, I dropped the Blue Flag! Recover it!"` | `SIRI [RED]: «Ugh, I dropped the Blue Flag! Recover it!»` |
+| `returned_flag` | `assets/voices/siri/returned_flag.mp3` | Siri touch-returns Red Flag | `"I returned the Red Flag to our base!"` | `SIRI [RED]: «I returned the Red Flag to our base!»` |
+| `captured_flag` | `assets/voices/siri/captured_flag.mp3` | Siri captures Blue Flag at Red Base | `"I captured the Blue Flag! Point for Red Team!"` | `SIRI [RED]: «I captured the Blue Flag! Point for Red Team!»` |
+| `tackle_hit` | `assets/voices/siri/tackle_hit.mp3` | Siri tackles a Blue player | `"Too slow! Took you down!"` | `SIRI [RED]: «Too slow! Took you down!»` |
+| `victory` | `assets/voices/siri/victory.mp3` | Red Team wins the match | `"Victory for Red Team! We own this arena!"` | `SIRI [RED]: «Victory for Red Team! We own this arena!»` |
+
+---
+
+### E. Lisa (`RED` — Flanker / Scout)
+
+| Line ID | Audio File Path | Trigger Event | Exact Spoken English Text (TTS Prompt) | On-Screen Banner Display |
+| :--- | :--- | :--- | :--- | :--- |
+| `took_flag` | `assets/voices/lisa/took_flag.mp3` | Lisa steals the Blue Flag | `"Blue Flag is mine! Sprinting to Red Base!"` | `LISA [RED]: «Blue Flag is mine! Sprinting to Red Base!»` |
+| `dropped_flag` | `assets/voices/lisa/dropped_flag.mp3` | Lisa is tackled & drops Blue Flag | `"I lost the Blue Flag! Don't let them touch it!"` | `LISA [RED]: «I lost the Blue Flag! Don't let them touch it!»` |
+| `returned_flag` | `assets/voices/lisa/returned_flag.mp3` | Lisa touch-returns Red Flag | `"Red Flag is back at base!"` | `LISA [RED]: «Red Flag is back at base!»` |
+| `captured_flag` | `assets/voices/lisa/captured_flag.mp3` | Lisa captures Blue Flag at Red Base | `"Score! Another flag capture for Red Team!"` | `LISA [RED]: «Score! Another flag capture for Red Team!»` |
+| `tackle_hit` | `assets/voices/lisa/tackle_hit.mp3` | Lisa tackles a Blue player | `"Caught you in the net!"` | `LISA [RED]: «Caught you in the net!»` |
+
+---
+
+### F. Per (`RED` — Heavy Defender / Enforcer)
+
+| Line ID | Audio File Path | Trigger Event | Exact Spoken English Text (TTS Prompt) | On-Screen Banner Display |
+| :--- | :--- | :--- | :--- | :--- |
+| `took_flag` | `assets/voices/per/took_flag.mp3` | Per steals the Blue Flag | `"I have the Blue Flag! Clear the way to Red Base!"` | `PER [RED]: «I have the Blue Flag! Clear the way to Red Base!»` |
+| `dropped_flag` | `assets/voices/per/dropped_flag.mp3` | Per is tackled & drops Blue Flag | `"Dropped the Blue Flag! Hold them back!"` | `PER [RED]: «Dropped the Blue Flag! Hold them back!»` |
+| `returned_flag` | `assets/voices/per/returned_flag.mp3` | Per touch-returns Red Flag | `"I secured the Red Flag! Back at base!"` | `PER [RED]: «I secured the Red Flag! Back at base!»` |
+| `flag_auto_returned` | `assets/voices/per/flag_auto_returned.mp3` | Dropped Red Flag auto-returns (15s) | `"Red Flag automatically returned to base!"` | `PER [RED]: «Red Flag automatically returned to base!»` |
+| `captured_flag` | `assets/voices/per/captured_flag.mp3` | Per captures Blue Flag at Red Base | `"Blue Flag delivered to Red Base! Point scored!"` | `PER [RED]: «Blue Flag delivered to Red Base! Point scored!»` |
+| `tackle_hit` | `assets/voices/per/tackle_hit.mp3` | Per tackles a Blue player | `"Sit down! Nobody gets past me!"` | `PER [RED]: «Sit down! Nobody gets past me!»` |
+
+---
+
+## 3. Non-Spoken HUD Readouts & Labels ([`src/ui.rs`](src/ui.rs), [`index.html`](index.html))
+
+| Screen Location | Original Text (Norwegian) | English Text (Active in Game) |
 | :--- | :--- | :--- |
-| **Initial Resource Default** | `«STJEL DET RØDE FLAGGET PÅ ØSTPLATTFORMEN!»` | `«STEAL THE RED FLAG ON THE EAST PLATFORM!»` |
-| **Neutral (Both Flags at Base)** | `«EROBRE RØDT FLAGG PÅ ØSTPLATTFORMEN OG BRING DET TIL BLÅ BASE!»` | `«CAPTURE THE RED FLAG ON THE EAST PLATFORM AND BRING IT TO BLUE BASE!»` |
-| **Blue Carrying Red Flag** | `«{NAME} HAR RØDT FLAGG! FRIGJØR VEIEN TIL BLÅ BASE!»` | `«{NAME} HAS THE RED FLAG! CLEAR THE WAY TO BLUE BASE!»` |
-| **Red Carrying Blue Flag** | `«VÅRT FLAGG ER STJÅLET AV {NAME}! TAKLE DEM!»` | `«OUR FLAG WAS STOLEN BY {NAME}! TACKLE THEM!»` |
-| **Both Flags Stolen (Standoff)** | `«BEGGE FLAGG STJÅLET! {BLUE_NAME} [BLÅ] vs {RED_NAME} [RØD]»` | `«BOTH FLAGS STOLEN! {BLUE_NAME} [BLUE] vs {RED_NAME} [RED]»` |
-
-### B. Timed Gameplay Event Notices (`koth.event_notice`)
-
-| Gameplay Event | Duration | Original Text (Norwegian) | English Translation (Active in Game) |
-| :--- | :--- | :--- | :--- |
-| **Red Player Steals Blue Flag** | `4.0s` | `«VÅRT FLAGG ER STJÅLET AV {NAME}! TAKLE DEM!»` | `«OUR FLAG WAS STOLEN BY {NAME}! TACKLE THEM!»` |
-| **Blue Player Steals Red Flag** | `4.0s` | `«{NAME} TOK DET RØDE FLAGGET! LØP TIL BLÅ BASE!»` | `«{NAME} TOOK THE RED FLAG! RUN TO BLUE BASE!»` |
-| **Carrier Drops Blue Flag (Tackled)** | `3.2s` | `«{NAME} MISTET DET BLÅ FLAGGET! TA DET TILBAKE!»` | `«{NAME} DROPPED THE BLUE FLAG! RECOVER IT!»` |
-| **Carrier Drops Red Flag (Tackled)** | `3.2s` | `«{NAME} MISTET DET RØDE FLAGGET!»` | `«{NAME} DROPPED THE RED FLAG!»` |
-| **Blue Teammate Touch-Returns Blue Flag** | `3.5s` | `«{NAME} RETURNERTE VÅRT BLÅ FLAGG TIL BASEN!»` | `«{NAME} RETURNED OUR BLUE FLAG TO BASE!»` |
-| **Red Teammate Touch-Returns Red Flag** | `3.5s` | `«{NAME} RETURNERTE DET RØDE FLAGGET!»` | `«{NAME} RETURNED THE RED FLAG!»` |
-| **Blue Flag Auto-Returns (15s Timer)** | `3.0s` | `«BLÅTT FLAGG RETURNERT TIL BASEN!»` | `«BLUE FLAG RETURNERT TO BASE!»` / `«BLUE FLAG RETURNED TO BASE!»` |
-| **Red Flag Auto-Returns (15s Timer)** | `3.0s` | `«RØDT FLAGG RETURNERT TIL BASEN!»` | `«RED FLAG RETURNED TO BASE!»` |
-| **Blue Team Captures Red Flag (+1 Pt)** | `4.5s` | `«FLAGG EROBRET AV {NAME}! +1 BLÅTT POENG!»` | `«FLAG CAPTURED BY {NAME}! +1 BLUE POINT!»` |
-| **Red Team Captures Blue Flag (+1 Pt)** | `4.5s` | `«{NAME} EROBRET VÅRT FLAGG! +1 RØDT POENG!»` | `«{NAME} CAPTURED OUR FLAG! +1 RED POINT!»` |
-
-### C. End-of-Match Victory / Defeat Banners
-
-| Match Outcome | Original Text (Norwegian) | English Translation (Active in Game) |
-| :--- | :--- | :--- |
-| **Blue Team Wins (5 Flags or Timer Expiry)** | `«SEIER! BLÅTT LAG VANT CAPTURE THE FLAG!»` | `«VICTORY! BLUE TEAM WON CAPTURE THE FLAG!»` |
-| **Red Team Wins (5 Flags or Timer Expiry)** | `«NEDERLAG! RØDT LAG VANT CAPTURE THE FLAG!»` | `«DEFEAT! RED TEAM WON CAPTURE THE FLAG!»` |
-
----
-
-## 3. Bottom-Left Operator Card & Bottom-Right Tactical Ability HUD ([`src/ui.rs`](src/ui.rs))
-
-| HUD Element | State / Condition | Original Text (Norwegian) | English Translation (Active in Game) |
-| :--- | :--- | :--- | :--- |
-| **Operator Name** | Always visible | `ANDERS` | `ANDERS` |
-| **Health Readout** | Dynamic (`health.current`) | `HP: {hp}` | `HP: {hp}` |
-| **Stamina Readout** | Dynamic (`stamina.current`) | `STAMINA: {stamina}` | `STAMINA: {stamina}` |
-| **Tackle / Net Slot (Ready)** | `cooldown <= 0.0` and `stamina >= 25.0` | `Kastbart nett (x2)` | `Throwable Net (x2)` |
-| **Tackle / Net Slot (Cooldown)** | `cooldown > 0.0` | `Kastbart nett ({cd:.1}s)` | `Throwable Net ({cd:.1}s)` |
-| **Tackle / Net Slot (Low Stamina)** | `cooldown <= 0.0` and `stamina < 25.0` | `Lav stamina for nett` | `Low Stamina for Net` |
-| **Sprint Slot** | Always visible | `Hastighetsboost` | `Speed Boost` |
-
----
-
-## 4. Floating 3D Overhead Character Nametags ([`src/ui.rs`](src/ui.rs) & [`src/types.rs`](src/types.rs))
-
-| Character | Team | Original Overhead Tag (Norwegian) | English Overhead Tag (Active in Game) |
-| :--- | :--- | :--- | :--- |
-| **Anders** (Main Player) | Blue | `ANDERS [BLÅ]` | `ANDERS [BLUE]` |
-| **Morten** (Ally Bot) | Blue | `MORTEN [BLÅ]` | `MORTEN [BLUE]` |
-| **Jonas** (Ally Bot) | Blue | `JONAS [BLÅ]` | `JONAS [BLUE]` |
-| **Siri** (Enemy Bot) | Red | `SIRI [RØD]` | `SIRI [RED]` |
-| **Per** (Enemy Bot) | Red | `PER [RØD]` | `PER [RED]` |
-| **Lisa** (Enemy Bot) | Red | `LISA [RØD]` | `LISA [RED]` |
-
----
-
-## 5. Arena Zone Names ([`src/arena.rs`](src/arena.rs))
-
-| Zone Index | Original Zone Name (Norwegian) | English Zone Name (Active in Game) |
-| :--- | :--- | :--- |
-| **Zone 0** | `Sentralsonen (Ruined Courtyard)` | `Central Zone (Ruined Courtyard)` |
-| **Zone 1** | `Blå Base (Vestplattform)` | `Blue Base (West Platform)` |
-| **Zone 2** | `Rød Base (Østplattform)` | `Red Base (East Platform)` |
-
----
-
-## 6. Bottom Controls Bar ([`index.html`](index.html))
-
-| Element | English Text (Active in Game) |
-| :--- | :--- |
-| **Controls Bar** | `WASD Move • MOUSE / Q, E Steer Camera • TAB / V Camera View • SHIFT Sprint • LMB / F Tackle • M Music` |
+| **Top-Left Score Box** | `BLÅ FLAGG: {score}` | `BLUE FLAG: {score}` |
+| **Top-Center Timer** | `{mins:02}:{secs:02}` | `{mins:02}:{secs:02}` |
+| **Top-Center Subtitle (Neutral)** | `CAPTURE THE FLAG (FØRSTE TIL 5)` | `CAPTURE THE FLAG (FIRST TO 5)` |
+| **Top-Center Subtitle (Delivering)** | `LEVER RØDT FLAGG TIL BLÅ BASE!` | `DELIVER RED FLAG TO BLUE BASE!` |
+| **Top-Center Subtitle (Defending)** | `TAKLE FIENDEN FOR Å REDDE BLÅTT FLAGG!` | `TACKLE THE ENEMY TO SAVE BLUE FLAG!` |
+| **Top-Right Score Box** | `RØD FLAGG: {score}` | `RED FLAG: {score}` |
+| **Bottom-Left Operator Card** | `ANDERS` / `HP: {hp}` / `STAMINA: {stamina}` | `ANDERS` / `HP: {hp}` / `STAMINA: {stamina}` |
+| **Bottom-Right Net Slot (Ready)** | `Kastbart nett (x2)` | `Throwable Net (x2)` |
+| **Bottom-Right Net Slot (Cooldown)** | `Kastbart nett ({cd:.1}s)` | `Throwable Net ({cd:.1}s)` |
+| **Bottom-Right Net Slot (Low Stamina)** | `Lav stamina for nett` | `Low Stamina for Net` |
+| **Bottom-Right Sprint Slot** | `Hastighetsboost` | `Speed Boost` |
+| **3D Overhead Nametag (Default)** | `{NAME} [BLÅ]` / `{NAME} [RØD]` | `{NAME} [BLUE]` / `{NAME} [RED]` |
+| **3D Overhead Nametag (Active Speaker)** | *(New)* | `[SPEAKING] {NAME} [BLUE/RED]` |
+| **Bottom Controls Bar** | *(English)* | `WASD Move • MOUSE / Q, E Steer Camera • TAB / V Camera View • SHIFT Sprint • LMB / F Tackle • M Music` |

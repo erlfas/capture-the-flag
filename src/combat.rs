@@ -1,7 +1,8 @@
 use avian3d::prelude::*;
 use bevy::prelude::*;
 
-use crate::types::{Character, Health, StaggerState, TackleAbility};
+use crate::koth::KothManager;
+use crate::types::{Character, Health, StaggerState, TackleAbility, VoiceCallout};
 
 pub const TACKLE_COOLDOWN: f32 = 1.4;
 pub const TACKLE_STAMINA_COST: f32 = 25.0;
@@ -55,6 +56,7 @@ fn update_health_regen(time: Res<Time>, mut health_query: Query<&mut Health>) {
 }
 
 fn check_tackle_hits(
+    mut koth: ResMut<KothManager>,
     mut tacklers: Query<(Entity, &Transform, &mut TackleAbility, &Character)>,
     mut targets: Query<(
         Entity,
@@ -108,6 +110,27 @@ fn check_tackle_hits(
 
                     if let Some(ref mut health) = maybe_health {
                         health.current = (health.current - 20.0).max(10.0);
+                    }
+
+                    // Trigger character-specific tackle voice callout if no higher-priority flag alert is active
+                    if koth.event_notice.is_none() {
+                        let spoken = match tackler_char.name.to_lowercase().as_str() {
+                            "anders" => "Target neutralized! Stay down!",
+                            "morten" => "Boom! Direct tackle hit!",
+                            "jonas" => "Enemy stopped in their tracks!",
+                            "siri" => "Too slow! Took you down!",
+                            "lisa" => "Caught you in the net!",
+                            "per" => "Sit down! Nobody gets past me!",
+                            _ => "Direct tackle hit!",
+                        };
+                        koth.event_notice = Some(VoiceCallout::new(
+                            tackler_char.name.clone(),
+                            tackler_char.team,
+                            "tackle_hit",
+                            spoken,
+                            tackler_char.team.color(),
+                            2.2,
+                        ));
                     }
 
                     // End the tackle lunge early on impact

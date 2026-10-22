@@ -40,6 +40,7 @@ pub struct OverheadRoot;
 #[derive(Component)]
 pub struct CharacterNametag {
     pub target: Entity,
+    pub label_text: Entity,
     pub hp_bar: Entity,
     pub stamina_bar: Entity,
 }
@@ -468,7 +469,8 @@ fn sync_overhead_nametags(
             Color::srgb(1.0, 0.4, 0.4)
         };
 
-        // Spawn HP fill and Stamina fill entities
+        // Spawn label, HP fill, and Stamina fill entities
+        let mut label_text_ent = Entity::PLACEHOLDER;
         let mut hp_bar_ent = Entity::PLACEHOLDER;
         let mut stamina_bar_ent = Entity::PLACEHOLDER;
 
@@ -490,20 +492,22 @@ fn sync_overhead_nametags(
                 PickingBehavior::IGNORE,
             ))
             .with_children(|parent| {
-                // Nametag Text (e.g. "ANDERS [BLÅ]", "SIRI [RØD]")
-                parent.spawn((
-                    Text::new(format!(
-                        "{} [{}]",
-                        char_info.name.to_uppercase(),
-                        char_info.team.name()
-                    )),
-                    TextFont {
-                        font: ui_font.clone(),
-                        font_size: 12.0,
-                        ..default()
-                    },
-                    TextColor(text_c),
-                ));
+                // Nametag Text (e.g. "ANDERS [BLUE]", "SIRI [RED]")
+                label_text_ent = parent
+                    .spawn((
+                        Text::new(format!(
+                            "{} [{}]",
+                            char_info.name.to_uppercase(),
+                            char_info.team.name()
+                        )),
+                        TextFont {
+                            font: ui_font.clone(),
+                            font_size: 12.0,
+                            ..default()
+                        },
+                        TextColor(text_c),
+                    ))
+                    .id();
 
                 // Mini Health & Stamina Row
                 parent
@@ -573,6 +577,7 @@ fn sync_overhead_nametags(
         commands.entity(root_ent).add_child(tag_entity);
         commands.entity(tag_entity).insert(CharacterNametag {
             target: char_ent,
+            label_text: label_text_ent,
             hp_bar: hp_bar_ent,
             stamina_bar: stamina_bar_ent,
         });
@@ -580,6 +585,7 @@ fn sync_overhead_nametags(
 }
 
 fn update_overhead_nametags(
+    koth: Res<KothManager>,
     camera_query: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
     char_query: Query<(
         Entity,
@@ -589,6 +595,19 @@ fn update_overhead_nametags(
         Option<&Stamina>,
     )>,
     mut tag_query: Query<(Entity, &mut Node, &CharacterNametag)>,
+    mut label_texts: Query<
+        &mut Text,
+        (
+            Without<BlueScoreText>,
+            Without<RedScoreText>,
+            Without<ZoneTimerText>,
+            Without<ZoneStatusText>,
+            Without<TackleCdText>,
+            Without<ZoneNameText>,
+            Without<HpLabelText>,
+            Without<StaminaLabelText>,
+        ),
+    >,
     mut fill_nodes: Query<&mut Node, (Without<CharacterNametag>, Without<HpFillBar>, Without<StaminaFillBar>)>,
     mut commands: Commands,
 ) {
@@ -597,13 +616,37 @@ fn update_overhead_nametags(
     };
 
     for (tag_ent, mut tag_node, tag_data) in tag_query.iter_mut() {
-        let Ok((_char_ent, char_trans, _char_info, maybe_hp, maybe_stam)) =
+        let Ok((_char_ent, char_trans, char_info, maybe_hp, maybe_stam)) =
             char_query.get(tag_data.target)
         else {
             // Despawn orphaned nametag
             commands.entity(tag_ent).despawn_recursive();
             continue;
         };
+
+        // Highlight on overhead nametag when this specific character is currently speaking
+        if let Ok(mut label) = label_texts.get_mut(tag_data.label_text) {
+            let is_speaking = koth
+                .active_speaker
+                .as_ref()
+                .map(|(spk, _)| spk.eq_ignore_ascii_case(&char_info.name))
+                .unwrap_or(false)
+                && koth.event_notice.is_some();
+
+            if is_speaking {
+                **label = format!(
+                    "[SPEAKING] {} [{}]",
+                    char_info.name.to_uppercase(),
+                    char_info.team.name()
+                );
+            } else {
+                **label = format!(
+                    "{} [{}]",
+                    char_info.name.to_uppercase(),
+                    char_info.team.name()
+                );
+            }
+        }
 
         // Position tag ~1.45m above character center
         let head_world = char_trans.translation() + Vec3::new(0.0, 1.45, 0.0);
@@ -788,11 +831,13 @@ fn update_hud(
         if let Some(winner) = koth.winner {
             match winner {
                 Team::Blue => {
-                    **text = "«VICTORY! BLUE TEAM WON CAPTURE THE FLAG!»".to_string();
+                    **text =
+                        "ANDERS [BLUE]: «Victory! Blue Team won Capture the Flag!»".to_string();
                     color.0 = Color::srgb(0.2, 1.0, 0.6);
                 }
                 Team::Red => {
-                    **text = "«DEFEAT! RED TEAM WON CAPTURE THE FLAG!»".to_string();
+                    **text =
+                        "SIRI [RED]: «Victory for Red Team! We own this arena!»".to_string();
                     color.0 = Color::srgb(1.0, 0.2, 0.2);
                 }
             }
