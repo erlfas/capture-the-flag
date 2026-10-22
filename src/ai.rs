@@ -29,10 +29,10 @@ fn spawn_bots(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // 2 Teammates on Team Blue on West Blue Platform (Anders is player, Morten and Jonas are teammates)
+    // 2 Teammates on Team Blue on West Blue Platform (deck at y = 2.53m)
     let blue_bots = [
-        ("Morten", Vec3::new(-21.2, 2.8, -4.2), true),
-        ("Jonas", Vec3::new(-21.2, 2.8, 1.5), false),
+        ("Morten", Vec3::new(-21.5, 3.6, -2.5), true),
+        ("Jonas", Vec3::new(-21.5, 3.6, 5.8), false),
     ];
 
     for (name, spawn_pos, role_attacker) in blue_bots.iter() {
@@ -47,11 +47,11 @@ fn spawn_bots(
         );
     }
 
-    // 3 Opponents on Team Red on East Red Platform (Siri, Lisa, Per)
+    // 3 Opponents on Team Red on East Red Platform (deck at y = 2.53m)
     let red_bots = [
-        ("Siri", Vec3::new(14.5, 2.8, -3.0), true),
-        ("Lisa", Vec3::new(20.2, 2.8, -5.8), true),
-        ("Per", Vec3::new(20.2, 2.8, 0.2), false),
+        ("Siri", Vec3::new(17.5, 3.6, 3.8), true),
+        ("Lisa", Vec3::new(21.0, 3.6, -2.5), true),
+        ("Per", Vec3::new(21.0, 3.6, 5.8), false),
     ];
 
     for (name, spawn_pos, role_attacker) in red_bots.iter() {
@@ -110,36 +110,36 @@ fn spawn_single_bot(
     spawn_character_visuals(commands, bot_entity, meshes, materials, team, name);
 }
 
-/// Guides a bot onto an elevated platform via its ramp/stairs if the bot is on the ground floor
+/// Guides a bot onto an elevated platform via its 3D model ramp/stairs if the bot is on the ground floor
 fn route_via_platform_ramp(my_pos: Vec3, raw_target: Vec3) -> Vec3 {
-    let blue_base = PLATEAU_COORDS[1].2; // (-18.5, 1.8, -1.5)
-    let red_base = PLATEAU_COORDS[2].2; // (17.5, 1.8, -3.0)
+    let blue_base = PLATEAU_COORDS[1].2; // (-20.2, 2.55, 1.8)
+    let red_base = PLATEAU_COORDS[2].2; // (19.5, 2.55, 1.8)
 
-    // If bot is on the courtyard floor (y < 1.35) and wants to reach the West Blue Platform
-    if my_pos.y < 1.35 && raw_target.distance(blue_base) < 6.0 {
-        let side_ramp_entry = Vec3::new(-8.2, 0.2, -4.2);
-        let front_ramp_entry = Vec3::new(-15.5, 0.2, 9.8);
-        let ramp_entry = if my_pos.distance(side_ramp_entry) < my_pos.distance(front_ramp_entry) {
-            side_ramp_entry
+    // If bot is on the courtyard floor (y < 1.8) and wants to reach the West Blue Platform
+    if my_pos.y < 1.8 && raw_target.distance(blue_base) < 7.0 {
+        let upper_ramp_entry = Vec3::new(-9.5, 0.2, -0.5);
+        let lower_ramp_entry = Vec3::new(-9.5, 0.2, 6.5);
+        let ramp_entry = if my_pos.distance(upper_ramp_entry) < my_pos.distance(lower_ramp_entry) {
+            upper_ramp_entry
         } else {
-            front_ramp_entry
+            lower_ramp_entry
         };
-        if Vec2::new(my_pos.x - blue_base.x, my_pos.z - blue_base.z).length() > 7.8 {
+        if my_pos.x > -14.5 {
             return ramp_entry;
         }
     }
 
-    // If bot is on the courtyard floor (y < 1.35) and wants to reach the East Red Platform
-    if my_pos.y < 1.35 && raw_target.distance(red_base) < 6.0 {
-        let west_ramp_entry = Vec3::new(7.2, 0.2, -3.5);
-        let south_stairs_entry = Vec3::new(16.5, 0.2, 7.8);
+    // If bot is on the courtyard floor (y < 1.8) and wants to reach the East Red Platform
+    if my_pos.y < 1.8 && raw_target.distance(red_base) < 7.0 {
+        let west_ramp_entry = Vec3::new(9.5, 0.2, 2.5);
+        let south_stairs_entry = Vec3::new(19.5, 0.2, 15.2);
         let ramp_entry = if my_pos.distance(west_ramp_entry) < my_pos.distance(south_stairs_entry)
         {
             west_ramp_entry
         } else {
             south_stairs_entry
         };
-        if Vec2::new(my_pos.x - red_base.x, my_pos.z - red_base.z).length() > 7.8 {
+        if my_pos.x < 14.2 {
             return ramp_entry;
         }
     }

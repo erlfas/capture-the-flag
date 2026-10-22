@@ -592,23 +592,27 @@ fn update_ctf_flags_and_scoring(
 }
 
 fn update_flag_visual_transforms(
-    mut flags: Query<(&TeamFlag, &mut Transform)>,
+    mut flags: Query<(&TeamFlag, &mut Transform, &mut Visibility)>,
     characters: Query<&Transform, (With<Character>, Without<TeamFlag>)>,
 ) {
-    for (flag, mut flag_transform) in flags.iter_mut() {
+    for (flag, mut flag_transform, mut vis) in flags.iter_mut() {
         match flag.state {
             FlagState::AtBase => {
+                // The 3D battlefield model (.glb) renders the sculpted flagpole at base
+                *vis = Visibility::Hidden;
                 flag_transform.translation = flag.home_pos;
                 flag_transform.rotation = Quat::IDENTITY;
                 flag_transform.scale = Vec3::ONE;
             }
             FlagState::Dropped { pos, .. } => {
+                *vis = Visibility::Inherited;
                 flag_transform.translation = pos;
                 // Slightly tilted flagpole stuck into the ground when dropped
                 flag_transform.rotation = Quat::from_rotation_z(0.22);
                 flag_transform.scale = Vec3::splat(0.85);
             }
             FlagState::CarriedBy(carrier_ent) => {
+                *vis = Visibility::Inherited;
                 if let Ok(char_trans) = characters.get(carrier_ent) {
                     // Attach flagpole to the carrier's back so it waves visibly above them
                     let back_offset = char_trans.rotation * Vec3::new(0.0, -0.1, -0.26);

@@ -468,8 +468,8 @@ fn spawn_player(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut camera_query: Query<&mut OrbitCamera>,
 ) {
-    // Spawn Anders on the West Blue Platform just in front of the Blue Flag pedestal
-    let spawn_pos = Vec3::new(-15.5, 2.8, -1.5);
+    // Spawn Anders on the West Blue Platform deck (y = 2.53m) right beside the Blue Flag
+    let spawn_pos = Vec3::new(-18.2, 3.6, 3.8);
 
     let player_entity = commands
         .spawn((
