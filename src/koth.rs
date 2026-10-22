@@ -100,10 +100,10 @@ fn setup_hologram_beacon(
 ) {
     let (_idx, _, center, _radius) = PLATEAU_COORDS[0];
 
-    // Low-profile glowing ground indicator ring
+    // Subtle low-profile glowing ground indicator ring around the active objective
     let ring_mesh = meshes.add(Torus {
-        minor_radius: 0.08,
-        major_radius: 2.2,
+        minor_radius: 0.04,
+        major_radius: 1.35,
     });
     let holo_mat = materials.add(StandardMaterial {
         base_color: Color::srgba(0.0, 0.9, 1.0, 0.45),

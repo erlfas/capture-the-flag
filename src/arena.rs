@@ -51,62 +51,34 @@ fn setup_arena(
 ) {
     // =========================================================================
     // 1. POST-APOCALYPTIC LIGHTING & ATMOSPHERE
-    //    (Calibrated for assets/models/post_apocalyptic_battlefield.glb, WebGL2-safe)
+    //    (Calibrated to match snapshot_from_3d_model.png in WebGL2)
     // =========================================================================
-    commands.insert_resource(ClearColor(Color::srgb(0.16, 0.17, 0.19)));
+    commands.insert_resource(ClearColor(Color::srgb(0.11, 0.11, 0.13)));
     commands.insert_resource(AmbientLight {
-        color: Color::srgb(0.92, 0.93, 0.96),
-        brightness: 1400.0,
+        color: Color::srgb(0.90, 0.91, 0.94),
+        brightness: 680.0,
     });
 
-    // Warm dusk horizon directional light from the North-West
+    // Warm key directional light from the North-West
     commands.spawn((
         DirectionalLight {
-            illuminance: 26000.0,
+            illuminance: 11500.0,
             shadows_enabled: false,
-            color: Color::srgb(1.0, 0.90, 0.78),
+            color: Color::srgb(1.0, 0.93, 0.86),
             ..default()
         },
         Transform::from_xyz(-15.0, 42.0, -45.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
-    // Cool overcast sky fill from the South-East
+    // Subtle cool sky fill from the South-East
     commands.spawn((
         DirectionalLight {
-            illuminance: 16000.0,
+            illuminance: 6200.0,
             shadows_enabled: false,
             color: Color::srgb(0.76, 0.82, 0.92),
             ..default()
         },
         Transform::from_xyz(20.0, 48.0, 40.0).looking_at(Vec3::ZERO, Vec3::Y),
-    ));
-
-    // Unlit emissive glowing floor pool discs on West Blue & East Red platforms
-    // (WebGL2-safe alternative to PointLights that never triggers clustered forward shader failure)
-    let blue_pool_mat = materials.add(StandardMaterial {
-        base_color: Color::srgba(0.15, 0.72, 1.0, 0.28),
-        emissive: LinearRgba::rgb(0.4, 2.2, 4.0),
-        alpha_mode: AlphaMode::Blend,
-        unlit: true,
-        ..default()
-    });
-    commands.spawn((
-        Mesh3d(meshes.add(Cylinder::new(3.8, 0.03))),
-        MeshMaterial3d(blue_pool_mat),
-        Transform::from_xyz(-20.2, 2.55, 1.8),
-    ));
-
-    let red_pool_mat = materials.add(StandardMaterial {
-        base_color: Color::srgba(1.0, 0.22, 0.14, 0.28),
-        emissive: LinearRgba::rgb(4.0, 0.55, 0.35),
-        alpha_mode: AlphaMode::Blend,
-        unlit: true,
-        ..default()
-    });
-    commands.spawn((
-        Mesh3d(meshes.add(Cylinder::new(3.8, 0.03))),
-        MeshMaterial3d(red_pool_mat),
-        Transform::from_xyz(19.5, 2.55, 1.8),
     ));
 
     // =========================================================================
@@ -122,20 +94,23 @@ fn setup_arena(
     ));
 
     // =========================================================================
-    // 3. PRECISION PHYSICS COLLIDERS ALIGNED TO THE 3D MODEL GEOMETRY
+    // 3. PRECISION INVISIBLE PHYSICS COLLIDERS ALIGNED TO THE 3D MODEL GEOMETRY
+    //    (No visible Mesh3d on any collider so 100% of the 3D model's ground
+    //     textures, trenches, moss, and platforms remain completely uncovered)
     // =========================================================================
-    // Main Courtyard Ground Floor Collider (top at y = 0.0m, with subtle dark fallback base)
-    let base_underlay_mat = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.18, 0.17, 0.16),
-        perceptual_roughness: 0.96,
-        ..default()
-    });
+    // Main Courtyard Ground Floor Collider — aligned to the 3D model's exact
+    // gentle North-to-South courtyard slope (y = +0.88m at z = -10, y = 0.0m at z = 0, y = -0.92m at z = +10)
     commands.spawn((
-        Mesh3d(meshes.add(Cuboid::new(64.0, 1.0, 48.0))),
-        MeshMaterial3d(base_underlay_mat),
-        Transform::from_xyz(0.0, -0.52, 0.0),
+        Transform::from_xyz(0.0, -0.52, 0.0).with_rotation(Quat::from_rotation_x(0.090)),
         RigidBody::Static,
-        Collider::cuboid(64.0, 1.0, 48.0),
+        Collider::cuboid(30.0, 1.0, 36.0),
+    ));
+
+    // Outer Safety Floor Collider well below the deepest trench (top at y = -3.5m)
+    commands.spawn((
+        Transform::from_xyz(0.0, -4.0, 0.0),
+        RigidBody::Static,
+        Collider::cuboid(68.0, 1.0, 52.0),
     ));
 
     // West Blue Platform Deck Collider (x in [-24.8, -15.4], z in [-7.5, 10.2], top at y = 2.53m)
@@ -275,30 +250,30 @@ fn spawn_stormy_sky_ring(
     materials: &mut ResMut<Assets<StandardMaterial>>,
 ) {
     let dark_wasteland_mat = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.18, 0.19, 0.15),
-        perceptual_roughness: 0.98,
+        base_color: Color::srgb(0.11, 0.11, 0.13),
+        unlit: true,
         ..default()
     });
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::new(340.0, 1.0, 340.0))),
         MeshMaterial3d(dark_wasteland_mat),
-        Transform::from_xyz(0.0, -5.65, 0.0),
+        Transform::from_xyz(0.0, -6.5, 0.0),
     ));
 
-    let horizon_amber = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.54, 0.45, 0.32),
+    let horizon_charcoal = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.12, 0.12, 0.14),
         unlit: true,
         cull_mode: None,
         ..default()
     });
     let mid_storm_slate = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.22, 0.24, 0.26),
+        base_color: Color::srgb(0.11, 0.11, 0.13),
         unlit: true,
         cull_mode: None,
         ..default()
     });
     let upper_charcoal_cloud = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.13, 0.14, 0.16),
+        base_color: Color::srgb(0.10, 0.10, 0.12),
         unlit: true,
         cull_mode: None,
         ..default()
@@ -319,7 +294,7 @@ fn spawn_stormy_sky_ring(
 
         commands.spawn((
             Mesh3d(band_low_mesh.clone()),
-            MeshMaterial3d(horizon_amber.clone()),
+            MeshMaterial3d(horizon_charcoal.clone()),
             Transform::from_xyz(sx, 8.0, sz).with_rotation(rot),
         ));
         commands.spawn((
