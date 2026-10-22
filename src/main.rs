@@ -4,6 +4,7 @@ mod camera;
 mod combat;
 mod koth;
 mod player;
+mod terrain_heights;
 mod types;
 mod ui;
 

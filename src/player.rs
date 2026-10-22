@@ -549,10 +549,16 @@ fn handle_player_movement(
     *jump_cooldown = (*jump_cooldown - dt).max(0.0);
 
     // Downward raycast from capsule center (0.95m to soles of boots + 0.12m ground margin = 1.07m)
+    // combined with exact 3D model terrain height check so jumping works on all slopes and stairs
     let filter = SpatialQueryFilter::from_excluded_entities([player_ent]);
+    let terrain_y = crate::terrain_heights::sample_terrain_height(
+        transform.translation.x,
+        transform.translation.z,
+    );
     let is_grounded = spatial_query
         .cast_ray(transform.translation, Dir3::NEG_Y, 1.07, true, &filter)
-        .is_some();
+        .is_some()
+        || transform.translation.y <= terrain_y + 1.02;
 
     // Apply realistic extra downward gravity during descent so jumps aren't floaty
     if !is_grounded && lin_vel.y < 0.0 {

@@ -1,6 +1,10 @@
 use avian3d::prelude::*;
 use bevy::prelude::*;
 
+use crate::terrain_heights::{
+    sample_terrain_height, TERRAIN_HEIGHTS, TERRAIN_NX, TERRAIN_NZ, TERRAIN_STEP, TERRAIN_X_MIN,
+    TERRAIN_Z_MIN,
+};
 use crate::types::{Character, StaggerState};
 
 pub struct ArenaPlugin;
@@ -98,17 +102,37 @@ fn setup_arena(
     //    (No visible Mesh3d on any collider so 100% of the 3D model's ground
     //     textures, trenches, moss, and platforms remain completely uncovered)
     // =========================================================================
-    // Main Courtyard Ground Floor Collider — aligned to the 3D model's exact
-    // gentle North-to-South courtyard slope (y = +0.88m at z = -10, y = 0.0m at z = 0, y = -0.92m at z = +10)
+    // Exact 0.5m-resolution 3D Terrain Trimesh Collider extracted directly from
+    // assets/models/post_apocalyptic_battlefield.glb (121 x 85 grid covering [-30, 30] x [-21, 21])
+    let mut terrain_verts = Vec::with_capacity(TERRAIN_NX * TERRAIN_NZ);
+    for ix in 0..TERRAIN_NX {
+        let x = TERRAIN_X_MIN + (ix as f32) * TERRAIN_STEP;
+        for iz in 0..TERRAIN_NZ {
+            let z = TERRAIN_Z_MIN + (iz as f32) * TERRAIN_STEP;
+            let y = TERRAIN_HEIGHTS[ix * TERRAIN_NZ + iz];
+            terrain_verts.push(Vec3::new(x, y, z));
+        }
+    }
+    let mut terrain_indices = Vec::with_capacity((TERRAIN_NX - 1) * (TERRAIN_NZ - 1) * 2);
+    for ix in 0..(TERRAIN_NX - 1) {
+        for iz in 0..(TERRAIN_NZ - 1) {
+            let i00 = (ix * TERRAIN_NZ + iz) as u32;
+            let i01 = (ix * TERRAIN_NZ + iz + 1) as u32;
+            let i10 = ((ix + 1) * TERRAIN_NZ + iz) as u32;
+            let i11 = ((ix + 1) * TERRAIN_NZ + iz + 1) as u32;
+            terrain_indices.push([i00, i01, i10]);
+            terrain_indices.push([i10, i01, i11]);
+        }
+    }
     commands.spawn((
-        Transform::from_xyz(0.0, -0.52, 0.0).with_rotation(Quat::from_rotation_x(0.090)),
+        Transform::IDENTITY,
         RigidBody::Static,
-        Collider::cuboid(30.0, 1.0, 36.0),
+        Collider::trimesh(terrain_verts, terrain_indices),
     ));
 
-    // Outer Safety Floor Collider well below the deepest trench (top at y = -3.5m)
+    // Outer Safety Floor Collider well below the deepest trench (top at y = -3.8m)
     commands.spawn((
-        Transform::from_xyz(0.0, -4.0, 0.0),
+        Transform::from_xyz(0.0, -4.3, 0.0),
         RigidBody::Static,
         Collider::cuboid(68.0, 1.0, 52.0),
     ));
@@ -326,6 +350,18 @@ fn handle_fallout_respawns(
             lin_vel.0 = Vec3::ZERO;
             ang_vel.0 = Vec3::ZERO;
             stagger.duration = 0.5;
+            continue;
+        }
+
+        // Guarantee characters never clip into the 3D model ground anywhere on the map:
+        // Boots sole is at -0.90m below transform.translation.y (capsule center)
+        let ground_y = sample_terrain_height(transform.translation.x, transform.translation.z);
+        let min_center_y = ground_y + 0.90;
+        if transform.translation.y < min_center_y {
+            transform.translation.y = min_center_y;
+            if lin_vel.y < 0.0 {
+                lin_vel.y = 0.0;
+            }
         }
     }
 }
