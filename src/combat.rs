@@ -60,6 +60,7 @@ fn check_tackle_hits(
         Entity,
         &Transform,
         &mut LinearVelocity,
+        &mut AngularVelocity,
         &mut StaggerState,
         Option<&mut Health>,
         &Character,
@@ -73,8 +74,15 @@ fn check_tackle_hits(
         let forward = tackler_trans.rotation * Vec3::Z;
         let tackler_pos = tackler_trans.translation;
 
-        for (target_ent, target_trans, mut target_vel, mut target_stagger, mut maybe_health, target_char) in
-            targets.iter_mut()
+        for (
+            target_ent,
+            target_trans,
+            mut target_vel,
+            mut target_ang_vel,
+            mut target_stagger,
+            mut maybe_health,
+            target_char,
+        ) in targets.iter_mut()
         {
             if tackler_ent == target_ent || tackler_char.team == target_char.team {
                 continue;
@@ -95,6 +103,7 @@ fn check_tackle_hits(
                     knockback_dir = knockback_dir.normalize_or(Vec3::Z);
 
                     target_vel.0 = knockback_dir * KNOCKBACK_FORCE + Vec3::Y * UPWARD_LIFT;
+                    target_ang_vel.0 = Vec3::ZERO;
                     target_stagger.duration = 0.75;
 
                     if let Some(ref mut health) = maybe_health {

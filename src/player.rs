@@ -2,9 +2,15 @@ use avian3d::prelude::*;
 use bevy::prelude::*;
 
 use crate::camera::OrbitCamera;
-use crate::combat::{TACKLE_COOLDOWN, TACKLE_LUNGE_SPEED, TACKLE_STAMINA_COST};
+use crate::combat::TACKLE_STAMINA_COST;
 use crate::koth::KothManager;
 use crate::types::{Character, Health, StaggerState, Stamina, TackleAbility, Team};
+
+pub const PLAYER_SPEED: f32 = 8.8;
+pub const SPRINT_MULTIPLIER: f32 = 1.55;
+pub const JUMP_IMPULSE: f32 = 5.4;
+pub const TACKLE_IMPULSE: f32 = 19.5;
+pub const TACKLE_COOLDOWN: f32 = 1.35;
 
 #[derive(Component)]
 pub struct Player;
@@ -481,7 +487,10 @@ fn spawn_player(
                 spawn_point: spawn_pos,
             },
             Health::default(),
-            Stamina::default(),
+            Stamina {
+                regen: 28.0,
+                ..default()
+            },
             TackleAbility {
                 max_cooldown: TACKLE_COOLDOWN,
                 ..default()
@@ -489,7 +498,7 @@ fn spawn_player(
             StaggerState::default(),
             RigidBody::Dynamic,
             Collider::capsule(0.35, 1.2),
-            LockedAxes::new().lock_rotation_x().lock_rotation_z(),
+            LockedAxes::ROTATION_LOCKED,
             Friction::new(0.45),
             Restitution::new(0.0),
             LinearVelocity::default(),
@@ -528,6 +537,7 @@ fn handle_player_movement(
             Entity,
             &mut Transform,
             &mut LinearVelocity,
+            &mut AngularVelocity,
             &mut Stamina,
             &mut TackleAbility,
             &StaggerState,
@@ -539,11 +549,14 @@ fn handle_player_movement(
         return;
     };
 
-    let Ok((player_ent, mut transform, mut lin_vel, mut stamina, mut tackle, stagger)) =
+    let Ok((player_ent, mut transform, mut lin_vel, mut ang_vel, mut stamina, mut tackle, stagger)) =
         player_query.get_single_mut()
     else {
         return;
     };
+
+    // Prevent any physics-induced self-spinning
+    ang_vel.0 = Vec3::ZERO;
 
     let dt = time.delta_secs();
     *jump_cooldown = (*jump_cooldown - dt).max(0.0);
@@ -560,9 +573,9 @@ fn handle_player_movement(
         .is_some()
         || transform.translation.y <= terrain_y + 1.02;
 
-    // Apply realistic extra downward gravity during descent so jumps aren't floaty
+    // Apply snappy extra downward gravity during descent so jumps feel athletic and responsive
     if !is_grounded && lin_vel.y < 0.0 {
-        lin_vel.y -= 3.5 * dt;
+        lin_vel.y -= 6.0 * dt;
     }
 
     // Stagger blocks input
@@ -591,25 +604,29 @@ fn handle_player_movement(
     move_input.y = 0.0;
     let move_len = move_input.length();
 
-    // Realistic tactical operator running speeds (m/s)
-    // Normal run: 5.0 m/s (~18 km/h) | Sprint (Hastighetsboost): 7.4 m/s (~26.6 km/h)
+    // Fast, responsive tactical running speeds across the 64m x 48m arena
     let is_carrying_flag = koth
         .blue_carrier
         .as_ref()
         .map(|(e, _)| *e == player_ent)
         .unwrap_or(false);
-    let carry_mult = if is_carrying_flag { 0.88 } else { 1.0 };
+    let carry_mult = if is_carrying_flag { 0.90 } else { 1.0 };
 
     let is_sprinting = keys.pressed(KeyCode::ShiftLeft) && stamina.current > 5.0 && move_len > 0.1;
-    let speed = (if is_sprinting { 7.4 } else { 5.0 }) * carry_mult;
+    let base_speed = if is_sprinting {
+        PLAYER_SPEED * SPRINT_MULTIPLIER
+    } else {
+        PLAYER_SPEED
+    };
+    let speed = base_speed * carry_mult;
 
     if is_sprinting && is_grounded {
-        stamina.current = (stamina.current - 20.0 * dt).max(0.0);
+        stamina.current = (stamina.current - 14.0 * dt).max(0.0);
     }
 
-    // Grounded traction vs realistic mid-air momentum preservation
-    let accel_rate = if is_grounded { 9.0 } else { 2.2 };
-    let decel_rate = if is_grounded { 10.0 } else { 0.6 };
+    // Grounded traction vs mid-air momentum preservation
+    let accel_rate = if is_grounded { 14.0 } else { 3.2 };
+    let decel_rate = if is_grounded { 14.0 } else { 0.8 };
 
     if move_len > 0.05 {
         let desired_vel = move_input.normalize() * speed;
@@ -618,22 +635,22 @@ fn handle_player_movement(
 
         // Turn character towards movement direction around Y axis (visual front is +Z)
         let target_rot = Quat::from_rotation_y(desired_vel.x.atan2(desired_vel.z));
-        transform.rotation = transform.rotation.slerp(target_rot, (14.0 * dt).min(1.0));
+        transform.rotation = transform.rotation.slerp(target_rot, (16.0 * dt).min(1.0));
     } else {
         // Friction dampening on ground; preserve horizontal momentum in air
         lin_vel.x = lin_vel.x.lerp(0.0, (decel_rate * dt).min(1.0));
         lin_vel.z = lin_vel.z.lerp(0.0, (decel_rate * dt).min(1.0));
     }
 
-    // Realistic Jump (only when physically grounded, v0 = 4.2 m/s -> ~0.85m vertical jump height)
+    // Athletic Jump
     if keys.just_pressed(KeyCode::Space)
         && is_grounded
         && *jump_cooldown <= 0.0
         && stamina.current >= 8.0
     {
-        lin_vel.y = 4.2;
+        lin_vel.y = JUMP_IMPULSE;
         stamina.current = (stamina.current - 8.0).max(0.0);
-        *jump_cooldown = 0.45;
+        *jump_cooldown = 0.35;
     }
 
     // Tackle / Kastbart Nett Lunge (LMB or F)
@@ -650,7 +667,10 @@ fn handle_player_movement(
         stamina.current -= TACKLE_STAMINA_COST;
 
         let tackle_dir = transform.rotation * Vec3::Z;
-        lin_vel.0 += tackle_dir * TACKLE_LUNGE_SPEED + Vec3::Y * 1.1;
+        let lunge_vel = tackle_dir * TACKLE_IMPULSE;
+        lin_vel.x = lunge_vel.x;
+        lin_vel.z = lunge_vel.z;
+        lin_vel.y = 1.25;
     }
 }
 
@@ -658,7 +678,8 @@ fn update_stamina(time: Res<Time>, mut stamina_query: Query<&mut Stamina>) {
     let dt = time.delta_secs();
     for mut stamina in stamina_query.iter_mut() {
         if stamina.current < stamina.max {
-            stamina.current = (stamina.current + stamina.regen * dt).min(stamina.max);
+            let regen_rate = stamina.regen.max(28.0);
+            stamina.current = (stamina.current + regen_rate * dt).min(stamina.max);
         }
     }
 }

@@ -7,6 +7,9 @@ use crate::koth::KothManager;
 use crate::player::spawn_character_visuals;
 use crate::types::{Character, Health, StaggerState, Stamina, TackleAbility, Team};
 
+pub const BOT_BASE_SPEED: f32 = 8.2;
+pub const BOT_SPRINT_MULTIPLIER: f32 = 1.48;
+
 #[allow(dead_code)]
 #[derive(Component)]
 pub struct Bot {
@@ -90,7 +93,10 @@ fn spawn_single_bot(
                 spawn_point: spawn_pos,
             },
             Health::default(),
-            Stamina::default(),
+            Stamina {
+                regen: 28.0,
+                ..default()
+            },
             TackleAbility {
                 max_cooldown: TACKLE_COOLDOWN,
                 ..default()
@@ -98,7 +104,7 @@ fn spawn_single_bot(
             StaggerState::default(),
             RigidBody::Dynamic,
             Collider::capsule(0.35, 1.2),
-            LockedAxes::new().lock_rotation_x().lock_rotation_z(),
+            LockedAxes::ROTATION_LOCKED,
             Friction::new(0.45),
             Restitution::new(0.0),
             LinearVelocity::default(),
@@ -157,6 +163,7 @@ fn update_bot_behaviors(
                 Entity,
                 &mut Transform,
                 &mut LinearVelocity,
+                &mut AngularVelocity,
                 &mut TackleAbility,
                 &mut Stamina,
                 &StaggerState,
@@ -181,6 +188,7 @@ fn update_bot_behaviors(
         bot_ent,
         mut transform,
         mut lin_vel,
+        mut ang_vel,
         mut tackle,
         mut stamina,
         stagger,
@@ -188,9 +196,12 @@ fn update_bot_behaviors(
         mut bot_data,
     ) in queries.p1().iter_mut()
     {
-        // Apply realistic extra downward gravity when falling
+        // Prevent any physics-induced self-spinning
+        ang_vel.0 = Vec3::ZERO;
+
+        // Apply snappy extra downward gravity when falling
         if lin_vel.y < -0.2 {
-            lin_vel.y -= 3.5 * dt;
+            lin_vel.y -= 6.0 * dt;
         }
 
         if stagger.duration > 0.0 || koth.winner.is_some() {
@@ -240,13 +251,13 @@ fn update_bot_behaviors(
             }
         }
 
-        // 1. If enemy is in tackle range (< 2.3m) and we are not carrying the flag, tackle them!
+        // 1. If enemy is in tackle range (< 2.6m) and we are not carrying the flag, tackle them!
         if !am_carrying
-            && nearest_enemy_dist < 2.3
+            && nearest_enemy_dist < 2.6
             && tackle.cooldown <= 0.0
             && stamina.current >= TACKLE_STAMINA_COST
             && bot_data.reaction_cooldown <= 0.0
-            && lin_vel.y.abs() < 0.5
+            && lin_vel.y.abs() < 0.8
         {
             let mut to_enemy = nearest_enemy_pos - my_pos;
             to_enemy.y = 0.0;
@@ -255,11 +266,12 @@ fn update_bot_behaviors(
 
             tackle.is_tackling = true;
             tackle.tackle_timer = 0.28;
-            tackle.cooldown = TACKLE_COOLDOWN + 0.5;
+            tackle.cooldown = TACKLE_COOLDOWN;
             stamina.current -= TACKLE_STAMINA_COST;
-            bot_data.reaction_cooldown = 0.6;
+            bot_data.reaction_cooldown = 0.25;
 
-            lin_vel.0 += to_enemy * TACKLE_LUNGE_SPEED + Vec3::Y * 1.1;
+            let lunge_speed = TACKLE_LUNGE_SPEED.max(16.5);
+            lin_vel.0 = to_enemy * lunge_speed + Vec3::Y * 1.2;
             continue;
         }
 
@@ -310,28 +322,35 @@ fn update_bot_behaviors(
 
         if dist_to_target > 0.65 {
             let dir = move_dir.normalize();
-            // Realistic bot running speed (4.5 m/s normal, 4.1 m/s when carrying flag)
-            let bot_speed = if am_carrying { 4.1 } else { 4.55 };
+            let wants_sprint =
+                stamina.current > 18.0 && (dist_to_target > 7.0 || nearest_enemy_dist < 9.0);
+            let carry_mult = if am_carrying { 0.90 } else { 1.0 };
+            let bot_speed = if wants_sprint {
+                stamina.current = (stamina.current - 12.0 * dt).max(0.0);
+                BOT_BASE_SPEED * BOT_SPRINT_MULTIPLIER * carry_mult
+            } else {
+                BOT_BASE_SPEED * carry_mult
+            };
             let desired_vel = dir * bot_speed;
 
-            lin_vel.x = lin_vel.x.lerp(desired_vel.x, (7.5 * dt).min(1.0));
-            lin_vel.z = lin_vel.z.lerp(desired_vel.z, (7.5 * dt).min(1.0));
+            lin_vel.x = lin_vel.x.lerp(desired_vel.x, (11.5 * dt).min(1.0));
+            lin_vel.z = lin_vel.z.lerp(desired_vel.z, (11.5 * dt).min(1.0));
 
             let target_rot = Quat::from_rotation_y(desired_vel.x.atan2(desired_vel.z));
-            transform.rotation = transform.rotation.slerp(target_rot, (11.0 * dt).min(1.0));
+            transform.rotation = transform.rotation.slerp(target_rot, (14.0 * dt).min(1.0));
 
-            // Realistic hop if blocked by a low obstacle
+            // Athletic hop if blocked by a low obstacle
             if lin_vel.y.abs() < 0.15
-                && Vec2::new(lin_vel.x, lin_vel.z).length() < 1.1
+                && Vec2::new(lin_vel.x, lin_vel.z).length() < 1.5
                 && dist_to_target > 2.5
                 && bot_data.reaction_cooldown <= 0.0
             {
-                lin_vel.y = 4.1;
-                bot_data.reaction_cooldown = 0.9;
+                lin_vel.y = 5.4;
+                bot_data.reaction_cooldown = 0.45;
             }
         } else {
-            lin_vel.x = lin_vel.x.lerp(0.0, (8.0 * dt).min(1.0));
-            lin_vel.z = lin_vel.z.lerp(0.0, (8.0 * dt).min(1.0));
+            lin_vel.x = lin_vel.x.lerp(0.0, (12.0 * dt).min(1.0));
+            lin_vel.z = lin_vel.z.lerp(0.0, (12.0 * dt).min(1.0));
         }
     }
 }

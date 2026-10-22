@@ -345,10 +345,12 @@ fn handle_fallout_respawns(
 ) {
     for (mut transform, mut lin_vel, mut ang_vel, mut stagger, char_info) in characters.iter_mut()
     {
+        // Always prevent any physics-induced angular velocity from spinning characters
+        ang_vel.0 = Vec3::ZERO;
+
         if transform.translation.y < -10.0 {
             transform.translation = char_info.spawn_point;
             lin_vel.0 = Vec3::ZERO;
-            ang_vel.0 = Vec3::ZERO;
             stagger.duration = 0.5;
             continue;
         }
