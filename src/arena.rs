@@ -51,20 +51,20 @@ fn setup_arena(
 ) {
     // =========================================================================
     // 1. POST-APOCALYPTIC LIGHTING & ATMOSPHERE
-    //    (Calibrated for assets/models/post_apocalyptic_battlefield.glb)
+    //    (Calibrated for assets/models/post_apocalyptic_battlefield.glb, WebGL2-safe)
     // =========================================================================
     commands.insert_resource(ClearColor(Color::srgb(0.16, 0.17, 0.19)));
     commands.insert_resource(AmbientLight {
-        color: Color::srgb(0.85, 0.86, 0.90),
-        brightness: 1100.0,
+        color: Color::srgb(0.92, 0.93, 0.96),
+        brightness: 1400.0,
     });
 
     // Warm dusk horizon directional light from the North-West
     commands.spawn((
         DirectionalLight {
-            illuminance: 24000.0,
+            illuminance: 26000.0,
             shadows_enabled: false,
-            color: Color::srgb(1.0, 0.88, 0.72),
+            color: Color::srgb(1.0, 0.90, 0.78),
             ..default()
         },
         Transform::from_xyz(-15.0, 42.0, -45.0).looking_at(Vec3::ZERO, Vec3::Y),
@@ -73,71 +73,41 @@ fn setup_arena(
     // Cool overcast sky fill from the South-East
     commands.spawn((
         DirectionalLight {
-            illuminance: 14000.0,
+            illuminance: 16000.0,
             shadows_enabled: false,
-            color: Color::srgb(0.68, 0.76, 0.88),
+            color: Color::srgb(0.76, 0.82, 0.92),
             ..default()
         },
         Transform::from_xyz(20.0, 48.0, 40.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
-    // Vivid Blue PointLight pools on the West Blue Platform (-20.2, 2.55, 1.8)
+    // Unlit emissive glowing floor pool discs on West Blue & East Red platforms
+    // (WebGL2-safe alternative to PointLights that never triggers clustered forward shader failure)
+    let blue_pool_mat = materials.add(StandardMaterial {
+        base_color: Color::srgba(0.15, 0.72, 1.0, 0.28),
+        emissive: LinearRgba::rgb(0.4, 2.2, 4.0),
+        alpha_mode: AlphaMode::Blend,
+        unlit: true,
+        ..default()
+    });
     commands.spawn((
-        PointLight {
-            color: Color::srgb(0.15, 0.72, 1.0),
-            intensity: 2_200_000.0,
-            range: 24.0,
-            shadows_enabled: false,
-            ..default()
-        },
-        Transform::from_xyz(-20.2, 5.2, 1.8),
-    ));
-    commands.spawn((
-        PointLight {
-            color: Color::srgb(0.25, 0.82, 1.0),
-            intensity: 1_200_000.0,
-            range: 18.0,
-            shadows_enabled: false,
-            ..default()
-        },
-        Transform::from_xyz(-20.2, 11.4, 1.8),
+        Mesh3d(meshes.add(Cylinder::new(3.8, 0.03))),
+        MeshMaterial3d(blue_pool_mat),
+        Transform::from_xyz(-20.2, 2.55, 1.8),
     ));
 
-    // Vivid Red PointLight pools on the East Red Platform (19.5, 2.55, 1.8)
+    let red_pool_mat = materials.add(StandardMaterial {
+        base_color: Color::srgba(1.0, 0.22, 0.14, 0.28),
+        emissive: LinearRgba::rgb(4.0, 0.55, 0.35),
+        alpha_mode: AlphaMode::Blend,
+        unlit: true,
+        ..default()
+    });
     commands.spawn((
-        PointLight {
-            color: Color::srgb(1.0, 0.22, 0.14),
-            intensity: 2_200_000.0,
-            range: 24.0,
-            shadows_enabled: false,
-            ..default()
-        },
-        Transform::from_xyz(19.5, 5.2, 1.8),
+        Mesh3d(meshes.add(Cylinder::new(3.8, 0.03))),
+        MeshMaterial3d(red_pool_mat),
+        Transform::from_xyz(19.5, 2.55, 1.8),
     ));
-    commands.spawn((
-        PointLight {
-            color: Color::srgb(1.0, 0.32, 0.18),
-            intensity: 1_200_000.0,
-            range: 18.0,
-            shadows_enabled: false,
-            ..default()
-        },
-        Transform::from_xyz(19.5, 11.4, 1.8),
-    ));
-
-    // Watchtower Searchlight PointLights (North-West at (-16.5, 9.5, -7.8) & North-East at (16.8, 9.5, -7.8))
-    for wx in [-14.0, 14.0] {
-        commands.spawn((
-            PointLight {
-                color: Color::srgb(1.0, 0.95, 0.78),
-                intensity: 1_100_000.0,
-                range: 22.0,
-                shadows_enabled: false,
-                ..default()
-            },
-            Transform::from_xyz(wx, 8.5, -7.8),
-        ));
-    }
 
     // =========================================================================
     // 2. SPAWN THE 3D BATTLEFIELD MODEL (post_apocalyptic_battlefield.glb)
@@ -154,9 +124,16 @@ fn setup_arena(
     // =========================================================================
     // 3. PRECISION PHYSICS COLLIDERS ALIGNED TO THE 3D MODEL GEOMETRY
     // =========================================================================
-    // Main Courtyard Ground Floor Collider (top at y = 0.0m)
+    // Main Courtyard Ground Floor Collider (top at y = 0.0m, with subtle dark fallback base)
+    let base_underlay_mat = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.18, 0.17, 0.16),
+        perceptual_roughness: 0.96,
+        ..default()
+    });
     commands.spawn((
-        Transform::from_xyz(0.0, -0.5, 0.0),
+        Mesh3d(meshes.add(Cuboid::new(64.0, 1.0, 48.0))),
+        MeshMaterial3d(base_underlay_mat),
+        Transform::from_xyz(0.0, -0.52, 0.0),
         RigidBody::Static,
         Collider::cuboid(64.0, 1.0, 48.0),
     ));

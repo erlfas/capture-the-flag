@@ -200,11 +200,6 @@ fn spawn_single_ctf_flag(
     home_pos: Vec3,
     dir_sign: f32,
 ) {
-    let light_color = match team {
-        Team::Blue => Color::srgb(0.18, 0.72, 1.0),
-        Team::Red => Color::srgb(1.0, 0.22, 0.14),
-    };
-
     commands
         .spawn((
             Transform::from_translation(home_pos),
@@ -224,20 +219,9 @@ fn spawn_single_ctf_flag(
             ));
             // Glowing beacon bulb at the top of the flagpole (matching art/scene/post_apocalyptic_scene.jpg)
             parent.spawn((
-                Mesh3d(meshes.add(Sphere::new(0.18))),
+                Mesh3d(meshes.add(Sphere::new(0.22))),
                 MeshMaterial3d(finial_mat.clone()),
                 Transform::from_xyz(0.0, 4.65, 0.0),
-            ));
-            // Dynamic PointLight on the flag so it glows on the pedestal and while carried!
-            parent.spawn((
-                PointLight {
-                    color: light_color,
-                    intensity: 650_000.0,
-                    range: 14.0,
-                    shadows_enabled: false,
-                    ..default()
-                },
-                Transform::from_xyz(0.0, 4.2, 0.0),
             ));
             // Tattered post-apocalyptic cloth banner (main body + ragged tail strips)
             parent.spawn((
