@@ -1,4 +1,7 @@
+use std::time::Duration;
+
 use avian3d::prelude::*;
+use bevy::pbr::{NotShadowCaster, NotShadowReceiver};
 use bevy::prelude::*;
 
 use crate::camera::OrbitCamera;
@@ -15,12 +18,33 @@ pub const TACKLE_COOLDOWN: f32 = 1.35;
 #[derive(Component)]
 pub struct Player;
 
+#[derive(Resource)]
+pub struct MainPlayerAnimations {
+    pub graph: Handle<AnimationGraph>,
+    pub idle_node: AnimationNodeIndex,
+    pub run_node: AnimationNodeIndex,
+}
+
+#[derive(Component)]
+pub struct MainPlayerAnimState {
+    pub is_running: bool,
+}
+
+#[derive(Component)]
+pub struct MainPlayerMeshConfigured;
+
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_player)
-            .add_systems(Update, (handle_player_movement, update_stamina));
+        app.add_systems(Startup, spawn_player).add_systems(
+            Update,
+            (
+                handle_player_movement,
+                update_stamina,
+                update_main_player_animation_and_materials,
+            ),
+        );
     }
 }
 
@@ -470,10 +494,25 @@ pub fn spawn_character_visuals(
 
 fn spawn_player(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut graphs: ResMut<Assets<AnimationGraph>>,
     mut camera_query: Query<&mut OrbitCamera>,
 ) {
+    // Load the embedded Idle (Animation 0) and Walk/Run (Animation 1) clips from main_player.glb
+    let idle_clip =
+        asset_server.load(GltfAssetLabel::Animation(0).from_asset("models/main_player.glb"));
+    let run_clip =
+        asset_server.load(GltfAssetLabel::Animation(1).from_asset("models/main_player.glb"));
+    let (graph, node_indices) = AnimationGraph::from_clips([idle_clip, run_clip]);
+    let graph_handle = graphs.add(graph);
+    commands.insert_resource(MainPlayerAnimations {
+        graph: graph_handle,
+        idle_node: node_indices[0],
+        run_node: node_indices[1],
+    });
+
     // Spawn Anders on the West Blue Platform deck (y = 2.53m) right beside the Blue Flag
     let spawn_pos = Vec3::new(-18.2, 3.6, 3.8);
 
@@ -503,20 +542,39 @@ fn spawn_player(
             Restitution::new(0.0),
             LinearVelocity::default(),
             AngularVelocity::default(),
+            Visibility::default(),
             Transform::from_translation(spawn_pos)
                 .with_rotation(Quat::from_rotation_y(std::f32::consts::FRAC_PI_2)),
         ))
         .id();
 
-    // Attach humanoid visuals matching Anders reference art
-    spawn_character_visuals(
-        &mut commands,
-        player_entity,
-        &mut meshes,
-        &mut materials,
-        Team::Blue,
-        "Anders",
-    );
+    // Team underfoot selection ring + Rigged 3D GLB Character Model (`models/main_player.glb`)
+    // Local GLB bounds: y in [0.000, 1.000], facing +Z (forward along movement axis).
+    // Scaling by 1.88 normalizes character height to 1.88m; y = -0.90m places feet on ground plane.
+    let ring_mat = materials.add(StandardMaterial {
+        base_color: Team::Blue.color(),
+        emissive: Team::Blue.emissive(),
+        unlit: true,
+        ..default()
+    });
+
+    commands.entity(player_entity).with_children(|builder| {
+        builder.spawn((
+            Mesh3d(meshes.add(Torus {
+                minor_radius: 0.035,
+                major_radius: 0.72,
+            })),
+            MeshMaterial3d(ring_mat),
+            Transform::from_xyz(0.0, -0.90, 0.0),
+        ));
+
+        builder.spawn((
+            SceneRoot(
+                asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/main_player.glb")),
+            ),
+            Transform::from_xyz(0.0, -0.90, 0.0).with_scale(Vec3::splat(1.88)),
+        ));
+    });
 
     // Link orbit camera to follow player
     if let Ok(mut cam) = camera_query.get_single_mut() {
@@ -703,6 +761,90 @@ fn update_stamina(time: Res<Time>, mut stamina_query: Query<&mut Stamina>) {
         if stamina.current < stamina.max {
             let regen_rate = stamina.regen.max(28.0);
             stamina.current = (stamina.current + regen_rate * dt).min(stamina.max);
+        }
+    }
+}
+
+fn update_main_player_animation_and_materials(
+    mut commands: Commands,
+    anims: Option<Res<MainPlayerAnimations>>,
+    player_query: Query<(Entity, &LinearVelocity), With<Player>>,
+    children_query: Query<&Children>,
+    unconfigured_meshes: Query<Entity, (With<Mesh3d>, Without<MainPlayerMeshConfigured>)>,
+    mut anim_players: Query<(
+        Entity,
+        &mut AnimationPlayer,
+        Option<&mut AnimationTransitions>,
+        Option<&mut MainPlayerAnimState>,
+    )>,
+) {
+    let Some(anims) = anims else {
+        return;
+    };
+    let Ok((player_entity, lin_vel)) = player_query.get_single() else {
+        return;
+    };
+
+    let horiz_speed = Vec2::new(lin_vel.x, lin_vel.z).length();
+    let should_run = horiz_speed > 0.55;
+
+    for descendant in children_query.iter_descendants(player_entity) {
+        // 1. Shadow & Material Pass: ensure castShadow = true and receiveShadow = true across all child meshes
+        // while retaining the embedded PBR material from main_player.glb.
+        if unconfigured_meshes.get(descendant).is_ok() {
+            commands
+                .entity(descendant)
+                .remove::<NotShadowCaster>()
+                .remove::<NotShadowReceiver>()
+                .insert(MainPlayerMeshConfigured);
+        }
+
+        // 2. Rigging & Animation Mixer State Machine:
+        // Initialize AnimationGraph + AnimationTransitions on the GLB's AnimationPlayer,
+        // and crossfade smoothly between Idle and Walk/Run based on WASD horizontal velocity.
+        if let Ok((anim_entity, mut anim_player, transitions_opt, state_opt)) =
+            anim_players.get_mut(descendant)
+        {
+            match (transitions_opt, state_opt) {
+                (Some(mut transitions), Some(mut state)) => {
+                    if should_run != state.is_running {
+                        state.is_running = should_run;
+                        let target_node = if should_run {
+                            anims.run_node
+                        } else {
+                            anims.idle_node
+                        };
+                        transitions
+                            .play(&mut anim_player, target_node, Duration::from_millis(180))
+                            .repeat();
+                    }
+
+                    if should_run {
+                        if let Some(active_anim) = anim_player.animation_mut(anims.run_node) {
+                            let speed_scale = (horiz_speed / 8.5).clamp(0.75, 1.65);
+                            active_anim.set_speed(speed_scale);
+                        }
+                    }
+                }
+                _ => {
+                    let mut transitions = AnimationTransitions::new();
+                    let initial_node = if should_run {
+                        anims.run_node
+                    } else {
+                        anims.idle_node
+                    };
+                    transitions
+                        .play(&mut anim_player, initial_node, Duration::ZERO)
+                        .repeat();
+                    commands.entity(anim_entity).insert((
+                        AnimationGraphHandle(anims.graph.clone()),
+                        transitions,
+                        MainPlayerAnimState {
+                            is_running: should_run,
+                        },
+                    ));
+                }
+            }
         }
     }
 }
