@@ -9,7 +9,11 @@ mod types;
 mod ui;
 
 use avian3d::prelude::*;
+use bevy::audio::{PlaybackMode, Volume};
 use bevy::prelude::*;
+
+#[derive(Component)]
+pub struct BackgroundMusic;
 
 fn main() {
     #[cfg(target_arch = "wasm32")]
@@ -47,14 +51,37 @@ fn main() {
             ui::UiPlugin,
         ))
         .add_systems(Startup, setup_scene)
+        .add_systems(Update, toggle_background_music)
         .run();
 }
 
-fn setup_scene(mut commands: Commands) {
+fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Spawn 3rd-person Orbit Follow Camera
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.0, 8.0, 35.0).looking_at(Vec3::new(0.0, 2.0, 0.0), Vec3::Y),
         camera::OrbitCamera::default(),
     ));
+
+    // Spawn looping background soundtrack ("Breach at Sector Nine")
+    commands.spawn((
+        BackgroundMusic,
+        AudioPlayer::new(asset_server.load("music/Breach_at_Sector_Nine.mp3")),
+        PlaybackSettings {
+            mode: PlaybackMode::Loop,
+            volume: Volume::new(0.55),
+            ..default()
+        },
+    ));
+}
+
+fn toggle_background_music(
+    keys: Res<ButtonInput<KeyCode>>,
+    music_query: Query<&AudioSink, With<BackgroundMusic>>,
+) {
+    if keys.just_pressed(KeyCode::KeyM) {
+        for sink in music_query.iter() {
+            sink.toggle();
+        }
+    }
 }
