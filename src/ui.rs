@@ -116,7 +116,7 @@ fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ))
                             .with_children(|blue_box| {
                                 blue_box.spawn((
-                                    Text::new("BLÅ FLAGG: 1"),
+                                    Text::new("BLUE FLAG: 1"),
                                     TextFont {
                                         font: ui_font.clone(),
                                         font_size: 22.0,
@@ -151,7 +151,7 @@ fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     ZoneTimerText,
                                 ));
                                 center_box.spawn((
-                                    Text::new("SONE ALPHA"),
+                                    Text::new("ZONE ALPHA"),
                                     TextFont {
                                         font: ui_font.clone(),
                                         font_size: 11.0,
@@ -175,7 +175,7 @@ fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ))
                             .with_children(|red_box| {
                                 red_box.spawn((
-                                    Text::new("RØD FLAGG: 0"),
+                                    Text::new("RED FLAG: 0"),
                                     TextFont {
                                         font: ui_font.clone(),
                                         font_size: 22.0,
@@ -187,9 +187,9 @@ fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
                             });
                     });
 
-                // PROMINENT DYNAMIC WARNING ALERT (Matching «VÅRT FLAGG ER STJÅLET!»)
+                // PROMINENT DYNAMIC WARNING ALERT (Matching «OUR FLAG IS STOLEN!»)
                 top_section.spawn((
-                    Text::new("«VÅRT FLAGG ER STJÅLET!»"),
+                    Text::new("«OUR FLAG IS STOLEN!»"),
                     TextFont {
                         font: ui_font.clone(),
                         font_size: 24.0,
@@ -380,7 +380,7 @@ fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     ImageNode::new(asset_server.load("ui/icon_net.png")),
                                 ));
                                 box_node.spawn((
-                                    Text::new("Kastbart nett (x2)"),
+                                    Text::new("Throwable Net (x2)"),
                                     TextFont {
                                         font: ui_font.clone(),
                                         font_size: 11.0,
@@ -391,7 +391,7 @@ fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ));
                             });
 
-                        // Hastighetsboost / Sprint Ability
+                        // Speed Boost / Sprint Ability
                         actions
                             .spawn((
                                 Node {
@@ -418,7 +418,7 @@ fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     ImageNode::new(asset_server.load("ui/icon_boost.png")),
                                 ));
                                 box_node.spawn((
-                                    Text::new("Hastighetsboost"),
+                                    Text::new("Speed Boost"),
                                     TextFont {
                                         font: ui_font.clone(),
                                         font_size: 11.0,
@@ -756,10 +756,10 @@ fn update_hud(
 ) {
     // 1. Top Match Banner Scores
     if let Ok(mut text) = blue_text.get_single_mut() {
-        **text = format!("BLÅ FLAGG: {:.0}", koth.blue_score);
+        **text = format!("BLUE FLAG: {:.0}", koth.blue_score);
     }
     if let Ok(mut text) = red_text.get_single_mut() {
-        **text = format!("RØD FLAGG: {:.0}", koth.red_score);
+        **text = format!("RED FLAG: {:.0}", koth.red_score);
     }
 
     // 2. Top Match Timer (Formatted MM:SS matching 07:42)
@@ -772,11 +772,11 @@ fn update_hud(
     // Active CTF Objective Subtitle
     if let Ok(mut text) = name_text.get_single_mut() {
         if koth.blue_carrier.is_some() {
-            **text = "LEVER RØDT FLAGG TIL BLÅ BASE!".to_string();
+            **text = "DELIVER RED FLAG TO BLUE BASE!".to_string();
         } else if !koth.blue_flag_at_base {
-            **text = "TAKLE FIENDEN FOR Å REDDE BLÅTT FLAGG!".to_string();
+            **text = "TACKLE THE ENEMY TO SAVE BLUE FLAG!".to_string();
         } else {
-            **text = "CAPTURE THE FLAG (FØRSTE TIL 5)".to_string();
+            **text = "CAPTURE THE FLAG (FIRST TO 5)".to_string();
         }
     }
 
@@ -788,11 +788,11 @@ fn update_hud(
         if let Some(winner) = koth.winner {
             match winner {
                 Team::Blue => {
-                    **text = "«SEIER! BLÅTT LAG VANT CAPTURE THE FLAG!»".to_string();
+                    **text = "«VICTORY! BLUE TEAM WON CAPTURE THE FLAG!»".to_string();
                     color.0 = Color::srgb(0.2, 1.0, 0.6);
                 }
                 Team::Red => {
-                    **text = "«NEDERLAG! RØDT LAG VANT CAPTURE THE FLAG!»".to_string();
+                    **text = "«DEFEAT! RED TEAM WON CAPTURE THE FLAG!»".to_string();
                     color.0 = Color::srgb(1.0, 0.2, 0.2);
                 }
             }
@@ -819,16 +819,16 @@ fn update_hud(
             bar_node.width = Val::Percent(pct);
         }
 
-        // Bottom-Right Kastbart Nett Action Indicator
+        // Bottom-Right Throwable Net Action Indicator
         if let Ok((mut text, mut color)) = tackle_text.get_single_mut() {
             if tackle.cooldown > 0.0 {
-                **text = format!("Kastbart nett ({:.1}s)", tackle.cooldown);
+                **text = format!("Throwable Net ({:.1}s)", tackle.cooldown);
                 color.0 = Color::srgb(0.7, 0.7, 0.7);
             } else if stamina.current < 25.0 {
-                **text = "Lav stamina for nett".to_string();
+                **text = "Low Stamina for Net".to_string();
                 color.0 = Color::srgb(1.0, 0.5, 0.3);
             } else {
-                **text = "Kastbart nett (x2)".to_string();
+                **text = "Throwable Net (x2)".to_string();
                 color.0 = Color::srgb(0.9, 0.95, 1.0);
             }
         }

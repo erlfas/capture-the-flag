@@ -9,8 +9,8 @@ pub enum Team {
 impl Team {
     pub fn name(&self) -> &'static str {
         match self {
-            Team::Blue => "BLÅ",
-            Team::Red => "RØD",
+            Team::Blue => "BLUE",
+            Team::Red => "RED",
         }
     }
 

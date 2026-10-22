@@ -55,11 +55,11 @@ impl Default for KothManager {
     fn default() -> Self {
         Self {
             match_timer: INITIAL_MATCH_TIME,
-            blue_score: 1.0, // Matches initial "Blå Flagg: 1" from art
-            red_score: 0.0,  // Matches initial "Rød Flagg: 0" from art
+            blue_score: 1.0, // Matches initial "Blue Flag: 1" from art
+            red_score: 0.0,  // Matches initial "Red Flag: 0" from art
             contest_state: ZoneContestState::Neutral,
             winner: None,
-            status_banner: "«STJEL DET RØDE FLAGGET PÅ ØSTPLATTFORMEN!»".to_string(),
+            status_banner: "«STEAL THE RED FLAG ON THE EAST PLATFORM!»".to_string(),
             status_color: Color::srgb(0.3, 0.9, 1.0),
             event_notice: None,
             blue_carrier: None,
@@ -333,11 +333,11 @@ fn update_ctf_flags_and_scoring(
                             };
                             let msg = match flag.team {
                                 Team::Blue => format!(
-                                    "«{} MISTET DET BLÅ FLAGGET! TA DET TILBAKE!»",
+                                    "«{} DROPPED THE BLUE FLAG! RECOVER IT!»",
                                     carrier_name.to_uppercase()
                                 ),
                                 Team::Red => format!(
-                                    "«{} MISTET DET RØDE FLAGGET!»",
+                                    "«{} DROPPED THE RED FLAG!»",
                                     carrier_name.to_uppercase()
                                 ),
                             };
@@ -367,7 +367,7 @@ fn update_ctf_flags_and_scoring(
                                 koth.blue_score += 1.0;
                                 koth.event_notice = Some((
                                     format!(
-                                        "«FLAGG EROBRET AV {}! +1 BLÅTT POENG!»",
+                                        "«FLAG CAPTURED BY {}! +1 BLUE POINT!»",
                                         carrier_name.to_uppercase()
                                     ),
                                     Color::srgb(0.2, 1.0, 0.5),
@@ -381,7 +381,7 @@ fn update_ctf_flags_and_scoring(
                                 koth.red_score += 1.0;
                                 koth.event_notice = Some((
                                     format!(
-                                        "«{} EROBRET VÅRT FLAGG! +1 RØDT POENG!»",
+                                        "«{} CAPTURED OUR FLAG! +1 RED POINT!»",
                                         carrier_name.to_uppercase()
                                     ),
                                     Color::srgb(1.0, 0.25, 0.25),
@@ -422,8 +422,8 @@ fn update_ctf_flags_and_scoring(
                 if return_timer <= 0.0 {
                     flag.state = FlagState::AtBase;
                     let msg = match flag.team {
-                        Team::Blue => "«BLÅTT FLAGG RETURNERT TIL BASEN!»".to_string(),
-                        Team::Red => "«RØDT FLAGG RETURNERT TIL BASEN!»".to_string(),
+                        Team::Blue => "«BLUE FLAG RETURNED TO BASE!»".to_string(),
+                        Team::Red => "«RED FLAG RETURNED TO BASE!»".to_string(),
                     };
                     koth.event_notice = Some((msg, Color::srgb(0.4, 0.85, 1.0), 3.0));
                     continue;
@@ -448,11 +448,11 @@ fn update_ctf_flags_and_scoring(
                             new_state = FlagState::AtBase;
                             let msg = match flag.team {
                                 Team::Blue => format!(
-                                    "«{} RETURNERTE VÅRT BLÅ FLAGG TIL BASEN!»",
+                                    "«{} RETURNED OUR BLUE FLAG TO BASE!»",
                                     c_name.to_uppercase()
                                 ),
                                 Team::Red => format!(
-                                    "«{} RETURNERTE DET RØDE FLAGGET!»",
+                                    "«{} RETURNED THE RED FLAG!»",
                                     c_name.to_uppercase()
                                 ),
                             };
@@ -487,7 +487,7 @@ fn update_ctf_flags_and_scoring(
                                 red_carrier_info = Some((*ent, c_name.clone()));
                                 koth.event_notice = Some((
                                     format!(
-                                        "«VÅRT FLAGG ER STJÅLET AV {}! TAKLE DEM!»",
+                                        "«OUR FLAG WAS STOLEN BY {}! TACKLE THEM!»",
                                         c_name.to_uppercase()
                                     ),
                                     Color::srgb(1.0, 0.22, 0.22),
@@ -498,7 +498,7 @@ fn update_ctf_flags_and_scoring(
                                 blue_carrier_info = Some((*ent, c_name.clone()));
                                 koth.event_notice = Some((
                                     format!(
-                                        "«{} TOK DET RØDE FLAGGET! LØP TIL BLÅ BASE!»",
+                                        "«{} TOOK THE RED FLAG! RUN TO BLUE BASE!»",
                                         c_name.to_uppercase()
                                     ),
                                     Color::srgb(0.2, 0.95, 0.55),
@@ -548,7 +548,7 @@ fn update_ctf_flags_and_scoring(
     {
         koth.contest_state = ZoneContestState::Contested;
         koth.status_banner = format!(
-            "«BEGGE FLAGG STJÅLET! {} [BLÅ] vs {} [RØD]»",
+            "«BOTH FLAGS STOLEN! {} [BLUE] vs {} [RED]»",
             b_name.to_uppercase(),
             r_name.to_uppercase()
         );
@@ -556,21 +556,21 @@ fn update_ctf_flags_and_scoring(
     } else if let Some((_, r_name)) = &red_carrier_info {
         koth.contest_state = ZoneContestState::RedControlling;
         koth.status_banner = format!(
-            "«VÅRT FLAGG ER STJÅLET AV {}! TAKLE DEM!»",
+            "«OUR FLAG WAS STOLEN BY {}! TACKLE THEM!»",
             r_name.to_uppercase()
         );
         koth.status_color = Color::srgb(1.0, 0.22, 0.22);
     } else if let Some((_, b_name)) = &blue_carrier_info {
         koth.contest_state = ZoneContestState::BlueControlling;
         koth.status_banner = format!(
-            "«{} HAR RØDT FLAGG! FRIGJØR VEIEN TIL BLÅ BASE!»",
+            "«{} HAS THE RED FLAG! CLEAR THE WAY TO BLUE BASE!»",
             b_name.to_uppercase()
         );
         koth.status_color = Color::srgb(0.2, 0.95, 0.45);
     } else {
         koth.contest_state = ZoneContestState::Neutral;
         koth.status_banner =
-            "«EROBRE RØDT FLAGG PÅ ØSTPLATTFORMEN OG BRING DET TIL BLÅ BASE!»".to_string();
+            "«CAPTURE THE RED FLAG ON THE EAST PLATFORM AND BRING IT TO BLUE BASE!»".to_string();
         koth.status_color = Color::srgb(0.75, 0.88, 1.0);
     }
 }

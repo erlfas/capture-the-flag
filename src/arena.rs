@@ -67,19 +67,19 @@ pub struct Plateau {
 pub const PLATEAU_COORDS: [(usize, &str, Vec3, f32); 3] = [
     (
         0,
-        "Sentralsonen (Ruined Courtyard)",
+        "Central Zone (Ruined Courtyard)",
         Vec3::new(0.0, 0.1, 0.0),
         5.2,
     ),
     (
         1,
-        "Blå Base (Vestplattform)",
+        "Blue Base (West Platform)",
         Vec3::new(-20.2, 2.55, 1.8),
         4.6,
     ),
     (
         2,
-        "Rød Base (Østplattform)",
+        "Red Base (East Platform)",
         Vec3::new(19.5, 2.55, 1.8),
         4.6,
     ),
