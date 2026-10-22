@@ -12,8 +12,8 @@ use crate::types::{Character, Health, StaggerState, Stamina, TackleAbility, Team
 pub const PLAYER_SPEED: f32 = 8.8;
 pub const SPRINT_MULTIPLIER: f32 = 1.55;
 pub const JUMP_IMPULSE: f32 = 5.4;
-pub const TACKLE_IMPULSE: f32 = 19.5;
-pub const TACKLE_COOLDOWN: f32 = 1.35;
+pub const TACKLE_IMPULSE: f32 = 21.5;
+pub const TACKLE_COOLDOWN: f32 = 1.15;
 
 #[derive(Component)]
 pub struct Player;
@@ -589,6 +589,7 @@ fn handle_player_movement(
     koth: Res<KothManager>,
     spatial_query: SpatialQuery,
     camera_query: Query<&OrbitCamera>,
+    enemies_query: Query<(&Transform, &Character), Without<Player>>,
     mut jump_cooldown: Local<f32>,
     mut player_query: Query<
         (
@@ -682,6 +683,74 @@ fn handle_player_movement(
         stamina.current = (stamina.current - 14.0 * dt).max(0.0);
     }
 
+    // Shove / Tackle Lunge Trigger (LMB or F) with magnetic target assist
+    let tackle_pressed =
+        mouse_buttons.just_pressed(MouseButton::Left) || keys.just_pressed(KeyCode::KeyF);
+    if tackle_pressed && tackle.cooldown <= 0.0 && stamina.current >= TACKLE_STAMINA_COST {
+        tackle.is_tackling = true;
+        tackle.tackle_timer = 0.34;
+        tackle.cooldown = TACKLE_COOLDOWN;
+        stamina.current -= TACKLE_STAMINA_COST;
+
+        // Base shove direction: WASD input direction if moving, otherwise character facing direction
+        let base_aim = if move_len > 0.05 {
+            move_input.normalize()
+        } else {
+            (transform.rotation * Vec3::Z).normalize_or(forward_dir)
+        };
+
+        // Target magnetism: snap toward the closest Red opponent within 7.5m in front cone
+        let mut best_dir = base_aim;
+        let mut best_score = f32::MAX;
+        for (enemy_trans, enemy_char) in enemies_query.iter() {
+            if enemy_char.team == Team::Blue {
+                continue;
+            }
+            let delta = enemy_trans.translation - transform.translation;
+            let horiz = Vec3::new(delta.x, 0.0, delta.z);
+            let dist = horiz.length();
+            if dist > 0.1 && dist < 7.5 && delta.y.abs() < 2.5 {
+                let dir_to_enemy = horiz / dist;
+                let align = base_aim.dot(dir_to_enemy).max(forward_dir.dot(dir_to_enemy));
+                if align > 0.15 {
+                    let score = dist - align * 2.5;
+                    if score < best_score {
+                        best_score = score;
+                        best_dir = dir_to_enemy;
+                    }
+                }
+            }
+        }
+
+        transform.rotation = Quat::from_rotation_y(best_dir.x.atan2(best_dir.z));
+        let lunge_vel = best_dir * TACKLE_IMPULSE;
+        lin_vel.x = lunge_vel.x;
+        lin_vel.z = lunge_vel.z;
+        if is_grounded && lin_vel.y < 1.6 {
+            lin_vel.y = 1.6;
+        }
+    }
+
+    // Sustain high-speed forward drive during an active shove/tackle lunge
+    if tackle.is_tackling {
+        let lunge_dir = (transform.rotation * Vec3::Z).normalize_or(forward_dir);
+        let sustain_speed = TACKLE_IMPULSE * 0.90;
+        lin_vel.x = lunge_dir.x * sustain_speed;
+        lin_vel.z = lunge_dir.z * sustain_speed;
+
+        if is_grounded {
+            let ahead_y = crate::terrain_heights::sample_terrain_height(
+                transform.translation.x + lunge_dir.x * 0.55,
+                transform.translation.z + lunge_dir.z * 0.55,
+            );
+            let dh = ahead_y - terrain_y;
+            if dh > 0.01 && dh < 1.25 {
+                lin_vel.y = lin_vel.y.max((sustain_speed * (dh / 0.55)).clamp(0.0, 13.5));
+            }
+        }
+        return;
+    }
+
     // Grounded traction vs mid-air momentum preservation
     let accel_rate = if is_grounded { 14.0 } else { 3.2 };
     let decel_rate = if is_grounded { 14.0 } else { 0.8 };
@@ -732,26 +801,6 @@ fn handle_player_movement(
         lin_vel.y = JUMP_IMPULSE;
         stamina.current = (stamina.current - 8.0).max(0.0);
         *jump_cooldown = 0.35;
-    }
-
-    // Tackle / Kastbart Nett Lunge (LMB or F)
-    let tackle_pressed =
-        mouse_buttons.just_pressed(MouseButton::Left) || keys.just_pressed(KeyCode::KeyF);
-    if tackle_pressed
-        && is_grounded
-        && tackle.cooldown <= 0.0
-        && stamina.current >= TACKLE_STAMINA_COST
-    {
-        tackle.is_tackling = true;
-        tackle.tackle_timer = 0.28;
-        tackle.cooldown = TACKLE_COOLDOWN;
-        stamina.current -= TACKLE_STAMINA_COST;
-
-        let tackle_dir = transform.rotation * Vec3::Z;
-        let lunge_vel = tackle_dir * TACKLE_IMPULSE;
-        lin_vel.x = lunge_vel.x;
-        lin_vel.z = lunge_vel.z;
-        lin_vel.y = 1.25;
     }
 }
 
