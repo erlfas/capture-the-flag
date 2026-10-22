@@ -137,8 +137,8 @@ fn setup_arena(
         Collider::cuboid(68.0, 1.0, 52.0),
     ));
 
-    // Plateau Objective Markers (all ground, platform, ramp, and staircase collision
-    // is handled seamlessly by the 0.5m-resolution 3D Terrain Trimesh Collider above)
+    // Plateau Objective Markers (all ground, platform, ramp, staircase, shipping container,
+    // and sandbag collision is handled seamlessly by the 0.5m-resolution 3D Terrain Trimesh Collider above)
     for (idx, name, center, radius) in PLATEAU_COORDS {
         commands.spawn((
             Transform::from_translation(center),
@@ -148,49 +148,6 @@ fn setup_arena(
                 center,
                 radius,
             },
-        ));
-    }
-
-    // Shipping Containers in the Upper Courtyard (matching 3D model)
-    // Left-North Olive Container
-    commands.spawn((
-        Transform::from_xyz(-9.5, 1.9, -10.8).with_rotation(Quat::from_rotation_y(0.72)),
-        RigidBody::Static,
-        Collider::cuboid(7.6, 3.8, 3.1),
-    ));
-    // Right-North Rust Container
-    commands.spawn((
-        Transform::from_xyz(3.8, 1.9, -10.2).with_rotation(Quat::from_rotation_y(-0.22)),
-        RigidBody::Static,
-        Collider::cuboid(7.6, 3.8, 3.1),
-    ));
-
-    // Central Sandbag Walls & Concrete Jersey Barriers (matching 3D model)
-    for (cx, cz, cw, cd, cyaw) in [
-        (-4.2, -6.2, 4.2, 1.6, 0.08),
-        (-6.8, -1.0, 1.2, 5.8, 0.05),
-        (6.2, -1.0, 1.2, 6.2, 0.12),
-        (-5.6, 8.0, 1.6, 5.2, -0.32),
-        (4.8, 7.2, 4.4, 1.6, 0.05),
-        (7.2, 9.5, 1.4, 4.8, 0.10),
-    ] {
-        commands.spawn((
-            Transform::from_xyz(cx, 0.65, cz).with_rotation(Quat::from_rotation_y(cyaw)),
-            RigidBody::Static,
-            Collider::cuboid(cw, 1.3, cd),
-        ));
-    }
-
-    // Wrecked Vehicles (matching 3D model)
-    for (vx, vz, vw, vd, vyaw) in [
-        (-10.5, 16.2, 5.2, 2.4, -0.22),
-        (12.2, 16.2, 5.8, 2.4, 0.08),
-        (11.8, -13.2, 4.0, 2.1, 0.35),
-    ] {
-        commands.spawn((
-            Transform::from_xyz(vx, 0.85, vz).with_rotation(Quat::from_rotation_y(vyaw)),
-            RigidBody::Static,
-            Collider::cuboid(vw, 1.7, vd),
         ));
     }
 
