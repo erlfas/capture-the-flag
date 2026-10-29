@@ -36,6 +36,7 @@ pub struct TeamFlag {
 
 #[derive(Resource)]
 pub struct KothManager {
+    pub match_started: bool,
     pub match_timer: f32,
     pub blue_score: f32,
     pub red_score: f32,
@@ -56,24 +57,17 @@ pub struct KothManager {
 impl Default for KothManager {
     fn default() -> Self {
         Self {
+            match_started: false,
             match_timer: INITIAL_MATCH_TIME,
             blue_score: 1.0, // Matches initial "Blue Flag: 1" from art
             red_score: 0.0,  // Matches initial "Red Flag: 0" from art
             contest_state: ZoneContestState::Neutral,
             winner: None,
             status_banner:
-                "ANDERS [BLUE]: «Capture the Red Flag on the East Platform and bring it to Blue Base!»"
-                    .to_string(),
+                "DELTA SECTOR COMPOUND — STAND BY FOR MATCH COMMENCEMENT...".to_string(),
             status_color: Color::srgb(0.3, 0.9, 1.0),
-            active_speaker: Some(("Anders".to_string(), Team::Blue)),
-            event_notice: Some(VoiceCallout::new(
-                "Anders",
-                Team::Blue,
-                "match_start",
-                "Capture the Red Flag on the East Platform and bring it to Blue Base!",
-                Color::srgb(0.3, 0.9, 1.0),
-                5.0,
-            )),
+            active_speaker: None,
+            event_notice: None,
             blue_carrier: None,
             red_carrier: None,
             blue_flag_world_pos: PLATEAU_COORDS[1].2,
@@ -96,6 +90,7 @@ impl Plugin for KothPlugin {
             .add_systems(
                 Update,
                 (
+                    check_match_start,
                     update_ctf_flags_and_scoring,
                     update_flag_visual_transforms,
                     update_hologram_visuals,
@@ -103,6 +98,25 @@ impl Plugin for KothPlugin {
                 )
                     .chain(),
             );
+    }
+}
+
+fn check_match_start(mut koth: ResMut<KothManager>) {
+    if !koth.match_started && crate::types::is_match_started() {
+        koth.match_started = true;
+        koth.status_banner =
+            "ANDERS [BLUE]: «Capture the Red Flag on the East Platform and bring it to Blue Base!»"
+                .to_string();
+        koth.status_color = Color::srgb(0.3, 0.9, 1.0);
+        koth.active_speaker = Some(("Anders".to_string(), Team::Blue));
+        koth.event_notice = Some(VoiceCallout::new(
+            "Anders",
+            Team::Blue,
+            "match_start",
+            "Capture the Red Flag on the East Platform and bring it to Blue Base!",
+            Color::srgb(0.3, 0.9, 1.0),
+            5.0,
+        ));
     }
 }
 
@@ -264,6 +278,10 @@ fn update_ctf_flags_and_scoring(
     mut flags: Query<&mut TeamFlag>,
     characters: Query<(Entity, &Transform, &Character, &StaggerState)>,
 ) {
+    if !koth.match_started {
+        return;
+    }
+
     let dt = time.delta_secs();
 
     // 1. Match countdown timer

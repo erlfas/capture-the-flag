@@ -1,5 +1,22 @@
 use bevy::prelude::*;
 
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen::prelude::wasm_bindgen(inline_js = "export function is_match_started_js() { return typeof window !== 'undefined' && window.__GAME_MATCH_BEGUN === true; }")]
+extern "C" {
+    fn is_match_started_js() -> bool;
+}
+
+pub fn is_match_started() -> bool {
+    #[cfg(target_arch = "wasm32")]
+    {
+        is_match_started_js()
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        true
+    }
+}
+
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
 pub enum Team {
     Blue,

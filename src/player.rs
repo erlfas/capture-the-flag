@@ -618,6 +618,12 @@ fn handle_player_movement(
     // Prevent any physics-induced self-spinning
     ang_vel.0 = Vec3::ZERO;
 
+    if !koth.match_started {
+        lin_vel.x = 0.0;
+        lin_vel.z = 0.0;
+        return;
+    }
+
     let dt = time.delta_secs();
     *jump_cooldown = (*jump_cooldown - dt).max(0.0);
 

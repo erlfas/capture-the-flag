@@ -45,45 +45,255 @@
             letter-spacing: 1px;
             pointer-events: none;
             z-index: 100;
+            opacity: 0;
+            transition: opacity 0.5s ease-in;
+        }
+        #instructions.active {
+            opacity: 1;
         }
         #instructions span {
             color: #00f0ff;
             font-weight: 600;
         }
+
+        /* Intro Video Cinematic Overlay */
+        #intro-overlay {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: #000;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 1;
+            transition: opacity 0.7s ease-out, visibility 0.7s ease-out;
+            cursor: pointer;
+        }
+        #intro-overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+        #intro-video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #000;
+        }
+        #skip-btn {
+            position: absolute;
+            bottom: 24px;
+            right: 28px;
+            background: rgba(6, 12, 22, 0.85);
+            color: #00f0ff;
+            border: 1px solid rgba(0, 240, 255, 0.45);
+            border-radius: 6px;
+            padding: 9px 20px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            cursor: pointer;
+            box-shadow: 0 0 16px rgba(0, 240, 255, 0.25);
+            transition: all 0.2s ease;
+            z-index: 10001;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        #skip-btn:hover {
+            background: rgba(0, 240, 255, 0.22);
+            border-color: #00f0ff;
+            box-shadow: 0 0 24px rgba(0, 240, 255, 0.6);
+            transform: translateY(-1px);
+        }
+        #skip-btn:active {
+            transform: translateY(0);
+        }
+        #intro-play-prompt {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(6, 12, 22, 0.94);
+            border: 2px solid #00f0ff;
+            border-radius: 8px;
+            padding: 16px 32px;
+            color: #00f0ff;
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            cursor: pointer;
+            box-shadow: 0 0 30px rgba(0, 240, 255, 0.5);
+            z-index: 10002;
+            display: none;
+            animation: pulse-glow 1.8s infinite;
+        }
+        @keyframes pulse-glow {
+            0%, 100% {
+                box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+                border-color: rgba(0, 240, 255, 0.8);
+            }
+            50% {
+                box-shadow: 0 0 40px rgba(0, 240, 255, 0.85);
+                border-color: #00f0ff;
+            }
+        }
     </style>
     <link rel="rust" data-trunk href="Cargo.toml" data-wasm-opt="s" data-bin="cyber_coliseum_koth"/>
+    <link rel="copy-dir" data-trunk href="video"/>
     <link rel="copy-dir" data-trunk href="assets"/>
     <script>
-        // Automatically resume WebAudio AudioContext on first user interaction (WASD / click)
+        // Global match state flag for both JS and WebAssembly
+        window.__GAME_MATCH_BEGUN = false;
+
+        // Automatically resume WebAudio AudioContext on user interaction
+        const audioContexts = [];
         (function () {
-            const contexts = [];
             const OrigAudioContext = window.AudioContext || window.webkitAudioContext;
             if (OrigAudioContext) {
                 const WrappedAudioContext = function (...args) {
                     const ctx = new OrigAudioContext(...args);
-                    contexts.push(ctx);
+                    audioContexts.push(ctx);
                     return ctx;
                 };
                 WrappedAudioContext.prototype = OrigAudioContext.prototype;
                 window.AudioContext = WrappedAudioContext;
             }
-            const resumeAll = () => {
-                for (const ctx of contexts) {
-                    if (ctx.state === "suspended") {
-                        ctx.resume().catch(() => {});
+        })();
+
+        function resumeAudioContexts() {
+            for (const ctx of audioContexts) {
+                if (ctx.state === "suspended") {
+                    ctx.resume().catch(() => {});
+                }
+            }
+        }
+
+        window.addEventListener("keydown", resumeAudioContexts, { passive: true });
+        window.addEventListener("pointerdown", resumeAudioContexts, { passive: true });
+        window.addEventListener("mousedown", resumeAudioContexts, { passive: true });
+
+        function startMatch() {
+            if (window.__GAME_MATCH_BEGUN) return;
+            window.__GAME_MATCH_BEGUN = true;
+
+            const overlay = document.getElementById("intro-overlay");
+            const video = document.getElementById("intro-video");
+            const instructions = document.getElementById("instructions");
+
+            if (video) {
+                video.pause();
+            }
+
+            if (overlay) {
+                overlay.classList.add("hidden");
+                setTimeout(() => {
+                    overlay.style.display = "none";
+                }, 750);
+            }
+
+            if (instructions) {
+                instructions.classList.add("active");
+            }
+
+            resumeAudioContexts();
+        }
+
+        window.addEventListener("DOMContentLoaded", () => {
+            const video = document.getElementById("intro-video");
+            const overlay = document.getElementById("intro-overlay");
+            const skipBtn = document.getElementById("skip-btn");
+            const playPrompt = document.getElementById("intro-play-prompt");
+
+            if (!video) {
+                startMatch();
+                return;
+            }
+
+            // Video naturally ended -> match begins!
+            video.addEventListener("ended", () => {
+                startMatch();
+            });
+
+            // Fallback on video error so game is never blocked
+            video.addEventListener("error", (e) => {
+                console.warn("Intro video playback notice, starting match:", e);
+                startMatch();
+            });
+
+            // Skip button click
+            if (skipBtn) {
+                skipBtn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    startMatch();
+                });
+            }
+
+            // Keyboard shortcut (Space, Escape, Enter) to skip intro
+            window.addEventListener("keydown", (e) => {
+                if (!window.__GAME_MATCH_BEGUN) {
+                    if (e.code === "Space" || e.code === "Escape" || e.code === "Enter") {
+                        e.preventDefault();
+                        startMatch();
                     }
                 }
+            });
+
+            // Attempt autoplay
+            const tryPlay = () => {
+                resumeAudioContexts();
+                const playPromise = video.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        if (playPrompt) playPrompt.style.display = "none";
+                    }).catch((err) => {
+                        console.log("Autoplay requires user gesture:", err);
+                        if (playPrompt) playPrompt.style.display = "block";
+                    });
+                }
             };
-            window.addEventListener("keydown", resumeAll, { passive: true });
-            window.addEventListener("pointerdown", resumeAll, { passive: true });
-            window.addEventListener("mousedown", resumeAll, { passive: true });
-        })();
+
+            if (playPrompt) {
+                playPrompt.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    tryPlay();
+                    playPrompt.style.display = "none";
+                });
+            }
+
+            if (overlay) {
+                overlay.addEventListener("click", () => {
+                    if (!window.__GAME_MATCH_BEGUN && video.paused) {
+                        tryPlay();
+                        if (playPrompt) playPrompt.style.display = "none";
+                    }
+                });
+            }
+
+            tryPlay();
+        });
     </script>
 </head>
 <body>
     <canvas id="bevy"></canvas>
     <div id="instructions">
         <span>WASD</span> Move &bull; <span>MOUSE / Q, E</span> Steer Camera &bull; <span>TAB / V</span> Camera View &bull; <span>SHIFT</span> Sprint &bull; <span>LMB / F</span> Tackle &bull; <span>M</span> Music
+    </div>
+    <div id="intro-overlay">
+        <video id="intro-video" playsinline preload="auto">
+            <source src="video/intro.mp4" type="video/mp4"/>
+            <source src="assets/video/intro.mp4" type="video/mp4"/>
+        </video>
+        <button id="skip-btn" title="Skip intro video (Space or Esc)">
+            SKIP INTRO <span style="font-size: 13px;">⏭</span>
+        </button>
+        <div id="intro-play-prompt">
+            ▶ CLICK ANYWHERE TO START INTRO
+        </div>
     </div>
 </body>
 </html>

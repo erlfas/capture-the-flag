@@ -51,7 +51,10 @@ fn main() {
             ui::UiPlugin,
         ))
         .add_systems(Startup, setup_scene)
-        .add_systems(Update, toggle_background_music)
+        .add_systems(
+            Update,
+            (toggle_background_music, handle_background_music_match_start),
+        )
         .run();
 }
 
@@ -63,16 +66,30 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
         camera::OrbitCamera::default(),
     ));
 
-    // Spawn looping background soundtrack ("Breach at Sector Nine")
+    // Spawn looping background soundtrack ("Breach at Sector Nine"), paused until match begins
     commands.spawn((
         BackgroundMusic,
         AudioPlayer::new(asset_server.load("music/Breach_at_Sector_Nine.mp3")),
         PlaybackSettings {
             mode: PlaybackMode::Loop,
             volume: Volume::new(0.55),
+            paused: true,
             ..default()
         },
     ));
+}
+
+fn handle_background_music_match_start(
+    koth: Res<koth::KothManager>,
+    mut started: Local<bool>,
+    music_query: Query<&AudioSink, With<BackgroundMusic>>,
+) {
+    if koth.match_started && !*started {
+        for sink in music_query.iter() {
+            sink.play();
+            *started = true;
+        }
+    }
 }
 
 fn toggle_background_music(

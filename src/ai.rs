@@ -183,6 +183,15 @@ fn update_bot_behaviors(
     let blue_base = PLATEAU_COORDS[1].2;
     let red_base = PLATEAU_COORDS[2].2;
 
+    if !koth.match_started {
+        for (_, _, mut lin_vel, mut ang_vel, _, _, _, _, _) in queries.p1().iter_mut() {
+            lin_vel.x = 0.0;
+            lin_vel.z = 0.0;
+            ang_vel.0 = Vec3::ZERO;
+        }
+        return;
+    }
+
     let char_snapshots: Vec<(Entity, Vec3, Team)> = queries
         .p0()
         .iter()

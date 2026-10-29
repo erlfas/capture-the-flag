@@ -88,6 +88,10 @@ fn check_tackle_hits(
         &Character,
     )>,
 ) {
+    if !koth.match_started {
+        return;
+    }
+
     // 1. Collect active tacklers / shovers this frame
     let active_tacklers: Vec<(Entity, Vec3, Vec3, Vec3, Character)> = characters
         .iter()
@@ -256,6 +260,7 @@ fn check_tackle_hits(
 /// Momentum-based continuous body-to-body pushing / shoulder-checking when characters collide
 fn handle_body_pushing(
     time: Res<Time>,
+    koth: Res<KothManager>,
     mut characters: Query<(
         Entity,
         &Transform,
@@ -265,6 +270,10 @@ fn handle_body_pushing(
         &Character,
     )>,
 ) {
+    if !koth.match_started {
+        return;
+    }
+
     let dt = time.delta_secs();
     let snapshots: Vec<(Entity, Vec3, Vec3, Team, bool)> = characters
         .iter()
