@@ -1,3 +1,4 @@
+use bevy::audio::Volume;
 use bevy::prelude::*;
 
 use crate::arena::PLATEAU_COORDS;
@@ -65,7 +66,14 @@ impl Default for KothManager {
                     .to_string(),
             status_color: Color::srgb(0.3, 0.9, 1.0),
             active_speaker: Some(("Anders".to_string(), Team::Blue)),
-            event_notice: None,
+            event_notice: Some(VoiceCallout::new(
+                "Anders",
+                Team::Blue,
+                "match_start",
+                "Capture the Red Flag on the East Platform and bring it to Blue Base!",
+                Color::srgb(0.3, 0.9, 1.0),
+                5.0,
+            )),
             blue_carrier: None,
             red_carrier: None,
             blue_flag_world_pos: PLATEAU_COORDS[1].2,
@@ -91,6 +99,7 @@ impl Plugin for KothPlugin {
                     update_ctf_flags_and_scoring,
                     update_flag_visual_transforms,
                     update_hologram_visuals,
+                    play_voice_callout_audio,
                 )
                     .chain(),
             );
@@ -263,8 +272,24 @@ fn update_ctf_flags_and_scoring(
         if koth.match_timer <= 0.0 {
             if koth.blue_score >= koth.red_score {
                 koth.winner = Some(Team::Blue);
+                koth.event_notice = Some(VoiceCallout::new(
+                    "Anders",
+                    Team::Blue,
+                    "victory",
+                    "Victory! Blue Team won Capture the Flag!",
+                    Color::srgb(0.2, 0.95, 0.55),
+                    8.0,
+                ));
             } else {
                 koth.winner = Some(Team::Red);
+                koth.event_notice = Some(VoiceCallout::new(
+                    "Siri",
+                    Team::Red,
+                    "victory",
+                    "Victory for Red Team! We own this arena!",
+                    Color::srgb(1.0, 0.25, 0.25),
+                    8.0,
+                ));
             }
         }
     }
@@ -393,6 +418,14 @@ fn update_ctf_flags_and_scoring(
                                 ));
                                 if koth.blue_score >= WIN_SCORE {
                                     koth.winner = Some(Team::Blue);
+                                    koth.event_notice = Some(VoiceCallout::new(
+                                        "Anders",
+                                        Team::Blue,
+                                        "victory",
+                                        "Victory! Blue Team won Capture the Flag!",
+                                        Color::srgb(0.2, 0.95, 0.55),
+                                        8.0,
+                                    ));
                                 }
                             }
                             Team::Red => {
@@ -413,6 +446,14 @@ fn update_ctf_flags_and_scoring(
                                 ));
                                 if koth.red_score >= WIN_SCORE {
                                     koth.winner = Some(Team::Red);
+                                    koth.event_notice = Some(VoiceCallout::new(
+                                        "Siri",
+                                        Team::Red,
+                                        "victory",
+                                        "Victory for Red Team! We own this arena!",
+                                        Color::srgb(1.0, 0.25, 0.25),
+                                        8.0,
+                                    ));
                                 }
                             }
                         }
@@ -708,6 +749,24 @@ fn update_hologram_visuals(
                 mat.base_color = Color::srgba(1.0, 0.3, 0.2, 0.45);
                 mat.emissive = LinearRgba::new(4.5, 0.8, 0.4, 1.0);
             }
+        }
+    }
+}
+
+/// Plays the corresponding audio file for active character voice callouts
+fn play_voice_callout_audio(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut koth: ResMut<KothManager>,
+) {
+    if let Some(ref mut callout) = koth.event_notice {
+        if !callout.played_audio {
+            callout.played_audio = true;
+            let sound_path = callout.audio_asset_path();
+            commands.spawn((
+                AudioPlayer::new(asset_server.load(sound_path)),
+                PlaybackSettings::DESPAWN.with_volume(Volume::new(1.0)),
+            ));
         }
     }
 }

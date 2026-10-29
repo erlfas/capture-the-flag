@@ -96,6 +96,7 @@ pub struct VoiceCallout {
     pub spoken_text: String,
     pub color: Color,
     pub timer: f32,
+    pub played_audio: bool,
 }
 
 impl VoiceCallout {
@@ -114,6 +115,7 @@ impl VoiceCallout {
             spoken_text: spoken_text.into(),
             color,
             timer,
+            played_audio: false,
         }
     }
 

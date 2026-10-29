@@ -9,10 +9,16 @@ use crate::types::{Character, StaggerState};
 
 pub struct ArenaPlugin;
 
+pub const PLAYABLE_MIN_X: f32 = -24.2;
+pub const PLAYABLE_MAX_X: f32 = 23.6;
+pub const PLAYABLE_MIN_Z: f32 = -16.2;
+pub const PLAYABLE_MAX_Z: f32 = 18.0;
+
 impl Plugin for ArenaPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup_arena)
-            .add_systems(Update, (handle_fallout_respawns, animate_sewer_water));
+            .add_systems(Update, (handle_fallout_respawns, animate_sewer_water))
+            .add_systems(PostUpdate, handle_fallout_respawns.after(PhysicsSet::Sync));
     }
 }
 
@@ -189,19 +195,37 @@ fn setup_arena(
         ));
     }
 
-    // Perimeter Fence Physics Boundaries (keeps players & bots inside the compound)
-    for (bx, bz, bw, bd) in [
-        (0.0, -17.2, 52.0, 0.6),
-        (0.0, 18.2, 52.0, 0.6),
-        (-24.8, 0.0, 0.6, 36.0),
-        (24.2, 0.0, 0.6, 36.0),
-    ] {
-        commands.spawn((
-            Transform::from_xyz(bx, 3.0, bz),
-            RigidBody::Static,
-            Collider::cuboid(bw, 6.0, bd),
-        ));
-    }
+    // =========================================================================
+    // 3. IMPENETRABLE PERIMETER BARRIER COLLIDERS (30m high, 20m+ deep solid walls)
+    //    Guarantees no player or bot can ever tunnel, fly, or be pushed outside the compound
+    // =========================================================================
+    // West barrier: inner face at x = -24.2, extends out to x = -45.0 (20.8m thick, 30m high, 65m long)
+    commands.spawn((
+        Transform::from_xyz(-34.6, 10.0, 0.0),
+        RigidBody::Static,
+        Collider::cuboid(20.8, 30.0, 65.0),
+    ));
+
+    // East barrier: inner face at x = 23.6, extends out to x = 45.0 (21.4m thick, 30m high, 65m long)
+    commands.spawn((
+        Transform::from_xyz(34.3, 10.0, 0.0),
+        RigidBody::Static,
+        Collider::cuboid(21.4, 30.0, 65.0),
+    ));
+
+    // North barrier: inner face at z = -16.2, extends out to z = -40.0 (23.8m deep, 30m high, 75m wide)
+    commands.spawn((
+        Transform::from_xyz(0.0, 10.0, -28.1),
+        RigidBody::Static,
+        Collider::cuboid(75.0, 30.0, 23.8),
+    ));
+
+    // South barrier: inner face at z = 18.0, extends out to z = 40.0 (22.0m deep, 30m high, 75m wide)
+    commands.spawn((
+        Transform::from_xyz(0.0, 10.0, 29.0),
+        RigidBody::Static,
+        Collider::cuboid(75.0, 30.0, 22.0),
+    ));
 
     // =========================================================================
     // 4. OPEN-TOP STORMY POST-APOCALYPTIC SKY BACKDROP
@@ -283,30 +307,75 @@ fn spawn_stormy_sky_ring(
 fn handle_fallout_respawns(
     mut characters: Query<(
         &mut Transform,
+        Option<&mut Position>,
         &mut LinearVelocity,
         &mut AngularVelocity,
         &mut StaggerState,
         &Character,
     )>,
 ) {
-    for (mut transform, mut lin_vel, mut ang_vel, mut stagger, char_info) in characters.iter_mut()
+    for (mut transform, mut maybe_pos, mut lin_vel, mut ang_vel, mut stagger, char_info) in characters.iter_mut()
     {
         // Always prevent any physics-induced angular velocity from spinning characters
         ang_vel.0 = Vec3::ZERO;
 
-        if transform.translation.y < -10.0 {
+        // Fallout rescue: if fallen through the floor or knocked far out of bounds, recover back to base
+        let is_deeply_out_of_bounds = transform.translation.y < -10.0
+            || transform.translation.x < PLAYABLE_MIN_X - 1.2
+            || transform.translation.x > PLAYABLE_MAX_X + 1.2
+            || transform.translation.z < PLAYABLE_MIN_Z - 1.2
+            || transform.translation.z > PLAYABLE_MAX_Z + 1.2;
+
+        if is_deeply_out_of_bounds {
             transform.translation = char_info.spawn_point;
+            if let Some(ref mut pos) = maybe_pos {
+                pos.0 = char_info.spawn_point;
+            }
             lin_vel.0 = Vec3::ZERO;
             stagger.duration = 0.5;
             continue;
         }
 
-        // Guarantee characters never clip into the 3D model ground anywhere on the map:
+        // Hard boundary clamping: characters can NEVER cross the compound perimeter
+        if transform.translation.x < PLAYABLE_MIN_X {
+            transform.translation.x = PLAYABLE_MIN_X;
+            if lin_vel.x < 0.0 {
+                lin_vel.x = 0.0;
+            }
+        } else if transform.translation.x > PLAYABLE_MAX_X {
+            transform.translation.x = PLAYABLE_MAX_X;
+            if lin_vel.x > 0.0 {
+                lin_vel.x = 0.0;
+            }
+        }
+
+        if transform.translation.z < PLAYABLE_MIN_Z {
+            transform.translation.z = PLAYABLE_MIN_Z;
+            if lin_vel.z < 0.0 {
+                lin_vel.z = 0.0;
+            }
+        } else if transform.translation.z > PLAYABLE_MAX_Z {
+            transform.translation.z = PLAYABLE_MAX_Z;
+            if lin_vel.z > 0.0 {
+                lin_vel.z = 0.0;
+            }
+        }
+
+        // Keep Avian3d Position component in sync with clamped transform
+        if let Some(ref mut pos) = maybe_pos {
+            pos.0.x = transform.translation.x;
+            pos.0.z = transform.translation.z;
+        }
+
+        // Guarantee characters never clip into the 3D model ground anywhere inside the compound:
         // Boots sole is at -0.90m below transform.translation.y (capsule center)
         let ground_y = sample_terrain_height(transform.translation.x, transform.translation.z);
         let min_center_y = ground_y + 0.90;
         if transform.translation.y < min_center_y {
             transform.translation.y = min_center_y;
+            if let Some(ref mut pos) = maybe_pos {
+                pos.0.y = min_center_y;
+            }
             if lin_vel.y < 0.0 {
                 lin_vel.y = 0.0;
             }

@@ -1,4 +1,5 @@
 use avian3d::prelude::*;
+use bevy::audio::Volume;
 use bevy::prelude::*;
 
 use crate::koth::KothManager;
@@ -72,6 +73,7 @@ fn update_health_regen(time: Res<Time>, mut health_query: Query<&mut Health>) {
 
 fn check_tackle_hits(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut koth: ResMut<KothManager>,
@@ -143,6 +145,19 @@ fn check_tackle_hits(
                     knockback_dir.y = 0.0;
                     knockback_dir = knockback_dir.normalize_or(Vec3::Z);
 
+                    // Perimeter deflection: prevent knockback impulses from forcing characters into the perimeter walls
+                    if target_trans.translation.x < crate::arena::PLAYABLE_MIN_X + 0.6 && knockback_dir.x < 0.0 {
+                        knockback_dir.x = 0.0;
+                    } else if target_trans.translation.x > crate::arena::PLAYABLE_MAX_X - 0.6 && knockback_dir.x > 0.0 {
+                        knockback_dir.x = 0.0;
+                    }
+                    if target_trans.translation.z < crate::arena::PLAYABLE_MIN_Z + 0.6 && knockback_dir.z < 0.0 {
+                        knockback_dir.z = 0.0;
+                    } else if target_trans.translation.z > crate::arena::PLAYABLE_MAX_Z - 0.6 && knockback_dir.z > 0.0 {
+                        knockback_dir.z = 0.0;
+                    }
+                    knockback_dir = knockback_dir.normalize_or(Vec3::Z);
+
                     // Combine base shove force with 45% of the shover's own forward momentum
                     let momentum_bonus = Vec3::new(tackler_vel.x, 0.0, tackler_vel.z)
                         .dot(knockback_dir)
@@ -157,6 +172,12 @@ fn check_tackle_hits(
                     if let Some(ref mut health) = maybe_health {
                         health.current = (health.current - 22.0).max(10.0);
                     }
+
+                    // Play punch impact sound effect
+                    commands.spawn((
+                        AudioPlayer::new(asset_server.load("music/punch.mp3")),
+                        PlaybackSettings::DESPAWN.with_volume(Volume::new(0.95)),
+                    ));
 
                     // Spawn a glowing 3D kinetic shockwave ring at the impact midpoint
                     let impact_pos =
@@ -266,7 +287,19 @@ fn handle_body_pushing(
             let dist = horiz_delta.length();
             if dist < contact_radius && dist > 0.001 && delta.y.abs() < 1.65 {
                 // Push direction from B toward A
-                let push_away = horiz_delta / dist;
+                let mut push_away = horiz_delta / dist;
+                if pos_a.x <= crate::arena::PLAYABLE_MIN_X + 0.2 && push_away.x < 0.0 {
+                    push_away.x = 0.0;
+                } else if pos_a.x >= crate::arena::PLAYABLE_MAX_X - 0.2 && push_away.x > 0.0 {
+                    push_away.x = 0.0;
+                }
+                if pos_a.z <= crate::arena::PLAYABLE_MIN_Z + 0.2 && push_away.z < 0.0 {
+                    push_away.z = 0.0;
+                } else if pos_a.z >= crate::arena::PLAYABLE_MAX_Z - 0.2 && push_away.z > 0.0 {
+                    push_away.z = 0.0;
+                }
+                let push_away = push_away.normalize_or(Vec3::ZERO);
+
                 let overlap = (contact_radius - dist) / contact_radius;
 
                 // How fast B is ramming into A along push_away

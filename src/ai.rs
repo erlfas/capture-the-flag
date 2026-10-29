@@ -109,6 +109,7 @@ fn spawn_single_bot(
             Restitution::new(0.0),
             LinearVelocity::default(),
             AngularVelocity::default(),
+            SweptCcd::default(),
             Transform::from_translation(spawn_pos),
         ))
         .id();
