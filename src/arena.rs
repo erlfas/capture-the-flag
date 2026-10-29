@@ -181,6 +181,28 @@ fn setup_arena(
         Collider::cuboid(68.0, 1.0, 52.0),
     ));
 
+    // =========================================================================
+    // SOLID SHIPPING CONTAINER COLLIDERS
+    // Impassable, solid physics colliders aligned exactly with the 3D model's
+    // shipping containers so players and bots cannot walk through broken panels
+    // or stand inside hollow containers.
+    // =========================================================================
+    // Right-North Rust Shipping Container (near Red Base, x ≈ 3.82, z ≈ -10.63)
+    commands.spawn((
+        Transform::from_xyz(3.825, 2.30, -10.632)
+            .with_rotation(Quat::from_rotation_y(-0.2134)),
+        RigidBody::Static,
+        Collider::cuboid(6.20, 3.60, 2.65),
+    ));
+
+    // Left-North Olive/Rust Shipping Container (near Blue Base, x ≈ -9.84, z ≈ -10.86)
+    commands.spawn((
+        Transform::from_xyz(-9.843, 2.30, -10.864)
+            .with_rotation(Quat::from_rotation_y(0.7419)),
+        RigidBody::Static,
+        Collider::cuboid(6.25, 3.60, 2.60),
+    ));
+
     // Plateau Objective Markers (all ground, platform, ramp, staircase, shipping container,
     // and sandbag collision is handled seamlessly by the 0.5m-resolution 3D Terrain Trimesh Collider above)
     for (idx, name, center, radius) in PLATEAU_COORDS {
@@ -365,6 +387,48 @@ fn handle_fallout_respawns(
         if let Some(ref mut pos) = maybe_pos {
             pos.0.x = transform.translation.x;
             pos.0.z = transform.translation.z;
+        }
+
+        // Eject characters out of shipping container interiors so nobody can ever walk through,
+        // clip into, or stand inside hollow containers:
+        for (cx, cz, yaw, half_len, half_wid, roof_y) in [
+            (3.825_f32, -10.632_f32, -0.2134_f32, 6.20_f32 * 0.5, 2.65_f32 * 0.5, 4.08_f32),
+            (-9.843_f32, -10.864_f32, 0.7419_f32, 6.25_f32 * 0.5, 2.60_f32 * 0.5, 4.08_f32),
+        ] {
+            if transform.translation.y < roof_y {
+                let dx = transform.translation.x - cx;
+                let dz = transform.translation.z - cz;
+                let cos_y = yaw.cos();
+                let sin_y = yaw.sin();
+                let lx = cos_y * dx - sin_y * dz;
+                let lz = sin_y * dx + cos_y * dz;
+                let r = 0.38; // character capsule radius + safety margin
+                let limit_x = half_len + r;
+                let limit_z = half_wid + r;
+                if lx.abs() < limit_x && lz.abs() < limit_z {
+                    let pen_x = limit_x - lx.abs();
+                    let pen_z = limit_z - lz.abs();
+                    let (delta_lx, delta_lz) = if pen_x < pen_z {
+                        let sign = if lx >= 0.0 { 1.0 } else { -1.0 };
+                        (sign * limit_x - lx, 0.0)
+                    } else {
+                        let sign = if lz >= 0.0 { 1.0 } else { -1.0 };
+                        (0.0, sign * limit_z - lz)
+                    };
+                    transform.translation.x += delta_lx * cos_y + delta_lz * sin_y;
+                    transform.translation.z += -delta_lx * sin_y + delta_lz * cos_y;
+                    if let Some(ref mut pos) = maybe_pos {
+                        pos.0.x = transform.translation.x;
+                        pos.0.z = transform.translation.z;
+                    }
+                    if lin_vel.x * (delta_lx * cos_y + delta_lz * sin_y) < 0.0 {
+                        lin_vel.x = 0.0;
+                    }
+                    if lin_vel.z * (-delta_lx * sin_y + delta_lz * cos_y) < 0.0 {
+                        lin_vel.z = 0.0;
+                    }
+                }
+            }
         }
 
         // Guarantee characters never clip into the 3D model ground anywhere inside the compound:
