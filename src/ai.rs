@@ -29,8 +29,10 @@ impl Plugin for AiPlugin {
 
 fn spawn_bots(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut graphs: ResMut<Assets<AnimationGraph>>,
 ) {
     // 2 Teammates on Team Blue on West Blue Platform (deck at y = 2.53m)
     let blue_bots = [
@@ -41,8 +43,10 @@ fn spawn_bots(
     for (name, spawn_pos, role_attacker) in blue_bots.iter() {
         spawn_single_bot(
             &mut commands,
+            &asset_server,
             &mut meshes,
             &mut materials,
+            &mut graphs,
             Team::Blue,
             name,
             *spawn_pos,
@@ -60,8 +64,10 @@ fn spawn_bots(
     for (name, spawn_pos, role_attacker) in red_bots.iter() {
         spawn_single_bot(
             &mut commands,
+            &asset_server,
             &mut meshes,
             &mut materials,
+            &mut graphs,
             Team::Red,
             name,
             *spawn_pos,
@@ -72,13 +78,20 @@ fn spawn_bots(
 
 fn spawn_single_bot(
     commands: &mut Commands,
+    asset_server: &AssetServer,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
+    graphs: &mut ResMut<Assets<AnimationGraph>>,
     team: Team,
     name: &str,
     spawn_pos: Vec3,
     role_attacker: bool,
 ) {
+    let initial_yaw = match team {
+        Team::Blue => std::f32::consts::FRAC_PI_2,
+        Team::Red => -std::f32::consts::FRAC_PI_2,
+    };
+
     let bot_entity = commands
         .spawn((
             Bot {
@@ -109,12 +122,23 @@ fn spawn_single_bot(
             Restitution::new(0.0),
             LinearVelocity::default(),
             AngularVelocity::default(),
-            SweptCcd::default(),
-            Transform::from_translation(spawn_pos),
+            Visibility::default(),
+            Transform::from_translation(spawn_pos)
+                .with_rotation(Quat::from_rotation_y(initial_yaw)),
         ))
+        .insert(SweptCcd::default())
         .id();
 
-    spawn_character_visuals(commands, bot_entity, meshes, materials, team, name);
+    spawn_character_visuals(
+        commands,
+        bot_entity,
+        asset_server,
+        meshes,
+        materials,
+        graphs,
+        team,
+        name,
+    );
 }
 
 /// Guides a bot onto an elevated platform via its 3D model ramp/stairs if the bot is on the ground floor

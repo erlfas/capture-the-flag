@@ -18,8 +18,8 @@ pub const TACKLE_COOLDOWN: f32 = 1.15;
 #[derive(Component)]
 pub struct Player;
 
-#[derive(Resource)]
-pub struct MainPlayerAnimations {
+#[derive(Component, Clone)]
+pub struct CharacterAnimClips {
     pub graph: Handle<AnimationGraph>,
     pub idle_node: AnimationNodeIndex,
     pub run_node: AnimationNodeIndex,
@@ -42,80 +42,58 @@ impl Plugin for PlayerPlugin {
             (
                 handle_player_movement,
                 update_stamina,
-                update_main_player_animation_and_materials,
+                update_character_animation_and_materials,
             ),
         );
+    }
+}
+
+pub fn character_model_info(character_name: &str) -> (&'static str, f32) {
+    if character_name.eq_ignore_ascii_case("morten") {
+        ("models/morten-blue.glb", 1.92)
+    } else if character_name.eq_ignore_ascii_case("jonas") {
+        ("models/jonas-blue.glb", 1.92)
+    } else if character_name.eq_ignore_ascii_case("siri") {
+        ("models/siri-red.glb", 1.88)
+    } else if character_name.eq_ignore_ascii_case("lisa") {
+        ("models/lisa-red.glb", 1.88)
+    } else if character_name.eq_ignore_ascii_case("per") {
+        ("models/per-red.glb", 2.08)
+    } else {
+        ("models/main_player.glb", 1.88)
     }
 }
 
 pub fn spawn_character_visuals(
     commands: &mut Commands,
     parent: Entity,
+    asset_server: &AssetServer,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
+    graphs: &mut ResMut<Assets<AnimationGraph>>,
     team: Team,
     character_name: &str,
 ) {
-    // 1. Team-specific and Tactical Materials
-    let jumpsuit_mat = materials.add(StandardMaterial {
-        base_color: match team {
-            Team::Blue => Color::srgb(0.13, 0.28, 0.58), // Tactical Navy/Blue
-            Team::Red => Color::srgb(0.75, 0.14, 0.14),  // Tactical Crimson Red
-        },
-        metallic: 0.1,
-        perceptual_roughness: 0.7,
-        ..default()
-    });
+    let (model_path, model_scale) = character_model_info(character_name);
 
-    let plate_carrier_mat = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.12, 0.14, 0.18), // Dark tactical plate carrier
-        metallic: 0.2,
-        perceptual_roughness: 0.6,
-        ..default()
-    });
+    // Load the embedded Idle (Animation 0) and Walk/Run (Animation 1) clips from the character's GLB
+    let idle_clip = asset_server.load(GltfAssetLabel::Animation(0).from_asset(model_path));
+    let run_clip = asset_server.load(GltfAssetLabel::Animation(1).from_asset(model_path));
+    let (graph, node_indices) = AnimationGraph::from_clips([idle_clip, run_clip]);
+    let graph_handle = graphs.add(graph);
 
-    let gear_mat = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.08, 0.09, 0.11), // Pouches, webbing, belts
-        metallic: 0.05,
-        perceptual_roughness: 0.8,
-        ..default()
-    });
+    commands
+        .entity(parent)
+        .insert((
+            Visibility::default(),
+            CharacterAnimClips {
+                graph: graph_handle,
+                idle_node: node_indices[0],
+                run_node: node_indices[1],
+            },
+        ));
 
-    let boots_and_pads_mat = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.06, 0.07, 0.08), // Reinforced combat boots and knee pads
-        metallic: 0.3,
-        perceptual_roughness: 0.45,
-        ..default()
-    });
-
-    let skin_mat = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.88, 0.70, 0.58), // Natural human skin tone
-        metallic: 0.0,
-        perceptual_roughness: 0.75,
-        ..default()
-    });
-
-    let brown_hair_mat = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.24, 0.15, 0.09), // Dark brown hair
-        metallic: 0.05,
-        perceptual_roughness: 0.85,
-        ..default()
-    });
-
-    let blonde_hair_mat = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.88, 0.76, 0.38), // Lisa blonde hair
-        metallic: 0.05,
-        perceptual_roughness: 0.8,
-        ..default()
-    });
-
-    let black_frame_mat = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.03, 0.03, 0.03), // Glasses & headset
-        metallic: 0.4,
-        perceptual_roughness: 0.3,
-        ..default()
-    });
-
+    // Team underfoot selection ring + Rigged 3D GLB Character Model
     let ring_mat = materials.add(StandardMaterial {
         base_color: team.color(),
         emissive: team.emissive(),
@@ -124,371 +102,19 @@ pub fn spawn_character_visuals(
     });
 
     commands.entity(parent).with_children(|builder| {
-        // --- Underfoot Ground Selection Ring (Matching art reference!) ---
         builder.spawn((
             Mesh3d(meshes.add(Torus {
                 minor_radius: 0.035,
                 major_radius: 0.72,
             })),
-            MeshMaterial3d(ring_mat.clone()),
-            Transform::from_xyz(0.0, -0.92, 0.0),
+            MeshMaterial3d(ring_mat),
+            Transform::from_xyz(0.0, -0.90, 0.0),
         ));
 
-        // --- Combat Boots (Black reinforced tactical footwear) ---
-        // Left foot
         builder.spawn((
-            Mesh3d(meshes.add(Cuboid::new(0.16, 0.20, 0.32))),
-            MeshMaterial3d(boots_and_pads_mat.clone()),
-            Transform::from_xyz(-0.16, -0.80, 0.05),
+            SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(model_path))),
+            Transform::from_xyz(0.0, -0.90, 0.0).with_scale(Vec3::splat(model_scale)),
         ));
-        // Right foot
-        builder.spawn((
-            Mesh3d(meshes.add(Cuboid::new(0.16, 0.20, 0.32))),
-            MeshMaterial3d(boots_and_pads_mat.clone()),
-            Transform::from_xyz(0.16, -0.80, 0.05),
-        ));
-
-        // Boot ankles
-        builder.spawn((
-            Mesh3d(meshes.add(Cylinder::new(0.10, 0.16))),
-            MeshMaterial3d(boots_and_pads_mat.clone()),
-            Transform::from_xyz(-0.16, -0.68, 0.0),
-        ));
-        builder.spawn((
-            Mesh3d(meshes.add(Cylinder::new(0.10, 0.16))),
-            MeshMaterial3d(boots_and_pads_mat.clone()),
-            Transform::from_xyz(0.16, -0.68, 0.0),
-        ));
-
-        // --- Lower Legs (Tactical Jumpsuit Pants) ---
-        builder.spawn((
-            Mesh3d(meshes.add(Capsule3d::new(0.10, 0.32))),
-            MeshMaterial3d(jumpsuit_mat.clone()),
-            Transform::from_xyz(-0.16, -0.52, 0.0),
-        ));
-        builder.spawn((
-            Mesh3d(meshes.add(Capsule3d::new(0.10, 0.32))),
-            MeshMaterial3d(jumpsuit_mat.clone()),
-            Transform::from_xyz(0.16, -0.52, 0.0),
-        ));
-
-        // --- Tactical Knee Pads ---
-        builder.spawn((
-            Mesh3d(meshes.add(Cuboid::new(0.15, 0.15, 0.08))),
-            MeshMaterial3d(boots_and_pads_mat.clone()),
-            Transform::from_xyz(-0.16, -0.42, 0.11),
-        ));
-        builder.spawn((
-            Mesh3d(meshes.add(Cuboid::new(0.15, 0.15, 0.08))),
-            MeshMaterial3d(boots_and_pads_mat.clone()),
-            Transform::from_xyz(0.16, -0.42, 0.11),
-        ));
-
-        // --- Upper Legs / Thighs ---
-        builder.spawn((
-            Mesh3d(meshes.add(Capsule3d::new(0.12, 0.38))),
-            MeshMaterial3d(jumpsuit_mat.clone()),
-            Transform::from_xyz(-0.16, -0.22, 0.0),
-        ));
-        builder.spawn((
-            Mesh3d(meshes.add(Capsule3d::new(0.12, 0.38))),
-            MeshMaterial3d(jumpsuit_mat.clone()),
-            Transform::from_xyz(0.16, -0.22, 0.0),
-        ));
-
-        // --- Pelvis & Tactical Utility Belt ---
-        builder.spawn((
-            Mesh3d(meshes.add(Cuboid::new(0.48, 0.20, 0.32))),
-            MeshMaterial3d(jumpsuit_mat.clone()),
-            Transform::from_xyz(0.0, -0.02, 0.0),
-        ));
-        // Tactical utility belt
-        builder.spawn((
-            Mesh3d(meshes.add(Cuboid::new(0.50, 0.08, 0.34))),
-            MeshMaterial3d(gear_mat.clone()),
-            Transform::from_xyz(0.0, 0.08, 0.0),
-        ));
-        // Side utility pouch
-        builder.spawn((
-            Mesh3d(meshes.add(Cuboid::new(0.10, 0.09, 0.06))),
-            MeshMaterial3d(gear_mat.clone()),
-            Transform::from_xyz(0.24, 0.08, 0.0),
-        ));
-
-        // --- Torso Jumpsuit Base ---
-        builder.spawn((
-            Mesh3d(meshes.add(Capsule3d::new(0.22, 0.42))),
-            MeshMaterial3d(jumpsuit_mat.clone()),
-            Transform::from_xyz(0.0, 0.34, 0.0),
-        ));
-
-        // --- Tactical Plate Carrier Vest (Dark tactical plate vest) ---
-        builder.spawn((
-            Mesh3d(meshes.add(Cuboid::new(0.52, 0.44, 0.34))),
-            MeshMaterial3d(plate_carrier_mat.clone()),
-            Transform::from_xyz(0.0, 0.38, 0.0),
-        ));
-
-        // Front Chest Ammo / Mag Pouches (3 pouches)
-        builder.spawn((
-            Mesh3d(meshes.add(Cuboid::new(0.11, 0.15, 0.06))),
-            MeshMaterial3d(gear_mat.clone()),
-            Transform::from_xyz(-0.13, 0.32, 0.18),
-        ));
-        builder.spawn((
-            Mesh3d(meshes.add(Cuboid::new(0.11, 0.15, 0.06))),
-            MeshMaterial3d(gear_mat.clone()),
-            Transform::from_xyz(0.0, 0.32, 0.18),
-        ));
-        builder.spawn((
-            Mesh3d(meshes.add(Cuboid::new(0.11, 0.15, 0.06))),
-            MeshMaterial3d(gear_mat.clone()),
-            Transform::from_xyz(0.13, 0.32, 0.18),
-        ));
-
-        // Chest tactical team indicator stripe
-        builder.spawn((
-            Mesh3d(meshes.add(Cuboid::new(0.24, 0.04, 0.03))),
-            MeshMaterial3d(ring_mat.clone()),
-            Transform::from_xyz(0.0, 0.48, 0.18),
-        ));
-
-        // Vest shoulder straps
-        builder.spawn((
-            Mesh3d(meshes.add(Cuboid::new(0.10, 0.14, 0.30))),
-            MeshMaterial3d(plate_carrier_mat.clone()),
-            Transform::from_xyz(-0.20, 0.58, 0.0),
-        ));
-        builder.spawn((
-            Mesh3d(meshes.add(Cuboid::new(0.10, 0.14, 0.30))),
-            MeshMaterial3d(plate_carrier_mat.clone()),
-            Transform::from_xyz(0.20, 0.58, 0.0),
-        ));
-
-        // --- Arms: Sleeves, Forearms, and Hands ---
-        // Upper sleeves (jumpsuit)
-        builder.spawn((
-            Mesh3d(meshes.add(Capsule3d::new(0.09, 0.26))),
-            MeshMaterial3d(jumpsuit_mat.clone()),
-            Transform::from_xyz(-0.35, 0.38, 0.0),
-        ));
-        builder.spawn((
-            Mesh3d(meshes.add(Capsule3d::new(0.09, 0.26))),
-            MeshMaterial3d(jumpsuit_mat.clone()),
-            Transform::from_xyz(0.35, 0.38, 0.0),
-        ));
-
-        // Forearms (exposed athletic skin)
-        builder.spawn((
-            Mesh3d(meshes.add(Capsule3d::new(0.08, 0.26))),
-            MeshMaterial3d(skin_mat.clone()),
-            Transform::from_xyz(-0.36, 0.12, 0.04),
-        ));
-        builder.spawn((
-            Mesh3d(meshes.add(Capsule3d::new(0.08, 0.26))),
-            MeshMaterial3d(skin_mat.clone()),
-            Transform::from_xyz(0.36, 0.12, 0.04),
-        ));
-
-        // Left tactical wristwatch
-        builder.spawn((
-            Mesh3d(meshes.add(Cylinder::new(0.085, 0.04))),
-            MeshMaterial3d(black_frame_mat.clone()),
-            Transform::from_xyz(-0.36, 0.04, 0.04),
-        ));
-
-        // Hands / Tactical Gloves
-        builder.spawn((
-            Mesh3d(meshes.add(Sphere::new(0.08))),
-            MeshMaterial3d(boots_and_pads_mat.clone()),
-            Transform::from_xyz(-0.36, -0.06, 0.05),
-        ));
-        builder.spawn((
-            Mesh3d(meshes.add(Sphere::new(0.08))),
-            MeshMaterial3d(boots_and_pads_mat.clone()),
-            Transform::from_xyz(0.36, -0.06, 0.05),
-        ));
-
-        // --- Neck & Head (Human facial base) ---
-        // Neck
-        builder.spawn((
-            Mesh3d(meshes.add(Cylinder::new(0.09, 0.14))),
-            MeshMaterial3d(skin_mat.clone()),
-            Transform::from_xyz(0.0, 0.65, 0.0),
-        ));
-
-        // Head
-        builder.spawn((
-            Mesh3d(meshes.add(Sphere::new(0.20))),
-            MeshMaterial3d(skin_mat.clone()),
-            Transform::from_xyz(0.0, 0.82, 0.0),
-        ));
-
-        // Stylized Nose
-        builder.spawn((
-            Mesh3d(meshes.add(Cuboid::new(0.04, 0.06, 0.05))),
-            MeshMaterial3d(skin_mat.clone()),
-            Transform::from_xyz(0.0, 0.82, 0.20),
-        ));
-
-        // --- Tactical Radio Headset (Present on tactical operators) ---
-        // Headset headband over skull
-        builder.spawn((
-            Mesh3d(meshes.add(Cuboid::new(0.42, 0.03, 0.04))),
-            MeshMaterial3d(black_frame_mat.clone()),
-            Transform::from_xyz(0.0, 0.98, 0.0),
-        ));
-        // Left earcup
-        builder.spawn((
-            Mesh3d(meshes.add(Cylinder::new(0.07, 0.05))),
-            MeshMaterial3d(black_frame_mat.clone()),
-            Transform::from_xyz(-0.20, 0.82, 0.0)
-                .with_rotation(Quat::from_axis_angle(Vec3::Z, 1.57)),
-        ));
-        // Right earcup
-        builder.spawn((
-            Mesh3d(meshes.add(Cylinder::new(0.07, 0.05))),
-            MeshMaterial3d(black_frame_mat.clone()),
-            Transform::from_xyz(0.20, 0.82, 0.0)
-                .with_rotation(Quat::from_axis_angle(Vec3::Z, 1.57)),
-        ));
-        // Boom microphone extending from left ear towards mouth
-        builder.spawn((
-            Mesh3d(meshes.add(Cylinder::new(0.012, 0.16))),
-            MeshMaterial3d(black_frame_mat.clone()),
-            Transform::from_xyz(-0.15, 0.77, 0.12)
-                .with_rotation(Quat::from_euler(EulerRot::YXZ, 0.5, 0.3, 0.0)),
-        ));
-        // Mic tip
-        builder.spawn((
-            Mesh3d(meshes.add(Sphere::new(0.024))),
-            MeshMaterial3d(black_frame_mat.clone()),
-            Transform::from_xyz(-0.06, 0.76, 0.19),
-        ));
-
-        // --- Character-Specific Human Features (Hair, Glasses, Beards, Ponytails) ---
-        let hair_mat = if character_name.eq_ignore_ascii_case("lisa") {
-            blonde_hair_mat
-        } else {
-            brown_hair_mat.clone()
-        };
-
-        if character_name.eq_ignore_ascii_case("anders") {
-            // Anders: Brown hair silhouette + Black frame glasses + stubble
-            // Hair top & sides
-            builder.spawn((
-                Mesh3d(meshes.add(Cuboid::new(0.38, 0.12, 0.38))),
-                MeshMaterial3d(hair_mat.clone()),
-                Transform::from_xyz(0.0, 0.94, -0.02),
-            ));
-            builder.spawn((
-                Mesh3d(meshes.add(Cuboid::new(0.39, 0.10, 0.22))),
-                MeshMaterial3d(hair_mat.clone()),
-                Transform::from_xyz(0.0, 0.87, -0.06),
-            ));
-
-            // Glasses: Distinct black rectangular frames around eyes
-            // Frame front
-            builder.spawn((
-                Mesh3d(meshes.add(Cuboid::new(0.32, 0.08, 0.03))),
-                MeshMaterial3d(black_frame_mat.clone()),
-                Transform::from_xyz(0.0, 0.84, 0.205),
-            ));
-            // Bridge
-            builder.spawn((
-                Mesh3d(meshes.add(Cuboid::new(0.06, 0.03, 0.03))),
-                MeshMaterial3d(black_frame_mat.clone()),
-                Transform::from_xyz(0.0, 0.84, 0.21),
-            ));
-            // Glasses side arms
-            builder.spawn((
-                Mesh3d(meshes.add(Cuboid::new(0.02, 0.025, 0.18))),
-                MeshMaterial3d(black_frame_mat.clone()),
-                Transform::from_xyz(-0.16, 0.84, 0.10),
-            ));
-            builder.spawn((
-                Mesh3d(meshes.add(Cuboid::new(0.02, 0.025, 0.18))),
-                MeshMaterial3d(black_frame_mat.clone()),
-                Transform::from_xyz(0.16, 0.84, 0.10),
-            ));
-
-            // Stubble / light beard along jaw
-            builder.spawn((
-                Mesh3d(meshes.add(Cuboid::new(0.24, 0.08, 0.16))),
-                MeshMaterial3d(materials.add(StandardMaterial {
-                    base_color: Color::srgb(0.35, 0.22, 0.16),
-                    ..default()
-                })),
-                Transform::from_xyz(0.0, 0.73, 0.06),
-            ));
-        } else if character_name.eq_ignore_ascii_case("morten") {
-            // Morten: Brown hair + Full facial beard
-            builder.spawn((
-                Mesh3d(meshes.add(Cuboid::new(0.38, 0.12, 0.36))),
-                MeshMaterial3d(hair_mat.clone()),
-                Transform::from_xyz(0.0, 0.93, -0.02),
-            ));
-            // Prominent Full Beard around jaw & chin
-            builder.spawn((
-                Mesh3d(meshes.add(Cuboid::new(0.28, 0.14, 0.22))),
-                MeshMaterial3d(hair_mat.clone()),
-                Transform::from_xyz(0.0, 0.73, 0.06),
-            ));
-            // Mustache
-            builder.spawn((
-                Mesh3d(meshes.add(Cuboid::new(0.16, 0.04, 0.05))),
-                MeshMaterial3d(hair_mat.clone()),
-                Transform::from_xyz(0.0, 0.78, 0.18),
-            ));
-        } else if character_name.eq_ignore_ascii_case("siri") {
-            // Siri: Dark brown hair with dynamic ponytail
-            builder.spawn((
-                Mesh3d(meshes.add(Sphere::new(0.21))),
-                MeshMaterial3d(hair_mat.clone()),
-                Transform::from_xyz(0.0, 0.86, -0.02),
-            ));
-            // Hair tie
-            builder.spawn((
-                Mesh3d(meshes.add(Cylinder::new(0.06, 0.03))),
-                MeshMaterial3d(gear_mat.clone()),
-                Transform::from_xyz(0.0, 0.88, -0.20)
-                    .with_rotation(Quat::from_axis_angle(Vec3::X, 0.8)),
-            ));
-            // Ponytail flowing back
-            builder.spawn((
-                Mesh3d(meshes.add(Capsule3d::new(0.06, 0.28))),
-                MeshMaterial3d(hair_mat.clone()),
-                Transform::from_xyz(0.0, 0.78, -0.28)
-                    .with_rotation(Quat::from_axis_angle(Vec3::X, 0.7)),
-            ));
-        } else if character_name.eq_ignore_ascii_case("lisa") {
-            // Lisa: Blonde hair with ponytail
-            builder.spawn((
-                Mesh3d(meshes.add(Sphere::new(0.21))),
-                MeshMaterial3d(hair_mat.clone()),
-                Transform::from_xyz(0.0, 0.86, -0.02),
-            ));
-            // Ponytail flowing back
-            builder.spawn((
-                Mesh3d(meshes.add(Capsule3d::new(0.06, 0.28))),
-                MeshMaterial3d(hair_mat.clone()),
-                Transform::from_xyz(0.0, 0.78, -0.28)
-                    .with_rotation(Quat::from_axis_angle(Vec3::X, 0.7)),
-            ));
-        } else {
-            // Default operator short cropped hair
-            builder.spawn((
-                Mesh3d(meshes.add(Cuboid::new(0.38, 0.12, 0.36))),
-                MeshMaterial3d(hair_mat.clone()),
-                Transform::from_xyz(0.0, 0.93, -0.02),
-            ));
-            // Subtle tactical jawline / stubble
-            builder.spawn((
-                Mesh3d(meshes.add(Cuboid::new(0.24, 0.08, 0.18))),
-                MeshMaterial3d(hair_mat),
-                Transform::from_xyz(0.0, 0.73, 0.06),
-            ));
-        }
     });
 }
 
@@ -500,19 +126,6 @@ fn spawn_player(
     mut graphs: ResMut<Assets<AnimationGraph>>,
     mut camera_query: Query<&mut OrbitCamera>,
 ) {
-    // Load the embedded Idle (Animation 0) and Walk/Run (Animation 1) clips from main_player.glb
-    let idle_clip =
-        asset_server.load(GltfAssetLabel::Animation(0).from_asset("models/main_player.glb"));
-    let run_clip =
-        asset_server.load(GltfAssetLabel::Animation(1).from_asset("models/main_player.glb"));
-    let (graph, node_indices) = AnimationGraph::from_clips([idle_clip, run_clip]);
-    let graph_handle = graphs.add(graph);
-    commands.insert_resource(MainPlayerAnimations {
-        graph: graph_handle,
-        idle_node: node_indices[0],
-        run_node: node_indices[1],
-    });
-
     // Spawn Anders on the West Blue Platform deck (y = 2.53m) right beside the Blue Flag
     let spawn_pos = Vec3::new(-18.2, 3.6, 3.8);
 
@@ -549,33 +162,16 @@ fn spawn_player(
         .insert(SweptCcd::default())
         .id();
 
-    // Team underfoot selection ring + Rigged 3D GLB Character Model (`models/main_player.glb`)
-    // Local GLB bounds: y in [0.000, 1.000], facing +Z (forward along movement axis).
-    // Scaling by 1.88 normalizes character height to 1.88m; y = -0.90m places feet on ground plane.
-    let ring_mat = materials.add(StandardMaterial {
-        base_color: Team::Blue.color(),
-        emissive: Team::Blue.emissive(),
-        unlit: true,
-        ..default()
-    });
-
-    commands.entity(player_entity).with_children(|builder| {
-        builder.spawn((
-            Mesh3d(meshes.add(Torus {
-                minor_radius: 0.035,
-                major_radius: 0.72,
-            })),
-            MeshMaterial3d(ring_mat),
-            Transform::from_xyz(0.0, -0.90, 0.0),
-        ));
-
-        builder.spawn((
-            SceneRoot(
-                asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/main_player.glb")),
-            ),
-            Transform::from_xyz(0.0, -0.90, 0.0).with_scale(Vec3::splat(1.88)),
-        ));
-    });
+    spawn_character_visuals(
+        &mut commands,
+        player_entity,
+        &asset_server,
+        &mut meshes,
+        &mut materials,
+        &mut graphs,
+        Team::Blue,
+        "Anders",
+    );
 
     // Link orbit camera to follow player
     if let Ok(mut cam) = camera_query.get_single_mut() {
@@ -821,10 +417,9 @@ fn update_stamina(time: Res<Time>, mut stamina_query: Query<&mut Stamina>) {
     }
 }
 
-fn update_main_player_animation_and_materials(
+fn update_character_animation_and_materials(
     mut commands: Commands,
-    anims: Option<Res<MainPlayerAnimations>>,
-    player_query: Query<(Entity, &LinearVelocity), With<Player>>,
+    character_query: Query<(Entity, &LinearVelocity, &CharacterAnimClips), With<Character>>,
     children_query: Query<&Children>,
     unconfigured_meshes: Query<Entity, (With<Mesh3d>, Without<MainPlayerMeshConfigured>)>,
     mut anim_players: Query<(
@@ -834,71 +429,66 @@ fn update_main_player_animation_and_materials(
         Option<&mut MainPlayerAnimState>,
     )>,
 ) {
-    let Some(anims) = anims else {
-        return;
-    };
-    let Ok((player_entity, lin_vel)) = player_query.get_single() else {
-        return;
-    };
+    for (char_entity, lin_vel, anims) in character_query.iter() {
+        let horiz_speed = Vec2::new(lin_vel.x, lin_vel.z).length();
+        let should_run = horiz_speed > 0.55;
 
-    let horiz_speed = Vec2::new(lin_vel.x, lin_vel.z).length();
-    let should_run = horiz_speed > 0.55;
+        for descendant in children_query.iter_descendants(char_entity) {
+            // 1. Shadow & Material Pass: ensure castShadow = true and receiveShadow = true across all child meshes
+            // while retaining the embedded PBR material from the character's GLB.
+            if unconfigured_meshes.get(descendant).is_ok() {
+                commands
+                    .entity(descendant)
+                    .remove::<NotShadowCaster>()
+                    .remove::<NotShadowReceiver>()
+                    .insert(MainPlayerMeshConfigured);
+            }
 
-    for descendant in children_query.iter_descendants(player_entity) {
-        // 1. Shadow & Material Pass: ensure castShadow = true and receiveShadow = true across all child meshes
-        // while retaining the embedded PBR material from main_player.glb.
-        if unconfigured_meshes.get(descendant).is_ok() {
-            commands
-                .entity(descendant)
-                .remove::<NotShadowCaster>()
-                .remove::<NotShadowReceiver>()
-                .insert(MainPlayerMeshConfigured);
-        }
+            // 2. Rigging & Animation Mixer State Machine:
+            // Initialize AnimationGraph + AnimationTransitions on the GLB's AnimationPlayer,
+            // and crossfade smoothly between Idle and Walk/Run based on horizontal velocity.
+            if let Ok((anim_entity, mut anim_player, transitions_opt, state_opt)) =
+                anim_players.get_mut(descendant)
+            {
+                match (transitions_opt, state_opt) {
+                    (Some(mut transitions), Some(mut state)) => {
+                        if should_run != state.is_running {
+                            state.is_running = should_run;
+                            let target_node = if should_run {
+                                anims.run_node
+                            } else {
+                                anims.idle_node
+                            };
+                            transitions
+                                .play(&mut anim_player, target_node, Duration::from_millis(180))
+                                .repeat();
+                        }
 
-        // 2. Rigging & Animation Mixer State Machine:
-        // Initialize AnimationGraph + AnimationTransitions on the GLB's AnimationPlayer,
-        // and crossfade smoothly between Idle and Walk/Run based on WASD horizontal velocity.
-        if let Ok((anim_entity, mut anim_player, transitions_opt, state_opt)) =
-            anim_players.get_mut(descendant)
-        {
-            match (transitions_opt, state_opt) {
-                (Some(mut transitions), Some(mut state)) => {
-                    if should_run != state.is_running {
-                        state.is_running = should_run;
-                        let target_node = if should_run {
+                        if should_run {
+                            if let Some(active_anim) = anim_player.animation_mut(anims.run_node) {
+                                let speed_scale = (horiz_speed / 8.5).clamp(0.75, 1.65);
+                                active_anim.set_speed(speed_scale);
+                            }
+                        }
+                    }
+                    _ => {
+                        let mut transitions = AnimationTransitions::new();
+                        let initial_node = if should_run {
                             anims.run_node
                         } else {
                             anims.idle_node
                         };
                         transitions
-                            .play(&mut anim_player, target_node, Duration::from_millis(180))
+                            .play(&mut anim_player, initial_node, Duration::ZERO)
                             .repeat();
+                        commands.entity(anim_entity).insert((
+                            AnimationGraphHandle(anims.graph.clone()),
+                            transitions,
+                            MainPlayerAnimState {
+                                is_running: should_run,
+                            },
+                        ));
                     }
-
-                    if should_run {
-                        if let Some(active_anim) = anim_player.animation_mut(anims.run_node) {
-                            let speed_scale = (horiz_speed / 8.5).clamp(0.75, 1.65);
-                            active_anim.set_speed(speed_scale);
-                        }
-                    }
-                }
-                _ => {
-                    let mut transitions = AnimationTransitions::new();
-                    let initial_node = if should_run {
-                        anims.run_node
-                    } else {
-                        anims.idle_node
-                    };
-                    transitions
-                        .play(&mut anim_player, initial_node, Duration::ZERO)
-                        .repeat();
-                    commands.entity(anim_entity).insert((
-                        AnimationGraphHandle(anims.graph.clone()),
-                        transitions,
-                        MainPlayerAnimState {
-                            is_running: should_run,
-                        },
-                    ));
                 }
             }
         }
