@@ -101,9 +101,19 @@ pub struct StaggerState {
     pub duration: f32,
 }
 
+/// Priority tiers used to arbitrate which character gets to speak at any moment in time.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum VoicePriority {
+    CombatBark = 1,    // Short tackle hit reactions
+    TacticalComms = 2, // Squad status updates (match start, escort carrier, both flags stolen)
+    FlagEvent = 3,     // Flag stolen, dropped, touch-returned, or auto-returned
+    FlagCapture = 4,   // Flag delivered to base for a point
+    MatchVictory = 5,  // Match-winning callout
+}
+
 /// Structured character voice callout differentiating which character says what,
 /// their team affiliation, the voice line identifier, the exact spoken transcript,
-/// and the corresponding audio asset path (`voices/<speaker_id>/<line_id>.mp3`).
+/// priority/relevance for speaker selection, and the audio asset path (`voices/<speaker_id>/<line_id>.mp3`).
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct VoiceCallout {
@@ -113,6 +123,9 @@ pub struct VoiceCallout {
     pub spoken_text: String,
     pub color: Color,
     pub timer: f32,
+    pub elapsed: f32,
+    pub priority: VoicePriority,
+    pub relevance: f32,
     pub played_audio: bool,
 }
 
@@ -132,8 +145,17 @@ impl VoiceCallout {
             spoken_text: spoken_text.into(),
             color,
             timer,
+            elapsed: 0.0,
+            priority: VoicePriority::FlagEvent,
+            relevance: 50.0,
             played_audio: false,
         }
+    }
+
+    pub fn with_priority(mut self, priority: VoicePriority, relevance: f32) -> Self {
+        self.priority = priority;
+        self.relevance = relevance;
+        self
     }
 
     /// Relative asset path under `assets/` for this character's voice clip:

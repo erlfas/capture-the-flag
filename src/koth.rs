@@ -2,7 +2,7 @@ use bevy::audio::Volume;
 use bevy::prelude::*;
 
 use crate::arena::PLATEAU_COORDS;
-use crate::types::{Character, StaggerState, Team, VoiceCallout};
+use crate::types::{Character, StaggerState, Team, VoiceCallout, VoicePriority};
 
 pub const WIN_SCORE: f32 = 5.0; // First to 5 captured flags wins
 pub const INITIAL_MATCH_TIME: f32 = 462.0; // 07:42 in seconds, matching art reference
@@ -34,6 +34,9 @@ pub struct TeamFlag {
     pub state: FlagState,
 }
 
+#[derive(Component)]
+pub struct ActiveVoiceAudio;
+
 #[derive(Resource)]
 pub struct KothManager {
     pub match_started: bool,
@@ -41,17 +44,32 @@ pub struct KothManager {
     pub blue_score: f32,
     pub red_score: f32,
     pub contest_state: ZoneContestState,
+    pub last_contest_state: ZoneContestState,
     pub winner: Option<Team>,
     pub status_banner: String,
     pub status_color: Color,
     pub active_speaker: Option<(String, Team)>,
     pub event_notice: Option<VoiceCallout>,
+    pub pending_callouts: Vec<VoiceCallout>,
+    pub voice_cooldown: f32,
+    pub tackle_voice_cooldown: f32,
+    pub tactical_comms_cooldown: f32,
+    pub flag_voice_cooldown: f32,
+    pub last_speaker: Option<String>,
     pub blue_carrier: Option<(Entity, String)>,
     pub red_carrier: Option<(Entity, String)>,
     pub blue_flag_world_pos: Vec3,
     pub red_flag_world_pos: Vec3,
     pub blue_flag_at_base: bool,
     pub red_flag_at_base: bool,
+}
+
+impl KothManager {
+    /// Submit a candidate voice callout for this moment in time.
+    /// The voice arbitrator will select at most one speaker according to priority, relevance, and cooldowns.
+    pub fn propose_callout(&mut self, callout: VoiceCallout) {
+        self.pending_callouts.push(callout);
+    }
 }
 
 impl Default for KothManager {
@@ -62,12 +80,19 @@ impl Default for KothManager {
             blue_score: 1.0, // Matches initial "Blue Flag: 1" from art
             red_score: 0.0,  // Matches initial "Red Flag: 0" from art
             contest_state: ZoneContestState::Neutral,
+            last_contest_state: ZoneContestState::Neutral,
             winner: None,
             status_banner:
                 "DELTA SECTOR COMPOUND — STAND BY FOR MATCH COMMENCEMENT...".to_string(),
             status_color: Color::srgb(0.3, 0.9, 1.0),
             active_speaker: None,
             event_notice: None,
+            pending_callouts: Vec::new(),
+            voice_cooldown: 0.0,
+            tackle_voice_cooldown: 4.0,
+            tactical_comms_cooldown: 6.0,
+            flag_voice_cooldown: 0.0,
+            last_speaker: None,
             blue_carrier: None,
             red_carrier: None,
             blue_flag_world_pos: PLATEAU_COORDS[1].2,
@@ -92,6 +117,7 @@ impl Plugin for KothPlugin {
                 (
                     check_match_start,
                     update_ctf_flags_and_scoring,
+                    arbitrate_voice_callouts,
                     update_flag_visual_transforms,
                     update_hologram_visuals,
                     play_voice_callout_audio,
@@ -104,19 +130,17 @@ impl Plugin for KothPlugin {
 fn check_match_start(mut koth: ResMut<KothManager>) {
     if !koth.match_started && crate::types::is_match_started() {
         koth.match_started = true;
-        koth.status_banner =
-            "ANDERS [BLUE]: «Capture the Red Flag on the East Platform and bring it to Blue Base!»"
-                .to_string();
-        koth.status_color = Color::srgb(0.3, 0.9, 1.0);
-        koth.active_speaker = Some(("Anders".to_string(), Team::Blue));
-        koth.event_notice = Some(VoiceCallout::new(
-            "Anders",
-            Team::Blue,
-            "match_start",
-            "Capture the Red Flag on the East Platform and bring it to Blue Base!",
-            Color::srgb(0.3, 0.9, 1.0),
-            5.0,
-        ));
+        koth.propose_callout(
+            VoiceCallout::new(
+                "Anders",
+                Team::Blue,
+                "match_start",
+                "Capture the Red Flag on the East Platform and bring it to Blue Base!",
+                Color::srgb(0.3, 0.9, 1.0),
+                4.6,
+            )
+            .with_priority(VoicePriority::TacticalComms, 100.0),
+        );
     }
 }
 
@@ -290,33 +314,31 @@ fn update_ctf_flags_and_scoring(
         if koth.match_timer <= 0.0 {
             if koth.blue_score >= koth.red_score {
                 koth.winner = Some(Team::Blue);
-                koth.event_notice = Some(VoiceCallout::new(
-                    "Anders",
-                    Team::Blue,
-                    "victory",
-                    "Victory! Blue Team won Capture the Flag!",
-                    Color::srgb(0.2, 0.95, 0.55),
-                    8.0,
-                ));
+                koth.propose_callout(
+                    VoiceCallout::new(
+                        "Anders",
+                        Team::Blue,
+                        "victory",
+                        "Victory! Blue Team won Capture the Flag!",
+                        Color::srgb(0.2, 0.95, 0.55),
+                        8.0,
+                    )
+                    .with_priority(VoicePriority::MatchVictory, 100.0),
+                );
             } else {
                 koth.winner = Some(Team::Red);
-                koth.event_notice = Some(VoiceCallout::new(
-                    "Siri",
-                    Team::Red,
-                    "victory",
-                    "Victory for Red Team! We own this arena!",
-                    Color::srgb(1.0, 0.25, 0.25),
-                    8.0,
-                ));
+                koth.propose_callout(
+                    VoiceCallout::new(
+                        "Siri",
+                        Team::Red,
+                        "victory",
+                        "Victory for Red Team! We own this arena!",
+                        Color::srgb(1.0, 0.25, 0.25),
+                        8.0,
+                    )
+                    .with_priority(VoicePriority::MatchVictory, 100.0),
+                );
             }
-        }
-    }
-
-    // Tick event notice banner timer
-    if let Some(ref mut callout) = koth.event_notice {
-        callout.timer -= dt;
-        if callout.timer <= 0.0 {
-            koth.event_notice = None;
         }
     }
 
@@ -325,7 +347,7 @@ fn update_ctf_flags_and_scoring(
     }
 
     // Collect character snapshots
-    let char_list: Vec<(Entity, Vec3, Team, String, bool)> = characters
+    let char_list: Vec<(Entity, Vec3, Team, String, bool, bool)> = characters
         .iter()
         .map(|(ent, trans, ch, stag)| {
             (
@@ -334,6 +356,7 @@ fn update_ctf_flags_and_scoring(
                 ch.team,
                 ch.name.clone(),
                 stag.duration > 0.0,
+                ch.is_player,
             )
         })
         .collect();
@@ -359,9 +382,11 @@ fn update_ctf_flags_and_scoring(
         match flag.state {
             FlagState::CarriedBy(carrier_ent) => {
                 // Find carrier in character snapshots
-                if let Some((_, carrier_pos, carrier_team, carrier_name, is_staggered)) =
+                if let Some((_, carrier_pos, carrier_team, carrier_name, is_staggered, is_player)) =
                     char_list.iter().find(|(e, ..)| *e == carrier_ent)
                 {
+                    let relevance = if *is_player { 95.0 } else { 75.0 };
+
                     // A) Did the carrier get tackled (staggered) or fall off the arena?
                     if *is_staggered || carrier_pos.y < -2.0 {
                         let drop_pos = if carrier_pos.y < -2.0 {
@@ -390,14 +415,17 @@ fn update_ctf_flags_and_scoring(
                                     Team::Red => "I dropped the Red Flag! Pick it up!",
                                 },
                             };
-                            koth.event_notice = Some(VoiceCallout::new(
-                                carrier_name.clone(),
-                                *carrier_team,
-                                "dropped_flag",
-                                spoken,
-                                Color::srgb(1.0, 0.85, 0.2),
-                                3.2,
-                            ));
+                            koth.propose_callout(
+                                VoiceCallout::new(
+                                    carrier_name.clone(),
+                                    *carrier_team,
+                                    "dropped_flag",
+                                    spoken,
+                                    Color::srgb(1.0, 0.85, 0.2),
+                                    3.2,
+                                )
+                                .with_priority(VoicePriority::FlagEvent, relevance),
+                            );
                         }
                         continue;
                     }
@@ -426,24 +454,30 @@ fn update_ctf_flags_and_scoring(
                                     "jonas" => "Red Flag delivered! Point for Blue Team!",
                                     _ => "Flag captured! Plus one Blue point!",
                                 };
-                                koth.event_notice = Some(VoiceCallout::new(
-                                    carrier_name.clone(),
-                                    Team::Blue,
-                                    "captured_flag",
-                                    spoken,
-                                    Color::srgb(0.2, 1.0, 0.5),
-                                    4.5,
-                                ));
+                                koth.propose_callout(
+                                    VoiceCallout::new(
+                                        carrier_name.clone(),
+                                        Team::Blue,
+                                        "captured_flag",
+                                        spoken,
+                                        Color::srgb(0.2, 1.0, 0.5),
+                                        4.2,
+                                    )
+                                    .with_priority(VoicePriority::FlagCapture, relevance),
+                                );
                                 if koth.blue_score >= WIN_SCORE {
                                     koth.winner = Some(Team::Blue);
-                                    koth.event_notice = Some(VoiceCallout::new(
-                                        "Anders",
-                                        Team::Blue,
-                                        "victory",
-                                        "Victory! Blue Team won Capture the Flag!",
-                                        Color::srgb(0.2, 0.95, 0.55),
-                                        8.0,
-                                    ));
+                                    koth.propose_callout(
+                                        VoiceCallout::new(
+                                            "Anders",
+                                            Team::Blue,
+                                            "victory",
+                                            "Victory! Blue Team won Capture the Flag!",
+                                            Color::srgb(0.2, 0.95, 0.55),
+                                            8.0,
+                                        )
+                                        .with_priority(VoicePriority::MatchVictory, 100.0),
+                                    );
                                 }
                             }
                             Team::Red => {
@@ -454,24 +488,30 @@ fn update_ctf_flags_and_scoring(
                                     "per" => "Blue Flag delivered to Red Base! Point scored!",
                                     _ => "We captured the Blue Flag! Plus one Red point!",
                                 };
-                                koth.event_notice = Some(VoiceCallout::new(
-                                    carrier_name.clone(),
-                                    Team::Red,
-                                    "captured_flag",
-                                    spoken,
-                                    Color::srgb(1.0, 0.25, 0.25),
-                                    4.5,
-                                ));
+                                koth.propose_callout(
+                                    VoiceCallout::new(
+                                        carrier_name.clone(),
+                                        Team::Red,
+                                        "captured_flag",
+                                        spoken,
+                                        Color::srgb(1.0, 0.25, 0.25),
+                                        4.2,
+                                    )
+                                    .with_priority(VoicePriority::FlagCapture, relevance),
+                                );
                                 if koth.red_score >= WIN_SCORE {
                                     koth.winner = Some(Team::Red);
-                                    koth.event_notice = Some(VoiceCallout::new(
-                                        "Siri",
-                                        Team::Red,
-                                        "victory",
-                                        "Victory for Red Team! We own this arena!",
-                                        Color::srgb(1.0, 0.25, 0.25),
-                                        8.0,
-                                    ));
+                                    koth.propose_callout(
+                                        VoiceCallout::new(
+                                            "Siri",
+                                            Team::Red,
+                                            "victory",
+                                            "Victory for Red Team! We own this arena!",
+                                            Color::srgb(1.0, 0.25, 0.25),
+                                            8.0,
+                                        )
+                                        .with_priority(VoicePriority::MatchVictory, 100.0),
+                                    );
                                 }
                             }
                         }
@@ -516,14 +556,17 @@ fn update_ctf_flags_and_scoring(
                             "Red Flag automatically returned to base!",
                         ),
                     };
-                    koth.event_notice = Some(VoiceCallout::new(
-                        speaker,
-                        speaker_team,
-                        "flag_auto_returned",
-                        spoken,
-                        Color::srgb(0.4, 0.85, 1.0),
-                        3.0,
-                    ));
+                    koth.propose_callout(
+                        VoiceCallout::new(
+                            speaker,
+                            speaker_team,
+                            "flag_auto_returned",
+                            spoken,
+                            Color::srgb(0.4, 0.85, 1.0),
+                            3.0,
+                        )
+                        .with_priority(VoicePriority::FlagEvent, 60.0),
+                    );
                     continue;
                 }
 
@@ -534,13 +577,14 @@ fn update_ctf_flags_and_scoring(
                 };
 
                 // Check if any character touches the dropped flag
-                for (ent, c_pos, c_team, c_name, is_staggered) in char_list.iter() {
+                for (ent, c_pos, c_team, c_name, is_staggered, is_player) in char_list.iter() {
                     if *is_staggered {
                         continue;
                     }
                     let h_dist = Vec2::new(c_pos.x - pos.x, c_pos.z - pos.z).length();
                     let v_dist = (c_pos.y - pos.y).abs();
                     if h_dist <= flag_touch_radius && v_dist <= 2.2 {
+                        let relevance = if *is_player { 95.0 } else { 75.0 };
                         if *c_team == flag.team {
                             // Teammate touched their own dropped flag -> Instant Return to Base!
                             new_state = FlagState::AtBase;
@@ -553,14 +597,17 @@ fn update_ctf_flags_and_scoring(
                                 "per" => "I secured the Red Flag! Back at base!",
                                 _ => "Flag returned to base!",
                             };
-                            koth.event_notice = Some(VoiceCallout::new(
-                                c_name.clone(),
-                                *c_team,
-                                "returned_flag",
-                                spoken,
-                                Color::srgb(0.3, 0.95, 0.6),
-                                3.5,
-                            ));
+                            koth.propose_callout(
+                                VoiceCallout::new(
+                                    c_name.clone(),
+                                    *c_team,
+                                    "returned_flag",
+                                    spoken,
+                                    Color::srgb(0.3, 0.95, 0.6),
+                                    3.4,
+                                )
+                                .with_priority(VoicePriority::FlagEvent, relevance),
+                            );
                             break;
                         } else if pickup_cooldown <= 0.0 && !current_carriers.contains(ent) {
                             // Enemy picked up the dropped flag!
@@ -575,7 +622,7 @@ fn update_ctf_flags_and_scoring(
             }
             FlagState::AtBase => {
                 let pos = flag.home_pos;
-                for (ent, c_pos, c_team, c_name, is_staggered) in char_list.iter() {
+                for (ent, c_pos, c_team, c_name, is_staggered, is_player) in char_list.iter() {
                     if *is_staggered || *c_team == flag.team || current_carriers.contains(ent) {
                         continue;
                     }
@@ -585,6 +632,7 @@ fn update_ctf_flags_and_scoring(
                         // Enemy stole the flag from its base!
                         flag.state = FlagState::CarriedBy(*ent);
                         current_carriers.push(*ent);
+                        let relevance = if *is_player { 95.0 } else { 80.0 };
                         match flag.team {
                             Team::Blue => {
                                 red_carrier_info = Some((*ent, c_name.clone()));
@@ -594,14 +642,17 @@ fn update_ctf_flags_and_scoring(
                                     "per" => "I have the Blue Flag! Clear the way to Red Base!",
                                     _ => "I took the Blue Flag! Run to Red Base!",
                                 };
-                                koth.event_notice = Some(VoiceCallout::new(
-                                    c_name.clone(),
-                                    Team::Red,
-                                    "took_flag",
-                                    spoken,
-                                    Color::srgb(1.0, 0.22, 0.22),
-                                    4.0,
-                                ));
+                                koth.propose_callout(
+                                    VoiceCallout::new(
+                                        c_name.clone(),
+                                        Team::Red,
+                                        "took_flag",
+                                        spoken,
+                                        Color::srgb(1.0, 0.22, 0.22),
+                                        3.6,
+                                    )
+                                    .with_priority(VoicePriority::FlagEvent, relevance),
+                                );
                             }
                             Team::Red => {
                                 blue_carrier_info = Some((*ent, c_name.clone()));
@@ -611,14 +662,17 @@ fn update_ctf_flags_and_scoring(
                                     "jonas" => "Red Flag secured! Heading back to Blue Base!",
                                     _ => "I took the Red Flag! Run to Blue Base!",
                                 };
-                                koth.event_notice = Some(VoiceCallout::new(
-                                    c_name.clone(),
-                                    Team::Blue,
-                                    "took_flag",
-                                    spoken,
-                                    Color::srgb(0.2, 0.95, 0.55),
-                                    4.0,
-                                ));
+                                koth.propose_callout(
+                                    VoiceCallout::new(
+                                        c_name.clone(),
+                                        Team::Blue,
+                                        "took_flag",
+                                        spoken,
+                                        Color::srgb(0.2, 0.95, 0.55),
+                                        3.6,
+                                    )
+                                    .with_priority(VoicePriority::FlagEvent, relevance),
+                                );
                             }
                         }
                         break;
@@ -655,55 +709,200 @@ fn update_ctf_flags_and_scoring(
         }
     }
 
-    // Determine primary status headline and active speaker when no short event notice is overriding
-    if let Some((banner, color, spk)) = koth.event_notice.as_ref().map(|c| {
+    // Update contest state and occasionally propose a tactical squad callout (never continuously)
+    let new_contest_state = match (&blue_carrier_info, &red_carrier_info) {
+        (Some(_), Some(_)) => ZoneContestState::Contested,
+        (None, Some(_)) => ZoneContestState::RedControlling,
+        (Some(_), None) => ZoneContestState::BlueControlling,
+        (None, None) => ZoneContestState::Neutral,
+    };
+    koth.contest_state = new_contest_state;
+
+    // Only propose tactical situation reminders when no one is speaking and tactical cooldown expired
+    if koth.event_notice.is_none()
+        && koth.pending_callouts.is_empty()
+        && koth.voice_cooldown <= 0.0
+        && koth.tactical_comms_cooldown <= 0.0
+    {
+        if let (Some((_, b_name)), Some((_, r_name))) = (&blue_carrier_info, &red_carrier_info) {
+            koth.propose_callout(
+                VoiceCallout::new(
+                    "Jonas",
+                    Team::Blue,
+                    "both_flags_stolen",
+                    format!("Both flags stolen! Protect {} and tackle {}!", b_name, r_name),
+                    Color::srgb(1.0, 0.85, 0.15),
+                    3.6,
+                )
+                .with_priority(VoicePriority::TacticalComms, 60.0),
+            );
+        } else if let Some((_, r_name)) = &red_carrier_info {
+            koth.propose_callout(
+                VoiceCallout::new(
+                    "Anders",
+                    Team::Blue,
+                    "flag_stolen_alert",
+                    format!("Our flag was stolen by {}! Tackle them!", r_name),
+                    Color::srgb(1.0, 0.22, 0.22),
+                    3.4,
+                )
+                .with_priority(VoicePriority::TacticalComms, 55.0),
+            );
+        } else if let Some((_, b_name)) = &blue_carrier_info {
+            let speaker = if b_name.eq_ignore_ascii_case("anders") {
+                "Morten"
+            } else {
+                "Anders"
+            };
+            koth.propose_callout(
+                VoiceCallout::new(
+                    speaker,
+                    Team::Blue,
+                    "escort_carrier",
+                    format!("{} has the Red Flag! Clear the way to Blue Base!", b_name),
+                    Color::srgb(0.2, 0.95, 0.45),
+                    3.4,
+                )
+                .with_priority(VoicePriority::TacticalComms, 55.0),
+            );
+        }
+    }
+
+    koth.last_contest_state = new_contest_state;
+}
+
+/// Arbitrates all candidate voice callouts at this moment in time so that:
+/// 1. At most ONE character speaks at any given moment.
+/// 2. Competing events are filtered by cooldown and ranked by `(priority, relevance)`.
+/// 3. There is natural radio silence between callouts instead of continuous shouting.
+fn arbitrate_voice_callouts(time: Res<Time>, mut koth: ResMut<KothManager>) {
+    if !koth.match_started {
+        return;
+    }
+
+    let dt = time.delta_secs();
+
+    // Tick global & category voice cooldowns
+    koth.voice_cooldown = (koth.voice_cooldown - dt).max(0.0);
+    koth.tackle_voice_cooldown = (koth.tackle_voice_cooldown - dt).max(0.0);
+    koth.tactical_comms_cooldown = (koth.tactical_comms_cooldown - dt).max(0.0);
+    koth.flag_voice_cooldown = (koth.flag_voice_cooldown - dt).max(0.0);
+
+    // Tick currently active speaker timer
+    if let Some(ref mut active) = koth.event_notice {
+        active.elapsed += dt;
+        active.timer -= dt;
+        if active.timer <= 0.0 {
+            koth.event_notice = None;
+            // Enforce a quiet pause after someone finishes speaking before non-critical lines can play
+            koth.voice_cooldown = 2.8;
+        }
+    }
+
+    // Evaluate all candidates proposed during this frame and select at most ONE winner
+    if !koth.pending_callouts.is_empty() {
+        let candidates = std::mem::take(&mut koth.pending_callouts);
+        let current_active = koth.event_notice.as_ref();
+
+        let mut best_candidate: Option<(VoiceCallout, f32)> = None;
+
+        for candidate in candidates {
+            let can_speak = match candidate.priority {
+                VoicePriority::MatchVictory => true,
+                VoicePriority::FlagCapture => match current_active {
+                    None => true,
+                    Some(curr) => {
+                        curr.priority < VoicePriority::FlagCapture || curr.elapsed >= 0.8
+                    }
+                },
+                VoicePriority::FlagEvent => match current_active {
+                    None => koth.flag_voice_cooldown <= 0.0,
+                    // A flag event can preempt a low-priority tackle bark or tactical reminder,
+                    // but never cuts off another active FlagEvent speaker mid-sentence.
+                    Some(curr) => curr.priority < VoicePriority::FlagEvent,
+                },
+                VoicePriority::TacticalComms => {
+                    current_active.is_none()
+                        && (candidate.line_id == "match_start"
+                            || (koth.voice_cooldown <= 0.0
+                                && koth.tactical_comms_cooldown <= 0.0))
+                }
+                VoicePriority::CombatBark => {
+                    current_active.is_none()
+                        && koth.voice_cooldown <= 0.0
+                        && koth.tackle_voice_cooldown <= 0.0
+                }
+            };
+
+            if !can_speak {
+                continue;
+            }
+
+            // Slightly penalize selecting the exact same character twice in a row when others compete
+            let repeat_penalty = if koth
+                .last_speaker
+                .as_ref()
+                .map(|last| last.eq_ignore_ascii_case(&candidate.speaker))
+                .unwrap_or(false)
+            {
+                12.0
+            } else {
+                0.0
+            };
+            let effective_relevance = candidate.relevance - repeat_penalty;
+
+            let is_better = match &best_candidate {
+                None => true,
+                Some((best, best_rel)) => {
+                    candidate.priority > best.priority
+                        || (candidate.priority == best.priority && effective_relevance > *best_rel)
+                }
+            };
+
+            if is_better {
+                best_candidate = Some((candidate, effective_relevance));
+            }
+        }
+
+        if let Some((winner, _)) = best_candidate {
+            match winner.priority {
+                VoicePriority::CombatBark => {
+                    koth.tackle_voice_cooldown = 9.0;
+                    koth.tactical_comms_cooldown = koth.tactical_comms_cooldown.max(4.5);
+                }
+                VoicePriority::TacticalComms => {
+                    koth.tactical_comms_cooldown = 15.0;
+                }
+                VoicePriority::FlagEvent => {
+                    koth.flag_voice_cooldown = 1.8;
+                    koth.tactical_comms_cooldown = koth.tactical_comms_cooldown.max(7.0);
+                    koth.tackle_voice_cooldown = koth.tackle_voice_cooldown.max(3.5);
+                }
+                VoicePriority::FlagCapture | VoicePriority::MatchVictory => {
+                    koth.flag_voice_cooldown = 2.0;
+                    koth.tactical_comms_cooldown = 12.0;
+                    koth.tackle_voice_cooldown = 5.0;
+                }
+            }
+            koth.last_speaker = Some(winner.speaker.clone());
+            koth.event_notice = Some(winner);
+        }
+    }
+
+    // Sync HUD banner and overhead [SPEAKING] indicator strictly to the single active speaker
+    if let Some((banner, color, spk)) = koth.event_notice.as_ref().map(|callout| {
         (
-            c.formatted_banner(),
-            c.color,
-            (c.speaker.clone(), c.speaker_team),
+            callout.formatted_banner(),
+            callout.color,
+            (callout.speaker.clone(), callout.speaker_team),
         )
     }) {
         koth.status_banner = banner;
         koth.status_color = color;
         koth.active_speaker = Some(spk);
-    } else if let (Some((_, b_name)), Some((_, r_name))) = (&blue_carrier_info, &red_carrier_info)
-    {
-        koth.contest_state = ZoneContestState::Contested;
-        koth.active_speaker = Some(("Jonas".to_string(), Team::Blue));
-        koth.status_banner = format!(
-            "JONAS [BLUE]: «Both flags stolen! Protect {} and tackle {}!»",
-            b_name, r_name
-        );
-        koth.status_color = Color::srgb(1.0, 0.85, 0.15);
-    } else if let Some((_, r_name)) = &red_carrier_info {
-        koth.contest_state = ZoneContestState::RedControlling;
-        koth.active_speaker = Some(("Anders".to_string(), Team::Blue));
-        koth.status_banner = format!(
-            "ANDERS [BLUE]: «Our flag was stolen by {}! Tackle them!»",
-            r_name
-        );
-        koth.status_color = Color::srgb(1.0, 0.22, 0.22);
-    } else if let Some((_, b_name)) = &blue_carrier_info {
-        koth.contest_state = ZoneContestState::BlueControlling;
-        let speaker = if b_name.eq_ignore_ascii_case("anders") {
-            "Morten"
-        } else {
-            "Anders"
-        };
-        koth.active_speaker = Some((speaker.to_string(), Team::Blue));
-        koth.status_banner = format!(
-            "{} [BLUE]: «{} has the Red Flag! Clear the way to Blue Base!»",
-            speaker.to_uppercase(),
-            b_name
-        );
-        koth.status_color = Color::srgb(0.2, 0.95, 0.45);
     } else {
-        koth.contest_state = ZoneContestState::Neutral;
-        koth.active_speaker = Some(("Anders".to_string(), Team::Blue));
-        koth.status_banner =
-            "ANDERS [BLUE]: «Capture the Red Flag on the East Platform and bring it to Blue Base!»"
-                .to_string();
-        koth.status_color = Color::srgb(0.75, 0.88, 1.0);
+        koth.status_banner.clear();
+        koth.active_speaker = None;
     }
 }
 
@@ -771,17 +970,24 @@ fn update_hologram_visuals(
     }
 }
 
-/// Plays the corresponding audio file for active character voice callouts
+/// Plays the corresponding audio file for the single selected character voice callout,
+/// stopping any previously playing voice clip if a higher-priority callout preempted it.
 fn play_voice_callout_audio(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut koth: ResMut<KothManager>,
+    active_voice_query: Query<Entity, With<ActiveVoiceAudio>>,
 ) {
     if let Some(ref mut callout) = koth.event_notice {
         if !callout.played_audio {
             callout.played_audio = true;
+            // Ensure no previous voice audio continues talking over the newly selected speaker
+            for ent in active_voice_query.iter() {
+                commands.entity(ent).despawn();
+            }
             let sound_path = callout.audio_asset_path();
             commands.spawn((
+                ActiveVoiceAudio,
                 AudioPlayer::new(asset_server.load(sound_path)),
                 PlaybackSettings::DESPAWN.with_volume(Volume::new(1.0)),
             ));

@@ -3,7 +3,9 @@ use bevy::audio::Volume;
 use bevy::prelude::*;
 
 use crate::koth::KothManager;
-use crate::types::{Character, Health, StaggerState, TackleAbility, Team, VoiceCallout};
+use crate::types::{
+    Character, Health, StaggerState, TackleAbility, Team, VoiceCallout, VoicePriority,
+};
 
 pub const TACKLE_COOLDOWN: f32 = 1.15;
 pub const TACKLE_STAMINA_COST: f32 = 20.0;
@@ -91,6 +93,11 @@ fn check_tackle_hits(
     if !koth.match_started {
         return;
     }
+
+    // Locate human player position so we only propose combat barks for tackles involving or near the player
+    let player_pos = characters
+        .iter()
+        .find_map(|(_, trans, _, _, _, _, _, ch)| ch.is_player.then_some(trans.translation));
 
     // 1. Collect active tacklers / shovers this frame
     let active_tacklers: Vec<(Entity, Vec3, Vec3, Vec3, Character)> = characters
@@ -212,25 +219,55 @@ fn check_tackle_hits(
                             .with_scale(Vec3::splat(0.35)),
                     ));
 
-                    // Trigger character-specific tackle voice callout if no higher-priority flag alert is active
-                    if koth.event_notice.is_none() {
-                        let spoken = match tackler_char.name.to_lowercase().as_str() {
-                            "anders" => "Target neutralized! Stay down!",
-                            "morten" => "Boom! Direct tackle hit!",
-                            "jonas" => "Enemy stopped in their tracks!",
-                            "siri" => "Too slow! Took you down!",
-                            "lisa" => "Caught you in the net!",
-                            "per" => "Sit down! Nobody gets past me!",
-                            _ => "Direct tackle hit!",
+                    // Skip tackle bark if the target was carrying a flag (they will call out `dropped_flag` instead)
+                    let target_was_carrier = koth
+                        .blue_carrier
+                        .as_ref()
+                        .map(|(e, _)| *e == target_ent)
+                        .unwrap_or(false)
+                        || koth
+                            .red_carrier
+                            .as_ref()
+                            .map(|(e, _)| *e == target_ent)
+                            .unwrap_or(false);
+
+                    if !target_was_carrier {
+                        let dist_to_player = player_pos
+                            .map(|p| p.distance(impact_pos))
+                            .unwrap_or(0.0);
+                        // Only propose tackle voice barks when the player is directly involved or nearby (< 14m)
+                        let maybe_relevance = if tackler_char.is_player {
+                            Some(90.0)
+                        } else if target_char.is_player {
+                            Some(75.0)
+                        } else if dist_to_player < 14.0 {
+                            Some(50.0 - dist_to_player)
+                        } else {
+                            None
                         };
-                        koth.event_notice = Some(VoiceCallout::new(
-                            tackler_char.name.clone(),
-                            tackler_char.team,
-                            "tackle_hit",
-                            spoken,
-                            tackler_char.team.color(),
-                            2.2,
-                        ));
+
+                        if let Some(relevance) = maybe_relevance {
+                            let spoken = match tackler_char.name.to_lowercase().as_str() {
+                                "anders" => "Target neutralized! Stay down!",
+                                "morten" => "Boom! Direct tackle hit!",
+                                "jonas" => "Enemy stopped in their tracks!",
+                                "siri" => "Too slow! Took you down!",
+                                "lisa" => "Caught you in the net!",
+                                "per" => "Sit down! Nobody gets past me!",
+                                _ => "Direct tackle hit!",
+                            };
+                            koth.propose_callout(
+                                VoiceCallout::new(
+                                    tackler_char.name.clone(),
+                                    tackler_char.team,
+                                    "tackle_hit",
+                                    spoken,
+                                    tackler_char.team.color(),
+                                    2.2,
+                                )
+                                .with_priority(VoicePriority::CombatBark, relevance),
+                            );
+                        }
                     }
 
                     connected_dir = Some(knockback_dir);
