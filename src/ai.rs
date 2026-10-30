@@ -304,6 +304,7 @@ fn update_bot_behaviors(
 
             tackle.is_tackling = true;
             tackle.tackle_timer = 0.24;
+            tackle.punch_anim_timer = 0.42;
             tackle.cooldown = TACKLE_COOLDOWN;
             stamina.current -= TACKLE_STAMINA_COST;
             bot_data.reaction_cooldown = 0.25;

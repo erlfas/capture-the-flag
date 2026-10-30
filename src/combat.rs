@@ -9,10 +9,10 @@ use crate::types::{
 
 pub const TACKLE_COOLDOWN: f32 = 1.15;
 pub const TACKLE_STAMINA_COST: f32 = 20.0;
-pub const TACKLE_LUNGE_SPEED: f32 = 15.0;
-pub const KNOCKBACK_FORCE: f32 = 14.5;
-pub const UPWARD_LIFT: f32 = 1.8;
-pub const HIT_RANGE: f32 = 3.05;
+pub const TACKLE_LUNGE_SPEED: f32 = 16.0;
+pub const KNOCKBACK_FORCE: f32 = 17.2;
+pub const UPWARD_LIFT: f32 = 2.1;
+pub const HIT_RANGE: f32 = 3.10;
 
 #[derive(Component)]
 pub struct ShoveShockwave {
@@ -59,10 +59,14 @@ fn update_cooldowns_and_stagger(
             }
         }
 
+        if ability.punch_anim_timer > 0.0 {
+            ability.punch_anim_timer = (ability.punch_anim_timer - dt).max(0.0);
+        }
+
         if stagger.duration > 0.0 {
             stagger.duration = (stagger.duration - dt).max(0.0);
-            // Smooth, weighty knockback decay so a punch pushes ~5-6m without flying across the arena
-            let drag = (2.2 * dt).min(1.0);
+            // Smooth, weighty knockback decay so a punch pushes ~7-8m without flying across the arena
+            let drag = (1.75 * dt).min(1.0);
             lin_vel.x = lin_vel.x.lerp(0.0, drag);
             lin_vel.z = lin_vel.z.lerp(0.0, drag);
 
@@ -91,8 +95,8 @@ fn update_cooldowns_and_stagger(
                 }
             }
 
-            if lin_vel.y > 2.2 {
-                lin_vel.y = 2.2;
+            if lin_vel.y > 2.4 {
+                lin_vel.y = 2.4;
             }
         }
     }
@@ -212,13 +216,13 @@ fn check_tackle_hits(
                     let momentum_bonus = (Vec3::new(tackler_vel.x, 0.0, tackler_vel.z)
                         .dot(knockback_dir)
                         .max(0.0)
-                        * 0.22)
-                        .min(2.5);
+                        * 0.25)
+                        .min(3.2);
                     let total_push_speed = KNOCKBACK_FORCE + momentum_bonus;
 
                     target_vel.0 = knockback_dir * total_push_speed + Vec3::Y * UPWARD_LIFT;
                     target_ang_vel.0 = Vec3::ZERO;
-                    target_stagger.duration = 0.78;
+                    target_stagger.duration = 0.86;
 
                     if let Some(ref mut health) = maybe_health {
                         health.current = (health.current - 22.0).max(10.0);

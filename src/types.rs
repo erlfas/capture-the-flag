@@ -94,6 +94,7 @@ pub struct TackleAbility {
     pub max_cooldown: f32,
     pub is_tackling: bool,
     pub tackle_timer: f32,
+    pub punch_anim_timer: f32,
 }
 
 #[derive(Component, Debug, Clone, Default)]

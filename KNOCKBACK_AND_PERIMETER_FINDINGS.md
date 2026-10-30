@@ -16,9 +16,10 @@ This document summarizes the root causes identified for unrealistic punch knockb
    - Similarly, setting `UPWARD_LIFT = 0.0` with no terrain step-gliding during stagger causes the knocked-back capsule to snag immediately on uneven 0.5m trimesh edges.
 
 ### Fixes Implemented
-- Tuned `KNOCKBACK_FORCE` to **`14.5 m/s`** with a capped forward momentum bonus (`<= +2.5 m/s`), `TACKLE_IMPULSE` to **`18.5 m/s`**, `UPWARD_LIFT` to **`1.8 m/s`**, and stagger duration to **`0.78s`**.
-- Added smooth horizontal drag (`lerp` decay at `2.2 * dt`) plus uphill terrain step-gliding during `stagger.duration > 0.0` in `update_cooldowns_and_stagger` so punched characters are knocked back a consistent, impactful **~5–6 meters** without snagging on terrain or flying across the map.
+- Tuned `KNOCKBACK_FORCE` to **`17.2 m/s`** with a capped forward momentum bonus (`<= +3.2 m/s`), `TACKLE_IMPULSE` to **`19.5 m/s`**, `UPWARD_LIFT` to **`2.1 m/s`**, and stagger duration to **`0.86s`**.
+- Added smooth horizontal drag (`lerp` decay at `1.75 * dt`) plus uphill terrain step-gliding during `stagger.duration > 0.0` in `update_cooldowns_and_stagger` so punched characters are knocked back a consistent, impactful **~6–8 meters** without snagging on terrain or flying across the map.
 - Ensured `handle_fallout_respawns` only writes to `Position` when an actual perimeter clamp occurs, and only runs in `Update` and `PostUpdate.after(PhysicsSet::Sync)`.
+- Added a procedural skeletal hand/arm punching animation (`apply_character_punch_pose` in [`src/player.rs`](src/player.rs), driven by `TackleAbility::punch_anim_timer`) that runs in `PostUpdate` after `bevy::animation::animate_targets` and before `TransformSystem::TransformPropagate`, driving `mixamorig:RightArm`/`LeftArm` and `mixamorig:RightForeArm`/`LeftForeArm` forward in a rapid two-handed punch thrust while leaving `mixamorig:Spine2` untouched (since `Spine2` has no animation channel in the GLB clips and would otherwise accumulate rotation across frames).
 
 ---
 
@@ -31,9 +32,9 @@ This document summarizes the root causes identified for unrealistic punch knockb
    - Uphill step-climbing logic in `player.rs` and `ai.rs` allowed `climb_vy` up to `12.5–13.5 m/s` (more than 2× `JUMP_IMPULSE = 5.4 m/s`), launching characters skyward when cresting short steps or rubble piles.
 
 ### Fixes Implemented
-- Reduced `UPWARD_LIFT` from `3.8 m/s` to **`1.8 m/s`** (just enough to unstick boots from trimesh friction without lofting into the air).
+- Reduced `UPWARD_LIFT` from `3.8 m/s` to **`2.1 m/s`** (just enough to unstick boots from trimesh friction without lofting into the air).
 - Capped slope-climbing `climb_vy` to **`4.2 m/s`** in `player.rs` and `ai.rs`.
-- Enforced vertical velocity ceilings (`lin_vel.y <= 2.2 m/s` while staggered, `<= 5.8 m/s` otherwise) and horizontal speed caps (`<= 16.5 m/s` while staggered) in `handle_fallout_respawns`.
+- Enforced vertical velocity ceilings (`lin_vel.y <= 2.4 m/s` while staggered, `<= 5.8 m/s` otherwise) and horizontal speed caps (`<= 19.8 m/s` while staggered) in `handle_fallout_respawns`.
 
 ---
 

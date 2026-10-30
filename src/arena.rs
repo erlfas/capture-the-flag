@@ -436,7 +436,7 @@ fn handle_fallout_respawns(
         }
 
         // Cap horizontal velocity so physics solver collisions can never fling characters across the map
-        let horiz_speed_limit = if stagger.duration > 0.0 { 16.5 } else { 20.0 };
+        let horiz_speed_limit = if stagger.duration > 0.0 { 19.8 } else { 21.5 };
         let horiz_vel = Vec2::new(lin_vel.x, lin_vel.z);
         let horiz_speed = horiz_vel.length();
         if horiz_speed > horiz_speed_limit {
@@ -446,7 +446,7 @@ fn handle_fallout_respawns(
         }
 
         // Prevent physics slope/capsule deflections from ever launching characters high up into the air
-        let max_upward_vel = if stagger.duration > 0.0 { 2.2 } else { 5.8 };
+        let max_upward_vel = if stagger.duration > 0.0 { 2.4 } else { 5.8 };
         if lin_vel.y > max_upward_vel {
             lin_vel.y = max_upward_vel;
         }

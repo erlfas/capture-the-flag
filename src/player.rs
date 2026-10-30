@@ -12,7 +12,7 @@ use crate::types::{Character, Health, StaggerState, Stamina, TackleAbility, Team
 pub const PLAYER_SPEED: f32 = 8.8;
 pub const SPRINT_MULTIPLIER: f32 = 1.55;
 pub const JUMP_IMPULSE: f32 = 5.4;
-pub const TACKLE_IMPULSE: f32 = 18.5;
+pub const TACKLE_IMPULSE: f32 = 19.5;
 pub const TACKLE_COOLDOWN: f32 = 1.15;
 
 #[derive(Component)]
@@ -37,14 +37,21 @@ pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_player).add_systems(
-            Update,
-            (
-                handle_player_movement,
-                update_stamina,
-                update_character_animation_and_materials,
-            ),
-        );
+        app.add_systems(Startup, spawn_player)
+            .add_systems(
+                Update,
+                (
+                    handle_player_movement,
+                    update_stamina,
+                    update_character_animation_and_materials,
+                ),
+            )
+            .add_systems(
+                PostUpdate,
+                apply_character_punch_pose
+                    .after(bevy::animation::animate_targets)
+                    .before(TransformSystem::TransformPropagate),
+            );
     }
 }
 
@@ -292,6 +299,7 @@ fn handle_player_movement(
     if tackle_pressed && tackle.cooldown <= 0.0 && stamina.current >= TACKLE_STAMINA_COST {
         tackle.is_tackling = true;
         tackle.tackle_timer = 0.30;
+        tackle.punch_anim_timer = 0.42;
         tackle.cooldown = TACKLE_COOLDOWN;
         stamina.current -= TACKLE_STAMINA_COST;
 
@@ -491,6 +499,141 @@ fn update_character_animation_and_materials(
                     }
                 }
             }
+        }
+    }
+}
+
+fn punch_envelope(u: f32) -> f32 {
+    let u = u.clamp(0.0, 1.0);
+    if u < 0.18 {
+        let t = u / 0.18;
+        t * t * (3.0 - 2.0 * t)
+    } else if u < 0.52 {
+        1.0
+    } else {
+        let t = (u - 0.52) / 0.48;
+        1.0 - t * t * (3.0 - 2.0 * t)
+    }
+}
+
+fn model_space_parent_rot(
+    bone_ent: Entity,
+    char_ent: Entity,
+    parent_query: &Query<&Parent>,
+    transforms: &Query<&mut Transform>,
+) -> Quat {
+    let mut chain = Vec::with_capacity(8);
+    for anc in parent_query.iter_ancestors(bone_ent) {
+        if anc == char_ent {
+            break;
+        }
+        chain.push(anc);
+    }
+    let mut rot = Quat::IDENTITY;
+    for &anc in chain.iter().rev() {
+        if let Ok(t) = transforms.get(anc) {
+            rot = rot * t.rotation;
+        }
+    }
+    rot
+}
+
+fn orient_bone_in_model_space(
+    bone_ent: Entity,
+    char_ent: Entity,
+    target_dir: Vec3,
+    weight: f32,
+    parent_query: &Query<&Parent>,
+    transforms: &mut Query<&mut Transform>,
+) {
+    if weight <= 0.001 {
+        return;
+    }
+    let parent_model_rot = model_space_parent_rot(bone_ent, char_ent, parent_query, transforms);
+    if let Ok(mut t) = transforms.get_mut(bone_ent) {
+        let model_rot = parent_model_rot * t.rotation;
+        let curr_dir = (model_rot * Vec3::Y).normalize_or(Vec3::Z);
+        let delta = Quat::from_rotation_arc(curr_dir, target_dir);
+        let new_model_rot = Quat::IDENTITY.slerp(delta, weight) * model_rot;
+        t.rotation = (parent_model_rot.inverse() * new_model_rot).normalize();
+    }
+}
+
+fn apply_character_punch_pose(
+    character_query: Query<(Entity, &TackleAbility), With<Character>>,
+    children_query: Query<&Children>,
+    parent_query: Query<&Parent>,
+    name_query: Query<&Name>,
+    mut transforms: Query<&mut Transform>,
+) {
+    for (char_ent, tackle) in character_query.iter() {
+        if tackle.punch_anim_timer <= 0.0 {
+            continue;
+        }
+
+        let u = (1.0 - (tackle.punch_anim_timer / 0.42)).clamp(0.0, 1.0);
+        let right_w = punch_envelope(u);
+        let left_w = punch_envelope((u * 1.06 - 0.06).clamp(0.0, 1.0));
+
+        let mut right_arm = None;
+        let mut left_arm = None;
+        let mut right_forearm = None;
+        let mut left_forearm = None;
+
+        for desc in children_query.iter_descendants(char_ent) {
+            if let Ok(name) = name_query.get(desc) {
+                match name.as_str() {
+                    "mixamorig:RightArm" => right_arm = Some(desc),
+                    "mixamorig:LeftArm" => left_arm = Some(desc),
+                    "mixamorig:RightForeArm" => right_forearm = Some(desc),
+                    "mixamorig:LeftForeArm" => left_forearm = Some(desc),
+                    _ => {}
+                }
+            }
+        }
+
+        // 1. Drive upper arms forward (+Z in model space)
+        if let Some(ent) = right_arm {
+            orient_bone_in_model_space(
+                ent,
+                char_ent,
+                Vec3::new(-0.08, 0.02, 0.99).normalize(),
+                right_w,
+                &parent_query,
+                &mut transforms,
+            );
+        }
+        if let Some(ent) = left_arm {
+            orient_bone_in_model_space(
+                ent,
+                char_ent,
+                Vec3::new(0.08, 0.0, 0.99).normalize(),
+                left_w,
+                &parent_query,
+                &mut transforms,
+            );
+        }
+
+        // 2. Extend forearms forward in a punching thrust after upper arms are updated
+        if let Some(ent) = right_forearm {
+            orient_bone_in_model_space(
+                ent,
+                char_ent,
+                Vec3::new(0.06, 0.08, 0.99).normalize(),
+                right_w,
+                &parent_query,
+                &mut transforms,
+            );
+        }
+        if let Some(ent) = left_forearm {
+            orient_bone_in_model_space(
+                ent,
+                char_ent,
+                Vec3::new(-0.06, 0.08, 0.99).normalize(),
+                left_w,
+                &parent_query,
+                &mut transforms,
+            );
         }
     }
 }
