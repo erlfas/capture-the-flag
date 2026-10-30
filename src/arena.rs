@@ -9,10 +9,40 @@ use crate::types::{Character, StaggerState};
 
 pub struct ArenaPlugin;
 
-pub const PLAYABLE_MIN_X: f32 = -24.2;
-pub const PLAYABLE_MAX_X: f32 = 23.6;
-pub const PLAYABLE_MIN_Z: f32 = -16.2;
-pub const PLAYABLE_MAX_Z: f32 = 18.0;
+pub const PLAYABLE_MIN_Z: f32 = -14.6;
+pub const PLAYABLE_MAX_Z: f32 = 16.0;
+
+/// Exact Z-dependent inner West fence boundary matching the 3D compound's perspective-angled barbed-wire fence.
+pub fn playable_min_x(z: f32) -> f32 {
+    if z <= -6.5 {
+        // North-West barbed-wire fence angles from x = -22.3 (at z = -15.0) to x = -23.1 (at z = -6.5)
+        let u = ((z - (-15.0)) / (-6.5 - (-15.0))).clamp(0.0, 1.0);
+        -21.65 - u * 0.55
+    } else if z <= 11.0 {
+        // West Blue Platform back fence & railing angles from x = -22.0 (at z = -6.5) to x = -22.8 (at z = 11.0)
+        let u = ((z - (-6.5)) / (11.0 - (-6.5))).clamp(0.0, 1.0);
+        -22.0 - u * 0.80
+    } else {
+        // South-West stairs & corner perimeter
+        -21.65
+    }
+}
+
+/// Exact Z-dependent inner East fence boundary matching the 3D compound's perspective-angled barbed-wire fence.
+pub fn playable_max_x(z: f32) -> f32 {
+    if z <= -6.5 {
+        // North-East barbed-wire fence angles from x = 21.4 (at z = -15.0) to x = 22.2 (at z = -6.5)
+        let u = ((z - (-15.0)) / (-6.5 - (-15.0))).clamp(0.0, 1.0);
+        20.75 + u * 0.55
+    } else if z <= 11.0 {
+        // East Red Platform back fence & railing angles from x = 21.3 (at z = -6.5) to x = 22.1 (at z = 11.0)
+        let u = ((z - (-6.5)) / (11.0 - (-6.5))).clamp(0.0, 1.0);
+        21.30 + u * 0.80
+    } else {
+        // South-East staircase perimeter
+        20.80
+    }
+}
 
 impl Plugin for ArenaPlugin {
     fn build(&self, app: &mut App) {
@@ -219,34 +249,47 @@ fn setup_arena(
 
     // =========================================================================
     // 3. IMPENETRABLE PERIMETER BARRIER COLLIDERS (30m high, 20m+ deep solid walls)
-    //    Guarantees no player or bot can ever tunnel, fly, or be pushed outside the compound
+    //    Angled to match the 3D model's perspective-tapered barbed-wire fences
+    //    so no player or bot can ever tunnel, fly, or be pushed outside the fence perimeter
     // =========================================================================
-    // West barrier: inner face at x = -24.2, extends out to x = -45.0 (20.8m thick, 30m high, 65m long)
+    // West angled fence barrier (z from -20 to 11.5): inner face follows playable_min_x(z)
     commands.spawn((
-        Transform::from_xyz(-34.6, 10.0, 0.0),
+        Transform::from_xyz(-32.25, 10.0, -2.0).with_rotation(Quat::from_rotation_y(-0.044)),
         RigidBody::Static,
-        Collider::cuboid(20.8, 30.0, 65.0),
+        Collider::cuboid(20.0, 30.0, 42.0),
+    ));
+    // South-West corner barrier (z > 11.0): inner face at x = -21.65
+    commands.spawn((
+        Transform::from_xyz(-31.65, 10.0, 18.0),
+        RigidBody::Static,
+        Collider::cuboid(20.0, 30.0, 16.0),
     ));
 
-    // East barrier: inner face at x = 23.6, extends out to x = 45.0 (21.4m thick, 30m high, 65m long)
+    // East angled fence barrier (z from -20 to 11.5): inner face follows playable_max_x(z)
     commands.spawn((
-        Transform::from_xyz(34.3, 10.0, 0.0),
+        Transform::from_xyz(31.40, 10.0, -2.0).with_rotation(Quat::from_rotation_y(0.052)),
         RigidBody::Static,
-        Collider::cuboid(21.4, 30.0, 65.0),
+        Collider::cuboid(20.0, 30.0, 42.0),
+    ));
+    // South-East corner barrier (z > 11.0): inner face at x = 20.80
+    commands.spawn((
+        Transform::from_xyz(30.80, 10.0, 18.0),
+        RigidBody::Static,
+        Collider::cuboid(20.0, 30.0, 16.0),
     ));
 
-    // North barrier: inner face at z = -16.2, extends out to z = -40.0 (23.8m deep, 30m high, 75m wide)
+    // North barrier: inner face at z = PLAYABLE_MIN_Z (-14.6), 24m deep, 30m high, 75m wide
     commands.spawn((
-        Transform::from_xyz(0.0, 10.0, -28.1),
+        Transform::from_xyz(0.0, 10.0, PLAYABLE_MIN_Z - 12.0),
         RigidBody::Static,
-        Collider::cuboid(75.0, 30.0, 23.8),
+        Collider::cuboid(75.0, 30.0, 24.0),
     ));
 
-    // South barrier: inner face at z = 18.0, extends out to z = 40.0 (22.0m deep, 30m high, 75m wide)
+    // South barrier: inner face at z = PLAYABLE_MAX_Z (16.0), 24m deep, 30m high, 75m wide
     commands.spawn((
-        Transform::from_xyz(0.0, 10.0, 29.0),
+        Transform::from_xyz(0.0, 10.0, PLAYABLE_MAX_Z + 12.0),
         RigidBody::Static,
-        Collider::cuboid(75.0, 30.0, 22.0),
+        Collider::cuboid(75.0, 30.0, 24.0),
     ));
 
     // =========================================================================
@@ -341,14 +384,8 @@ fn handle_fallout_respawns(
         // Always prevent any physics-induced angular velocity from spinning characters
         ang_vel.0 = Vec3::ZERO;
 
-        // Fallout rescue: if fallen through the floor or knocked far out of bounds, recover back to base
-        let is_deeply_out_of_bounds = transform.translation.y < -10.0
-            || transform.translation.x < PLAYABLE_MIN_X - 1.2
-            || transform.translation.x > PLAYABLE_MAX_X + 1.2
-            || transform.translation.z < PLAYABLE_MIN_Z - 1.2
-            || transform.translation.z > PLAYABLE_MAX_Z + 1.2;
-
-        if is_deeply_out_of_bounds {
+        // Fallout rescue: if fallen far below the arena floor, recover back to base
+        if transform.translation.y < -10.0 {
             transform.translation = char_info.spawn_point;
             if let Some(ref mut pos) = maybe_pos {
                 pos.0 = char_info.spawn_point;
@@ -358,35 +395,60 @@ fn handle_fallout_respawns(
             continue;
         }
 
-        // Hard boundary clamping: characters can NEVER cross the compound perimeter
-        if transform.translation.x < PLAYABLE_MIN_X {
-            transform.translation.x = PLAYABLE_MIN_X;
-            if lin_vel.x < 0.0 {
-                lin_vel.x = 0.0;
-            }
-        } else if transform.translation.x > PLAYABLE_MAX_X {
-            transform.translation.x = PLAYABLE_MAX_X;
-            if lin_vel.x > 0.0 {
-                lin_vel.x = 0.0;
-            }
-        }
-
+        // Hard boundary clamping: characters can NEVER cross the angled compound fence perimeter
+        let mut clamped_xz = false;
         if transform.translation.z < PLAYABLE_MIN_Z {
             transform.translation.z = PLAYABLE_MIN_Z;
+            clamped_xz = true;
             if lin_vel.z < 0.0 {
                 lin_vel.z = 0.0;
             }
         } else if transform.translation.z > PLAYABLE_MAX_Z {
             transform.translation.z = PLAYABLE_MAX_Z;
+            clamped_xz = true;
             if lin_vel.z > 0.0 {
                 lin_vel.z = 0.0;
             }
         }
 
-        // Keep Avian3d Position component in sync with clamped transform
-        if let Some(ref mut pos) = maybe_pos {
-            pos.0.x = transform.translation.x;
-            pos.0.z = transform.translation.z;
+        let min_x = playable_min_x(transform.translation.z);
+        let max_x = playable_max_x(transform.translation.z);
+        if transform.translation.x < min_x {
+            transform.translation.x = min_x;
+            clamped_xz = true;
+            if lin_vel.x < 0.0 {
+                lin_vel.x = 0.0;
+            }
+        } else if transform.translation.x > max_x {
+            transform.translation.x = max_x;
+            clamped_xz = true;
+            if lin_vel.x > 0.0 {
+                lin_vel.x = 0.0;
+            }
+        }
+
+        // Only write to Avian3d Position when a boundary clamp actually occurred
+        if clamped_xz {
+            if let Some(ref mut pos) = maybe_pos {
+                pos.0.x = transform.translation.x;
+                pos.0.z = transform.translation.z;
+            }
+        }
+
+        // Cap horizontal velocity so physics solver collisions can never fling characters across the map
+        let horiz_speed_limit = if stagger.duration > 0.0 { 16.5 } else { 20.0 };
+        let horiz_vel = Vec2::new(lin_vel.x, lin_vel.z);
+        let horiz_speed = horiz_vel.length();
+        if horiz_speed > horiz_speed_limit {
+            let clamped = horiz_vel * (horiz_speed_limit / horiz_speed);
+            lin_vel.x = clamped.x;
+            lin_vel.z = clamped.y;
+        }
+
+        // Prevent physics slope/capsule deflections from ever launching characters high up into the air
+        let max_upward_vel = if stagger.duration > 0.0 { 2.2 } else { 5.8 };
+        if lin_vel.y > max_upward_vel {
+            lin_vel.y = max_upward_vel;
         }
 
         // Eject characters out of shipping container interiors so nobody can ever walk through,

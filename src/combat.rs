@@ -9,10 +9,10 @@ use crate::types::{
 
 pub const TACKLE_COOLDOWN: f32 = 1.15;
 pub const TACKLE_STAMINA_COST: f32 = 20.0;
-pub const TACKLE_LUNGE_SPEED: f32 = 16.5;
-pub const KNOCKBACK_FORCE: f32 = 18.5;
-pub const UPWARD_LIFT: f32 = 3.8;
-pub const HIT_RANGE: f32 = 3.15;
+pub const TACKLE_LUNGE_SPEED: f32 = 15.0;
+pub const KNOCKBACK_FORCE: f32 = 14.5;
+pub const UPWARD_LIFT: f32 = 1.8;
+pub const HIT_RANGE: f32 = 3.05;
 
 #[derive(Component)]
 pub struct ShoveShockwave {
@@ -35,18 +35,19 @@ impl Plugin for CombatPlugin {
                 handle_body_pushing,
                 animate_shove_shockwaves,
                 update_health_regen,
-            ),
+            )
+                .chain(),
         );
     }
 }
 
 fn update_cooldowns_and_stagger(
     time: Res<Time>,
-    mut query: Query<(&mut TackleAbility, &mut StaggerState)>,
+    mut query: Query<(&mut Transform, &mut TackleAbility, &mut StaggerState, &mut LinearVelocity)>,
 ) {
     let dt = time.delta_secs();
 
-    for (mut ability, mut stagger) in query.iter_mut() {
+    for (mut transform, mut ability, mut stagger, mut lin_vel) in query.iter_mut() {
         if ability.cooldown > 0.0 {
             ability.cooldown = (ability.cooldown - dt).max(0.0);
         }
@@ -60,6 +61,39 @@ fn update_cooldowns_and_stagger(
 
         if stagger.duration > 0.0 {
             stagger.duration = (stagger.duration - dt).max(0.0);
+            // Smooth, weighty knockback decay so a punch pushes ~5-6m without flying across the arena
+            let drag = (2.2 * dt).min(1.0);
+            lin_vel.x = lin_vel.x.lerp(0.0, drag);
+            lin_vel.z = lin_vel.z.lerp(0.0, drag);
+
+            // Help knocked-back characters glide over small terrain steps/bumps without snagging dead on trimesh edges
+            let horiz_vel = Vec2::new(lin_vel.x, lin_vel.z);
+            let horiz_speed = horiz_vel.length();
+            if horiz_speed > 1.0 {
+                let dir = horiz_vel / horiz_speed;
+                let curr_y = crate::terrain_heights::sample_terrain_height(
+                    transform.translation.x,
+                    transform.translation.z,
+                );
+                let ahead_y = crate::terrain_heights::sample_terrain_height(
+                    transform.translation.x + dir.x * 0.48,
+                    transform.translation.z + dir.y * 0.48,
+                );
+                let dh = ahead_y - curr_y;
+                if dh > 0.01 && dh < 0.85 && transform.translation.y <= curr_y + 1.25 {
+                    let target_center_y = ahead_y + 0.95;
+                    if transform.translation.y < target_center_y {
+                        transform.translation.y = transform
+                            .translation
+                            .y
+                            .lerp(target_center_y, (14.0 * dt).min(1.0));
+                    }
+                }
+            }
+
+            if lin_vel.y > 2.2 {
+                lin_vel.y = 2.2;
+            }
         }
     }
 }
@@ -137,7 +171,10 @@ fn check_tackle_hits(
             target_char,
         ) in characters.iter_mut()
         {
-            if *tackler_ent == target_ent || tackler_char.team == target_char.team {
+            if *tackler_ent == target_ent
+                || tackler_char.team == target_char.team
+                || target_stagger.duration > 0.45
+            {
                 continue;
             }
 
@@ -146,7 +183,7 @@ fn check_tackle_hits(
             let horiz_dist = horiz_to_target.length();
             let vert_dist = to_target.y.abs();
 
-            if horiz_dist < HIT_RANGE && vert_dist < 2.2 {
+            if horiz_dist < HIT_RANGE && vert_dist < 2.1 {
                 let dir_to_target = horiz_to_target.normalize_or(*forward);
                 let dot = forward.dot(dir_to_target);
 
@@ -156,29 +193,32 @@ fn check_tackle_hits(
                     knockback_dir.y = 0.0;
                     knockback_dir = knockback_dir.normalize_or(Vec3::Z);
 
-                    // Perimeter deflection: prevent knockback impulses from forcing characters into the perimeter walls
-                    if target_trans.translation.x < crate::arena::PLAYABLE_MIN_X + 0.6 && knockback_dir.x < 0.0 {
+                    // Perimeter deflection: prevent knockback impulses from forcing characters into the fence perimeter
+                    let min_x = crate::arena::playable_min_x(target_trans.translation.z);
+                    let max_x = crate::arena::playable_max_x(target_trans.translation.z);
+                    if target_trans.translation.x < min_x + 0.8 && knockback_dir.x < 0.0 {
                         knockback_dir.x = 0.0;
-                    } else if target_trans.translation.x > crate::arena::PLAYABLE_MAX_X - 0.6 && knockback_dir.x > 0.0 {
+                    } else if target_trans.translation.x > max_x - 0.8 && knockback_dir.x > 0.0 {
                         knockback_dir.x = 0.0;
                     }
-                    if target_trans.translation.z < crate::arena::PLAYABLE_MIN_Z + 0.6 && knockback_dir.z < 0.0 {
+                    if target_trans.translation.z < crate::arena::PLAYABLE_MIN_Z + 0.8 && knockback_dir.z < 0.0 {
                         knockback_dir.z = 0.0;
-                    } else if target_trans.translation.z > crate::arena::PLAYABLE_MAX_Z - 0.6 && knockback_dir.z > 0.0 {
+                    } else if target_trans.translation.z > crate::arena::PLAYABLE_MAX_Z - 0.8 && knockback_dir.z > 0.0 {
                         knockback_dir.z = 0.0;
                     }
-                    knockback_dir = knockback_dir.normalize_or(Vec3::Z);
+                    knockback_dir = knockback_dir.normalize_or(Vec3::ZERO);
 
-                    // Combine base shove force with 45% of the shover's own forward momentum
-                    let momentum_bonus = Vec3::new(tackler_vel.x, 0.0, tackler_vel.z)
+                    // Combine base shove force with a capped portion of the shover's forward momentum
+                    let momentum_bonus = (Vec3::new(tackler_vel.x, 0.0, tackler_vel.z)
                         .dot(knockback_dir)
                         .max(0.0)
-                        * 0.45;
+                        * 0.22)
+                        .min(2.5);
                     let total_push_speed = KNOCKBACK_FORCE + momentum_bonus;
 
                     target_vel.0 = knockback_dir * total_push_speed + Vec3::Y * UPWARD_LIFT;
                     target_ang_vel.0 = Vec3::ZERO;
-                    target_stagger.duration = 1.05;
+                    target_stagger.duration = 0.78;
 
                     if let Some(ref mut health) = maybe_health {
                         health.current = (health.current - 22.0).max(10.0);
@@ -287,8 +327,9 @@ fn check_tackle_hits(
             characters.get_mut(tackler_ent)
         {
             ability.is_tackling = false;
-            tackler_vel.x = hit_dir.x * 5.2;
-            tackler_vel.z = hit_dir.z * 5.2;
+            tackler_vel.x = hit_dir.x * 2.2;
+            tackler_vel.z = hit_dir.z * 2.2;
+            tackler_vel.y = tackler_vel.y.min(0.0);
             tackler_ang.0 = Vec3::ZERO;
         }
     }
@@ -317,14 +358,14 @@ fn handle_body_pushing(
         .map(|(e, t, v, _, s, c)| (e, t.translation, v.0, c.team, s.duration > 0.0))
         .collect();
 
-    let contact_radius = 1.18_f32;
+    let contact_radius = 1.05_f32;
 
-    for (ent_a, trans_a, mut vel_a, mut ang_a, _stag_a, char_a) in characters.iter_mut() {
+    for (ent_a, trans_a, mut vel_a, mut ang_a, stag_a, char_a) in characters.iter_mut() {
         ang_a.0 = Vec3::ZERO;
         let pos_a = trans_a.translation;
         let horiz_vel_a = Vec3::new(vel_a.x, 0.0, vel_a.z);
 
-        for (ent_b, pos_b, vel_b, team_b, _is_staggered_b) in snapshots.iter() {
+        for (ent_b, pos_b, vel_b, team_b, is_staggered_b) in snapshots.iter() {
             if ent_a == *ent_b {
                 continue;
             }
@@ -334,26 +375,36 @@ fn handle_body_pushing(
             if dist < contact_radius && dist > 0.001 && delta.y.abs() < 1.65 {
                 // Push direction from B toward A
                 let mut push_away = horiz_delta / dist;
-                if pos_a.x <= crate::arena::PLAYABLE_MIN_X + 0.2 && push_away.x < 0.0 {
+                let min_x = crate::arena::playable_min_x(pos_a.z);
+                let max_x = crate::arena::playable_max_x(pos_a.z);
+                if pos_a.x <= min_x + 0.3 && push_away.x < 0.0 {
                     push_away.x = 0.0;
-                } else if pos_a.x >= crate::arena::PLAYABLE_MAX_X - 0.2 && push_away.x > 0.0 {
+                } else if pos_a.x >= max_x - 0.3 && push_away.x > 0.0 {
                     push_away.x = 0.0;
                 }
-                if pos_a.z <= crate::arena::PLAYABLE_MIN_Z + 0.2 && push_away.z < 0.0 {
+                if pos_a.z <= crate::arena::PLAYABLE_MIN_Z + 0.3 && push_away.z < 0.0 {
                     push_away.z = 0.0;
-                } else if pos_a.z >= crate::arena::PLAYABLE_MAX_Z - 0.2 && push_away.z > 0.0 {
+                } else if pos_a.z >= crate::arena::PLAYABLE_MAX_Z - 0.3 && push_away.z > 0.0 {
                     push_away.z = 0.0;
                 }
                 let push_away = push_away.normalize_or(Vec3::ZERO);
 
                 let overlap = (contact_radius - dist) / contact_radius;
 
+                // Do not compound ramming velocity onto characters already staggered from a punch
+                if stag_a.duration > 0.0 || *is_staggered_b {
+                    let sep_accel = overlap * 8.0;
+                    vel_a.x += push_away.x * sep_accel * dt;
+                    vel_a.z += push_away.z * sep_accel * dt;
+                    continue;
+                }
+
                 // How fast B is ramming into A along push_away
                 let horiz_vel_b = Vec3::new(vel_b.x, 0.0, vel_b.z);
-                let ram_speed_from_b = (horiz_vel_b - horiz_vel_a).dot(push_away).max(0.0);
+                let ram_speed_from_b = (horiz_vel_b - horiz_vel_a).dot(push_away).max(0.0).min(8.0);
 
-                let team_mult = if char_a.team != *team_b { 1.45 } else { 0.75 };
-                let push_accel = (overlap * 24.0 + ram_speed_from_b * 1.85) * team_mult;
+                let team_mult = if char_a.team != *team_b { 1.15 } else { 0.65 };
+                let push_accel = (overlap * 14.0 + ram_speed_from_b * 1.1) * team_mult;
 
                 vel_a.x += push_away.x * push_accel * dt;
                 vel_a.z += push_away.z * push_accel * dt;

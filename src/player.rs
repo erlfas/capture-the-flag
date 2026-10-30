@@ -12,7 +12,7 @@ use crate::types::{Character, Health, StaggerState, Stamina, TackleAbility, Team
 pub const PLAYER_SPEED: f32 = 8.8;
 pub const SPRINT_MULTIPLIER: f32 = 1.55;
 pub const JUMP_IMPULSE: f32 = 5.4;
-pub const TACKLE_IMPULSE: f32 = 21.5;
+pub const TACKLE_IMPULSE: f32 = 18.5;
 pub const TACKLE_COOLDOWN: f32 = 1.15;
 
 #[derive(Component)]
@@ -291,7 +291,7 @@ fn handle_player_movement(
         mouse_buttons.just_pressed(MouseButton::Left) || keys.just_pressed(KeyCode::KeyF);
     if tackle_pressed && tackle.cooldown <= 0.0 && stamina.current >= TACKLE_STAMINA_COST {
         tackle.is_tackling = true;
-        tackle.tackle_timer = 0.34;
+        tackle.tackle_timer = 0.30;
         tackle.cooldown = TACKLE_COOLDOWN;
         stamina.current -= TACKLE_STAMINA_COST;
 
@@ -302,7 +302,7 @@ fn handle_player_movement(
             (transform.rotation * Vec3::Z).normalize_or(forward_dir)
         };
 
-        // Target magnetism: snap toward the closest Red opponent within 7.5m in front cone
+        // Target magnetism: snap toward the closest Red opponent within 7.0m in front cone
         let mut best_dir = base_aim;
         let mut best_score = f32::MAX;
         for (enemy_trans, enemy_char) in enemies_query.iter() {
@@ -312,7 +312,7 @@ fn handle_player_movement(
             let delta = enemy_trans.translation - transform.translation;
             let horiz = Vec3::new(delta.x, 0.0, delta.z);
             let dist = horiz.length();
-            if dist > 0.1 && dist < 7.5 && delta.y.abs() < 2.5 {
+            if dist > 0.1 && dist < 7.0 && delta.y.abs() < 2.4 {
                 let dir_to_enemy = horiz / dist;
                 let align = base_aim.dot(dir_to_enemy).max(forward_dir.dot(dir_to_enemy));
                 if align > 0.15 {
@@ -329,26 +329,26 @@ fn handle_player_movement(
         let lunge_vel = best_dir * TACKLE_IMPULSE;
         lin_vel.x = lunge_vel.x;
         lin_vel.z = lunge_vel.z;
-        if is_grounded && lin_vel.y < 1.6 {
-            lin_vel.y = 1.6;
+        if is_grounded && lin_vel.y < 1.0 {
+            lin_vel.y = 1.0;
         }
     }
 
-    // Sustain high-speed forward drive during an active shove/tackle lunge
+    // Sustain forward drive during an active shove/tackle lunge
     if tackle.is_tackling {
         let lunge_dir = (transform.rotation * Vec3::Z).normalize_or(forward_dir);
-        let sustain_speed = TACKLE_IMPULSE * 0.90;
+        let sustain_speed = TACKLE_IMPULSE * 0.88;
         lin_vel.x = lunge_dir.x * sustain_speed;
         lin_vel.z = lunge_dir.z * sustain_speed;
 
         if is_grounded {
             let ahead_y = crate::terrain_heights::sample_terrain_height(
-                transform.translation.x + lunge_dir.x * 0.55,
-                transform.translation.z + lunge_dir.z * 0.55,
+                transform.translation.x + lunge_dir.x * 0.50,
+                transform.translation.z + lunge_dir.z * 0.50,
             );
             let dh = ahead_y - terrain_y;
-            if dh > 0.01 && dh < 1.25 {
-                lin_vel.y = lin_vel.y.max((sustain_speed * (dh / 0.55)).clamp(0.0, 13.5));
+            if dh > 0.01 && dh < 0.85 {
+                lin_vel.y = lin_vel.y.max((sustain_speed * (dh / 0.50)).clamp(0.0, 3.8));
             }
         }
         return;
@@ -371,17 +371,17 @@ fn handle_player_movement(
                 transform.translation.z + move_dir.z * 0.48,
             );
             let dh = ahead_y - terrain_y;
-            if dh > 0.01 && dh < 1.15 {
-                let climb_vy = (speed * (dh / 0.48)).clamp(0.0, 12.5);
+            if dh > 0.01 && dh < 0.85 {
+                let climb_vy = (speed * (dh / 0.48)).clamp(0.0, 4.2);
                 if lin_vel.y < climb_vy {
                     lin_vel.y = climb_vy;
                 }
-                let target_center_y = ahead_y + 0.92;
+                let target_center_y = ahead_y + 0.91;
                 if transform.translation.y < target_center_y {
                     transform.translation.y = transform
                         .translation
                         .y
-                        .lerp(target_center_y, (18.0 * dt).min(1.0));
+                        .lerp(target_center_y, (14.0 * dt).min(1.0));
                 }
             }
         }

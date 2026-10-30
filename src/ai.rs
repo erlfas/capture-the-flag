@@ -303,13 +303,14 @@ fn update_bot_behaviors(
             transform.rotation = Quat::from_rotation_y(to_enemy.x.atan2(to_enemy.z));
 
             tackle.is_tackling = true;
-            tackle.tackle_timer = 0.28;
+            tackle.tackle_timer = 0.24;
             tackle.cooldown = TACKLE_COOLDOWN;
             stamina.current -= TACKLE_STAMINA_COST;
             bot_data.reaction_cooldown = 0.25;
 
-            let lunge_speed = TACKLE_LUNGE_SPEED.max(16.5);
-            lin_vel.0 = to_enemy * lunge_speed + Vec3::Y * 1.2;
+            lin_vel.x = to_enemy.x * TACKLE_LUNGE_SPEED;
+            lin_vel.z = to_enemy.z * TACKLE_LUNGE_SPEED;
+            lin_vel.y = lin_vel.y.min(0.0);
             continue;
         }
 
@@ -384,17 +385,17 @@ fn update_bot_behaviors(
                 transform.translation.z + dir.z * 0.48,
             );
             let dh = ahead_y - curr_y;
-            if dh > 0.01 && dh < 1.15 && transform.translation.y <= curr_y + 1.15 {
-                let climb_vy = (bot_speed * (dh / 0.48)).clamp(0.0, 12.0);
+            if dh > 0.01 && dh < 0.85 && transform.translation.y <= curr_y + 1.15 {
+                let climb_vy = (bot_speed * (dh / 0.48)).clamp(0.0, 4.2);
                 if lin_vel.y < climb_vy {
                     lin_vel.y = climb_vy;
                 }
-                let target_center_y = ahead_y + 0.92;
+                let target_center_y = ahead_y + 0.91;
                 if transform.translation.y < target_center_y {
                     transform.translation.y = transform
                         .translation
                         .y
-                        .lerp(target_center_y, (16.0 * dt).min(1.0));
+                        .lerp(target_center_y, (14.0 * dt).min(1.0));
                 }
             }
 
