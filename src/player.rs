@@ -7,10 +7,11 @@ use bevy::prelude::*;
 use crate::camera::OrbitCamera;
 use crate::combat::TACKLE_STAMINA_COST;
 use crate::koth::KothManager;
-use crate::types::{Character, Health, StaggerState, Stamina, TackleAbility, Team};
+use crate::types::{Character, Health, PauseState, StaggerState, Stamina, TackleAbility, Team};
 
 pub const PLAYER_SPEED: f32 = 8.8;
 pub const SPRINT_MULTIPLIER: f32 = 1.55;
+#[allow(dead_code)]
 pub const JUMP_IMPULSE: f32 = 5.4;
 pub const TACKLE_IMPULSE: f32 = 19.5;
 pub const TACKLE_COOLDOWN: f32 = 1.15;
@@ -191,10 +192,10 @@ fn handle_player_movement(
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     time: Res<Time>,
     koth: Res<KothManager>,
+    pause_state: Res<PauseState>,
     spatial_query: SpatialQuery,
     camera_query: Query<&OrbitCamera>,
     enemies_query: Query<(&Transform, &Character), Without<Player>>,
-    mut jump_cooldown: Local<f32>,
     mut player_query: Query<
         (
             Entity,
@@ -221,6 +222,10 @@ fn handle_player_movement(
     // Prevent any physics-induced self-spinning
     ang_vel.0 = Vec3::ZERO;
 
+    if pause_state.is_paused || pause_state.exited {
+        return;
+    }
+
     if !koth.match_started {
         lin_vel.x = 0.0;
         lin_vel.z = 0.0;
@@ -228,7 +233,6 @@ fn handle_player_movement(
     }
 
     let dt = time.delta_secs();
-    *jump_cooldown = (*jump_cooldown - dt).max(0.0);
 
     // Downward raycast from capsule center (0.95m to soles of boots + 0.12m ground margin = 1.07m)
     // combined with exact 3D model terrain height check so jumping works on all slopes and stairs
@@ -293,9 +297,11 @@ fn handle_player_movement(
         stamina.current = (stamina.current - 14.0 * dt).max(0.0);
     }
 
-    // Shove / Tackle Lunge Trigger (LMB or F) with magnetic target assist
-    let tackle_pressed =
-        mouse_buttons.just_pressed(MouseButton::Left) || keys.just_pressed(KeyCode::KeyF);
+    // Shove / Tackle / Punch Lunge Trigger (Space, LMB, or F) with magnetic target assist
+    let space_punch = keys.just_pressed(KeyCode::Space) && pause_state.match_active_secs > 0.15;
+    let tackle_pressed = mouse_buttons.just_pressed(MouseButton::Left)
+        || keys.just_pressed(KeyCode::KeyF)
+        || space_punch;
     if tackle_pressed && tackle.cooldown <= 0.0 && stamina.current >= TACKLE_STAMINA_COST {
         tackle.is_tackling = true;
         tackle.tackle_timer = 0.30;
@@ -402,20 +408,16 @@ fn handle_player_movement(
         lin_vel.x = lin_vel.x.lerp(0.0, (decel_rate * dt).min(1.0));
         lin_vel.z = lin_vel.z.lerp(0.0, (decel_rate * dt).min(1.0));
     }
-
-    // Athletic Jump
-    if keys.just_pressed(KeyCode::Space)
-        && is_grounded
-        && *jump_cooldown <= 0.0
-        && stamina.current >= 8.0
-    {
-        lin_vel.y = JUMP_IMPULSE;
-        stamina.current = (stamina.current - 8.0).max(0.0);
-        *jump_cooldown = 0.35;
-    }
 }
 
-fn update_stamina(time: Res<Time>, mut stamina_query: Query<&mut Stamina>) {
+fn update_stamina(
+    time: Res<Time>,
+    pause_state: Res<PauseState>,
+    mut stamina_query: Query<&mut Stamina>,
+) {
+    if pause_state.is_paused || pause_state.exited {
+        return;
+    }
     let dt = time.delta_secs();
     for mut stamina in stamina_query.iter_mut() {
         if stamina.current < stamina.max {

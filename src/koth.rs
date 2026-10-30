@@ -2,7 +2,7 @@ use bevy::audio::Volume;
 use bevy::prelude::*;
 
 use crate::arena::PLATEAU_COORDS;
-use crate::types::{Character, StaggerState, Team, VoiceCallout, VoicePriority};
+use crate::types::{Character, PauseState, StaggerState, Team, VoiceCallout, VoicePriority};
 
 pub const WIN_SCORE: f32 = 5.0; // First to 5 captured flags wins
 pub const INITIAL_MATCH_TIME: f32 = 462.0; // 07:42 in seconds, matching art reference
@@ -69,6 +69,24 @@ impl KothManager {
     /// The voice arbitrator will select at most one speaker according to priority, relevance, and cooldowns.
     pub fn propose_callout(&mut self, callout: VoiceCallout) {
         self.pending_callouts.push(callout);
+    }
+
+    pub fn reset_for_new_match(&mut self) {
+        *self = Self {
+            match_started: true,
+            ..Self::default()
+        };
+        self.propose_callout(
+            VoiceCallout::new(
+                "Anders",
+                Team::Blue,
+                "match_start",
+                "Capture the Red Flag on the East Platform and bring it to Blue Base!",
+                Color::srgb(0.3, 0.9, 1.0),
+                4.6,
+            )
+            .with_priority(VoicePriority::TacticalComms, 100.0),
+        );
     }
 }
 
@@ -298,11 +316,12 @@ fn spawn_single_ctf_flag(
 
 fn update_ctf_flags_and_scoring(
     time: Res<Time>,
+    pause_state: Res<PauseState>,
     mut koth: ResMut<KothManager>,
     mut flags: Query<&mut TeamFlag>,
     characters: Query<(Entity, &Transform, &Character, &StaggerState)>,
 ) {
-    if !koth.match_started {
+    if !koth.match_started || pause_state.is_paused || pause_state.exited {
         return;
     }
 
@@ -775,8 +794,12 @@ fn update_ctf_flags_and_scoring(
 /// 1. At most ONE character speaks at any given moment.
 /// 2. Competing events are filtered by cooldown and ranked by `(priority, relevance)`.
 /// 3. There is natural radio silence between callouts instead of continuous shouting.
-fn arbitrate_voice_callouts(time: Res<Time>, mut koth: ResMut<KothManager>) {
-    if !koth.match_started {
+fn arbitrate_voice_callouts(
+    time: Res<Time>,
+    pause_state: Res<PauseState>,
+    mut koth: ResMut<KothManager>,
+) {
+    if !koth.match_started || pause_state.is_paused || pause_state.exited {
         return;
     }
 
@@ -975,9 +998,13 @@ fn update_hologram_visuals(
 fn play_voice_callout_audio(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    pause_state: Res<PauseState>,
     mut koth: ResMut<KothManager>,
     active_voice_query: Query<Entity, With<ActiveVoiceAudio>>,
 ) {
+    if pause_state.is_paused || pause_state.exited {
+        return;
+    }
     if let Some(ref mut callout) = koth.event_notice {
         if !callout.played_audio {
             callout.played_audio = true;

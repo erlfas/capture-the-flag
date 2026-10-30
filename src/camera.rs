@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, PrimaryWindow};
 
 use crate::player::Player;
+use crate::types::PauseState;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum CameraMode {
@@ -86,12 +87,19 @@ impl Plugin for CameraPlugin {
 fn handle_cursor_lock(
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     keys: Res<ButtonInput<KeyCode>>,
+    pause_state: Res<PauseState>,
     mut primary_window: Query<&mut Window, With<PrimaryWindow>>,
     camera_query: Query<&OrbitCamera>,
 ) {
     let Ok(mut window) = primary_window.get_single_mut() else {
         return;
     };
+
+    if pause_state.is_paused || pause_state.exited {
+        window.cursor_options.grab_mode = CursorGrabMode::None;
+        window.cursor_options.visible = true;
+        return;
+    }
 
     let is_third_person = camera_query
         .get_single()
@@ -114,6 +122,7 @@ fn update_camera(
     time: Res<Time>,
     keys: Res<ButtonInput<KeyCode>>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
+    pause_state: Res<PauseState>,
     mut mouse_motion: EventReader<MouseMotion>,
     mut mouse_wheel: EventReader<MouseWheel>,
     mut primary_window: Query<&mut Window, With<PrimaryWindow>>,
@@ -124,12 +133,6 @@ fn update_camera(
     let Ok(mut window) = primary_window.get_single_mut() else {
         return;
     };
-
-    let dt = time.delta_secs();
-    let is_locked = window.cursor_options.grab_mode == CursorGrabMode::Locked;
-    // Allow steering camera by holding Right Mouse Button or Middle Mouse Button
-    let is_dragging =
-        mouse_buttons.pressed(MouseButton::Right) || mouse_buttons.pressed(MouseButton::Middle);
 
     // Sum up mouse movement this frame
     let mut mouse_delta = Vec2::ZERO;
@@ -142,6 +145,16 @@ fn update_camera(
     for scroll in mouse_wheel.read() {
         scroll_delta += scroll.y;
     }
+
+    if pause_state.is_paused || pause_state.exited {
+        return;
+    }
+
+    let dt = time.delta_secs();
+    let is_locked = window.cursor_options.grab_mode == CursorGrabMode::Locked;
+    // Allow steering camera by holding Right Mouse Button or Middle Mouse Button
+    let is_dragging =
+        mouse_buttons.pressed(MouseButton::Right) || mouse_buttons.pressed(MouseButton::Middle);
 
     for (mut orbit, mut cam_transform) in camera_query.iter_mut() {
         // 1. Ensure camera target is attached to the player

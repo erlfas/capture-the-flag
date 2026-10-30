@@ -1,9 +1,27 @@
 use bevy::prelude::*;
 
+#[derive(Resource, Debug, Default, Clone)]
+pub struct PauseState {
+    pub is_paused: bool,
+    pub exited: bool,
+    pub match_active_secs: f32,
+    pub music_muted: bool,
+}
+
 #[cfg(target_arch = "wasm32")]
-#[wasm_bindgen::prelude::wasm_bindgen(inline_js = "export function is_match_started_js() { return typeof window !== 'undefined' && window.__GAME_MATCH_BEGUN === true; }")]
+#[wasm_bindgen::prelude::wasm_bindgen(inline_js = "
+export function is_match_started_js() {
+    return typeof window !== 'undefined' && window.__GAME_MATCH_BEGUN === true;
+}
+export function return_to_intro_js() {
+    if (typeof window !== 'undefined' && typeof window.returnToIntroScreen === 'function') {
+        window.returnToIntroScreen();
+    }
+}
+")]
 extern "C" {
     fn is_match_started_js() -> bool;
+    fn return_to_intro_js();
 }
 
 pub fn is_match_started() -> bool {
@@ -14,6 +32,13 @@ pub fn is_match_started() -> bool {
     #[cfg(not(target_arch = "wasm32"))]
     {
         true
+    }
+}
+
+pub fn trigger_return_to_intro() {
+    #[cfg(target_arch = "wasm32")]
+    {
+        return_to_intro_js();
     }
 }
 

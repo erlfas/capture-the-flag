@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 use crate::koth::KothManager;
 use crate::types::{
-    Character, Health, StaggerState, TackleAbility, Team, VoiceCallout, VoicePriority,
+    Character, Health, PauseState, StaggerState, TackleAbility, Team, VoiceCallout, VoicePriority,
 };
 
 pub const TACKLE_COOLDOWN: f32 = 1.15;
@@ -43,8 +43,12 @@ impl Plugin for CombatPlugin {
 
 fn update_cooldowns_and_stagger(
     time: Res<Time>,
+    pause_state: Res<PauseState>,
     mut query: Query<(&mut Transform, &mut TackleAbility, &mut StaggerState, &mut LinearVelocity)>,
 ) {
+    if pause_state.is_paused || pause_state.exited {
+        return;
+    }
     let dt = time.delta_secs();
 
     for (mut transform, mut ability, mut stagger, mut lin_vel) in query.iter_mut() {
@@ -102,7 +106,14 @@ fn update_cooldowns_and_stagger(
     }
 }
 
-fn update_health_regen(time: Res<Time>, mut health_query: Query<&mut Health>) {
+fn update_health_regen(
+    time: Res<Time>,
+    pause_state: Res<PauseState>,
+    mut health_query: Query<&mut Health>,
+) {
+    if pause_state.is_paused || pause_state.exited {
+        return;
+    }
     let dt = time.delta_secs();
     for mut health in health_query.iter_mut() {
         if health.current < health.max {
@@ -117,6 +128,7 @@ fn check_tackle_hits(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut koth: ResMut<KothManager>,
+    pause_state: Res<PauseState>,
     mut characters: Query<(
         Entity,
         &Transform,
@@ -128,7 +140,7 @@ fn check_tackle_hits(
         &Character,
     )>,
 ) {
-    if !koth.match_started {
+    if !koth.match_started || pause_state.is_paused || pause_state.exited {
         return;
     }
 
@@ -343,6 +355,7 @@ fn check_tackle_hits(
 fn handle_body_pushing(
     time: Res<Time>,
     koth: Res<KothManager>,
+    pause_state: Res<PauseState>,
     mut characters: Query<(
         Entity,
         &Transform,
@@ -352,7 +365,7 @@ fn handle_body_pushing(
         &Character,
     )>,
 ) {
-    if !koth.match_started {
+    if !koth.match_started || pause_state.is_paused || pause_state.exited {
         return;
     }
 

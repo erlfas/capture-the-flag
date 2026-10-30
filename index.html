@@ -200,8 +200,33 @@
                 instructions.classList.add("active");
             }
 
+            const canvas = document.getElementById("bevy");
+            if (canvas) {
+                canvas.focus();
+            }
+
             resumeAudioContexts();
         }
+
+        window.returnToIntroScreen = function () {
+            window.__GAME_MATCH_BEGUN = false;
+            const overlay = document.getElementById("intro-overlay");
+            const video = document.getElementById("intro-video");
+            const instructions = document.getElementById("instructions");
+            if (instructions) {
+                instructions.classList.remove("active");
+            }
+            if (overlay) {
+                overlay.style.display = "flex";
+                requestAnimationFrame(() => {
+                    overlay.classList.remove("hidden");
+                });
+            }
+            if (video) {
+                video.currentTime = 0;
+                video.play().catch(() => {});
+            }
+        };
 
         window.addEventListener("DOMContentLoaded", () => {
             const video = document.getElementById("intro-video");
@@ -281,7 +306,7 @@
 <body>
     <canvas id="bevy"></canvas>
     <div id="instructions">
-        <span>WASD</span> Move &bull; <span>MOUSE / Q, E</span> Steer Camera &bull; <span>TAB / V</span> Camera View &bull; <span>SHIFT</span> Sprint &bull; <span>LMB / F</span> Tackle &bull; <span>M</span> Music
+        <span>WASD</span> Move &bull; <span>MOUSE / Q, E</span> Steer Camera &bull; <span>TAB / V</span> Camera View &bull; <span>SHIFT</span> Sprint &bull; <span>SPACE / LMB / F</span> Punch &bull; <span>M</span> Music &bull; <span>ESC</span> Pause
     </div>
     <div id="intro-overlay">
         <video id="intro-video" playsinline preload="auto">

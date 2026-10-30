@@ -5,7 +5,7 @@ use crate::arena::PLATEAU_COORDS;
 use crate::combat::{TACKLE_COOLDOWN, TACKLE_LUNGE_SPEED, TACKLE_STAMINA_COST};
 use crate::koth::KothManager;
 use crate::player::spawn_character_visuals;
-use crate::types::{Character, Health, StaggerState, Stamina, TackleAbility, Team};
+use crate::types::{Character, Health, PauseState, StaggerState, Stamina, TackleAbility, Team};
 
 pub const BOT_BASE_SPEED: f32 = 8.2;
 pub const BOT_SPRINT_MULTIPLIER: f32 = 1.48;
@@ -185,6 +185,7 @@ fn route_via_platform_ramp(my_pos: Vec3, raw_target: Vec3) -> Vec3 {
 fn update_bot_behaviors(
     time: Res<Time>,
     koth: Res<KothManager>,
+    pause_state: Res<PauseState>,
     mut queries: ParamSet<(
         Query<(Entity, &Transform, &Character)>,
         Query<
@@ -203,6 +204,10 @@ fn update_bot_behaviors(
         >,
     )>,
 ) {
+    if pause_state.is_paused || pause_state.exited {
+        return;
+    }
+
     let dt = time.delta_secs();
     let blue_base = PLATEAU_COORDS[1].2;
     let red_base = PLATEAU_COORDS[2].2;

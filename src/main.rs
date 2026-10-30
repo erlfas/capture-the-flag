@@ -40,6 +40,7 @@ fn main() {
         // Avian3D ECS Physics Plugin with realistic Earth gravity (9.81 m/s²)
         .add_plugins(PhysicsPlugins::default())
         .insert_resource(Gravity(Vec3::new(0.0, -9.81, 0.0)))
+        .init_resource::<types::PauseState>()
         // Game Systems
         .add_plugins((
             camera::CameraPlugin,
@@ -81,24 +82,38 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn handle_background_music_match_start(
     koth: Res<koth::KothManager>,
-    mut started: Local<bool>,
+    pause_state: Res<types::PauseState>,
     music_query: Query<&AudioSink, With<BackgroundMusic>>,
+    voice_query: Query<&AudioSink, (With<koth::ActiveVoiceAudio>, Without<BackgroundMusic>)>,
 ) {
-    if koth.match_started && !*started {
-        for sink in music_query.iter() {
+    let should_pause_all = !koth.match_started || pause_state.is_paused || pause_state.exited;
+
+    for sink in music_query.iter() {
+        if should_pause_all || pause_state.music_muted {
+            if !sink.is_paused() {
+                sink.pause();
+            }
+        } else if sink.is_paused() {
             sink.play();
-            *started = true;
+        }
+    }
+
+    for sink in voice_query.iter() {
+        if should_pause_all {
+            if !sink.is_paused() {
+                sink.pause();
+            }
+        } else if sink.is_paused() {
+            sink.play();
         }
     }
 }
 
 fn toggle_background_music(
     keys: Res<ButtonInput<KeyCode>>,
-    music_query: Query<&AudioSink, With<BackgroundMusic>>,
+    mut pause_state: ResMut<types::PauseState>,
 ) {
     if keys.just_pressed(KeyCode::KeyM) {
-        for sink in music_query.iter() {
-            sink.toggle();
-        }
+        pause_state.music_muted = !pause_state.music_muted;
     }
 }
