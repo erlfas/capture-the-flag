@@ -146,6 +146,7 @@
     <link rel="rust" data-trunk href="Cargo.toml" data-wasm-opt="s" data-bin="cyber_coliseum_koth"/>
     <link rel="copy-dir" data-trunk href="video"/>
     <link rel="copy-dir" data-trunk href="assets"/>
+    <link rel="copy-dir" data-trunk href="music"/>
     <script>
         // Global match state flag for both JS and WebAssembly
         window.__GAME_MATCH_BEGUN = false;
@@ -164,6 +165,161 @@
                 window.AudioContext = WrappedAudioContext;
             }
         })();
+
+        // Native HTML5 Audio manager for character voices and punch SFX
+        window.__voiceAudioCache = new Map();
+        window.__activeVoiceAudio = null;
+        window.__voicePaused = false;
+        window.__lastSfxTime = new Map();
+        window.__punchAudioPool = [];
+
+        function resolveAssetUrl(relPath) {
+            if (!relPath) return "";
+            if (relPath.startsWith("http://") || relPath.startsWith("https://") || relPath.startsWith("/")) {
+                return relPath;
+            }
+            if (relPath.startsWith("assets/")) {
+                return relPath;
+            }
+            return "assets/" + relPath;
+        }
+
+        function preloadGameAudio() {
+            // Preload a pool of punch.mp3 instances for zero-latency rapid punching
+            for (let i = 0; i < 6; i++) {
+                const a = new Audio("assets/music/punch.mp3");
+                a.preload = "auto";
+                a.load();
+                window.__punchAudioPool.push(a);
+            }
+
+            // Preload all character voice lines (especially captured_flag, took_flag, dropped_flag, returned_flag, tackle_hit, victory, match_start)
+            const speakers = ["anders", "morten", "jonas", "siri", "lisa", "per"];
+            const commonLines = ["captured_flag", "took_flag", "dropped_flag", "returned_flag", "tackle_hit"];
+            for (const spk of speakers) {
+                for (const line of commonLines) {
+                    const url = `assets/voices/${spk}/${line}.mp3`;
+                    const a = new Audio(url);
+                    a.preload = "auto";
+                    window.__voiceAudioCache.set(url, a);
+                }
+            }
+            const extraLines = [
+                "assets/voices/anders/match_start.mp3",
+                "assets/voices/anders/victory.mp3",
+                "assets/voices/siri/victory.mp3",
+                "assets/voices/anders/flag_stolen_alert.mp3",
+                "assets/voices/anders/escort_carrier.mp3",
+                "assets/voices/morten/escort_carrier.mp3",
+                "assets/voices/jonas/both_flags_stolen.mp3",
+                "assets/voices/jonas/flag_auto_returned.mp3",
+                "assets/voices/per/flag_auto_returned.mp3"
+            ];
+            for (const url of extraLines) {
+                const a = new Audio(url);
+                a.preload = "auto";
+                window.__voiceAudioCache.set(url, a);
+            }
+        }
+
+        window.playGameVoice = function (relPath) {
+            try {
+                resumeAudioContexts();
+                const url = resolveAssetUrl(relPath);
+                if (!url) return;
+
+                if (window.__activeVoiceAudio) {
+                    try {
+                        window.__activeVoiceAudio.pause();
+                        window.__activeVoiceAudio.currentTime = 0;
+                    } catch (_) {}
+                    window.__activeVoiceAudio = null;
+                }
+
+                let audio = window.__voiceAudioCache.get(url);
+                if (!audio) {
+                    audio = new Audio(url);
+                    audio.preload = "auto";
+                    window.__voiceAudioCache.set(url, audio);
+                }
+
+                audio.volume = 1.0;
+                audio.currentTime = 0;
+                window.__activeVoiceAudio = audio;
+
+                const playPromise = audio.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch((err) => {
+                        console.warn("Voice playback retry on interaction:", url, err);
+                    });
+                }
+            } catch (e) {
+                console.warn("playGameVoice error:", e);
+            }
+        };
+
+        window.setGameVoicePaused = function (paused) {
+            try {
+                const wasPaused = window.__voicePaused;
+                window.__voicePaused = !!paused;
+                if (!window.__activeVoiceAudio) return;
+                if (window.__voicePaused && !wasPaused) {
+                    if (!window.__activeVoiceAudio.paused && !window.__activeVoiceAudio.ended) {
+                        window.__activeVoiceAudio.pause();
+                    }
+                } else if (!window.__voicePaused && wasPaused) {
+                    if (window.__activeVoiceAudio.paused && !window.__activeVoiceAudio.ended && window.__activeVoiceAudio.currentTime > 0) {
+                        window.__activeVoiceAudio.play().catch(() => {});
+                    }
+                }
+            } catch (_) {}
+        };
+
+        window.playGameSfx = function (relPath, volume) {
+            try {
+                resumeAudioContexts();
+                const url = resolveAssetUrl(relPath);
+                if (!url) return;
+
+                const now = performance.now();
+                const lastTime = window.__lastSfxTime.get(url) || 0;
+                if (now - lastTime < 45) {
+                    return;
+                }
+                window.__lastSfxTime.set(url, now);
+
+                const vol = Math.min(1.0, Math.max(0.0, typeof volume === "number" ? volume : 1.0));
+
+                if (url.endsWith("punch.mp3") && window.__punchAudioPool.length > 0) {
+                    let chosen = null;
+                    for (const candidate of window.__punchAudioPool) {
+                        if (candidate.paused || candidate.ended) {
+                            chosen = candidate;
+                            break;
+                        }
+                    }
+                    if (!chosen) {
+                        chosen = window.__punchAudioPool[0];
+                    }
+                    chosen.volume = vol;
+                    chosen.currentTime = 0;
+                    chosen.play().catch(() => {
+                        const fallback = new Audio("music/punch.mp3");
+                        fallback.volume = vol;
+                        fallback.play().catch(() => {});
+                    });
+                    return;
+                }
+
+                const sfx = new Audio(url);
+                sfx.volume = vol;
+                sfx.play().catch(() => {});
+            } catch (e) {
+                console.warn("playGameSfx error:", e);
+            }
+        };
+
+        preloadGameAudio();
 
         function resumeAudioContexts() {
             for (const ctx of audioContexts) {
@@ -210,6 +366,13 @@
 
         window.returnToIntroScreen = function () {
             window.__GAME_MATCH_BEGUN = false;
+            if (window.__activeVoiceAudio) {
+                try {
+                    window.__activeVoiceAudio.pause();
+                    window.__activeVoiceAudio.currentTime = 0;
+                } catch (_) {}
+                window.__activeVoiceAudio = null;
+            }
             const overlay = document.getElementById("intro-overlay");
             const video = document.getElementById("intro-video");
             const instructions = document.getElementById("instructions");

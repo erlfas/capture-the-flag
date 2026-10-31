@@ -1,0 +1,3 @@
+Rebuilt assets/models/post_apocalyptic_battlefield.glb using UV-seam-preserving 3D clustering:
+Every vertex within a 3D cell shares the exact same 3D coordinate and area-weighted smooth normal (preventing any geometric cracks or T-junctions), while corners belonging to different UV islands keep their own UV coordinates so zero triangles are deleted across UV seams.
+This reduced open geometric boundary edges from 69,095 down to 2 across the entire 735,845-triangle mesh and enabled "doubleSided": true on the PBR material.

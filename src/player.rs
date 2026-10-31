@@ -31,6 +31,12 @@ pub struct MainPlayerAnimState {
     pub is_running: bool,
 }
 
+#[derive(Component, Default)]
+pub struct CharacterArmPoseState {
+    pub stride_phase: f32,
+    pub run_blend: f32,
+}
+
 #[derive(Component)]
 pub struct MainPlayerMeshConfigured;
 
@@ -99,6 +105,7 @@ pub fn spawn_character_visuals(
                 idle_node: node_indices[0],
                 run_node: node_indices[1],
             },
+            CharacterArmPoseState::default(),
         ));
 
     // Team underfoot selection ring + Rigged 3D GLB Character Model
@@ -188,6 +195,8 @@ fn spawn_player(
 }
 
 fn handle_player_movement(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
     keys: Res<ButtonInput<KeyCode>>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     time: Res<Time>,
@@ -308,6 +317,9 @@ fn handle_player_movement(
         tackle.punch_anim_timer = 0.42;
         tackle.cooldown = TACKLE_COOLDOWN;
         stamina.current -= TACKLE_STAMINA_COST;
+
+        // Play punching sound effect immediately when punching
+        crate::types::trigger_punch_sfx(&mut commands, &asset_server, 0.92);
 
         // Base shove direction: WASD input direction if moving, otherwise character facing direction
         let base_aim = if move_len > 0.05 {
@@ -561,26 +573,63 @@ fn orient_bone_in_model_space(
     }
 }
 
+fn model_space_bone_dir(
+    bone_ent: Entity,
+    char_ent: Entity,
+    parent_query: &Query<&Parent>,
+    transforms: &Query<&mut Transform>,
+) -> Vec3 {
+    let parent_model_rot = model_space_parent_rot(bone_ent, char_ent, parent_query, transforms);
+    if let Ok(t) = transforms.get(bone_ent) {
+        let model_rot = parent_model_rot * t.rotation;
+        (model_rot * Vec3::Y).normalize_or(Vec3::NEG_Y)
+    } else {
+        Vec3::NEG_Y
+    }
+}
+
 fn apply_character_punch_pose(
-    character_query: Query<(Entity, &TackleAbility), With<Character>>,
+    time: Res<Time>,
+    mut character_query: Query<
+        (
+            Entity,
+            &LinearVelocity,
+            &TackleAbility,
+            &mut CharacterArmPoseState,
+        ),
+        With<Character>,
+    >,
     children_query: Query<&Children>,
     parent_query: Query<&Parent>,
     name_query: Query<&Name>,
     mut transforms: Query<&mut Transform>,
 ) {
-    for (char_ent, tackle) in character_query.iter() {
-        if tackle.punch_anim_timer <= 0.0 {
-            continue;
-        }
+    let dt = time.delta_secs();
 
-        let u = (1.0 - (tackle.punch_anim_timer / 0.42)).clamp(0.0, 1.0);
-        let right_w = punch_envelope(u);
-        let left_w = punch_envelope((u * 1.06 - 0.06).clamp(0.0, 1.0));
+    for (char_ent, lin_vel, tackle, mut arm_state) in character_query.iter_mut() {
+        let horiz_speed = Vec2::new(lin_vel.x, lin_vel.z).length();
+        let target_run_blend = ((horiz_speed - 0.35) / 2.2).clamp(0.0, 1.0);
+        let blend_rate = if target_run_blend > arm_state.run_blend {
+            12.0
+        } else {
+            8.0
+        };
+        arm_state.run_blend += (target_run_blend - arm_state.run_blend) * (blend_rate * dt).min(1.0);
+
+        if horiz_speed > 0.35 {
+            let stride_freq = (horiz_speed * 1.48).clamp(5.2, 16.5);
+            arm_state.stride_phase =
+                (arm_state.stride_phase + stride_freq * dt) % std::f32::consts::TAU;
+        }
 
         let mut right_arm = None;
         let mut left_arm = None;
         let mut right_forearm = None;
         let mut left_forearm = None;
+        let mut right_hand = None;
+        let mut left_hand = None;
+        let mut right_up_leg = None;
+        let mut left_up_leg = None;
 
         for desc in children_query.iter_descendants(char_ent) {
             if let Ok(name) = name_query.get(desc) {
@@ -589,12 +638,150 @@ fn apply_character_punch_pose(
                     "mixamorig:LeftArm" => left_arm = Some(desc),
                     "mixamorig:RightForeArm" => right_forearm = Some(desc),
                     "mixamorig:LeftForeArm" => left_forearm = Some(desc),
+                    "mixamorig:RightHand" => right_hand = Some(desc),
+                    "mixamorig:LeftHand" => left_hand = Some(desc),
+                    "mixamorig:RightUpLeg" => right_up_leg = Some(desc),
+                    "mixamorig:LeftUpLeg" => left_up_leg = Some(desc),
                     _ => {}
                 }
             }
         }
 
-        // 1. Drive upper arms forward (+Z in model space)
+        // 1. Compute footstep-synchronized contralateral arm swing phase in [-1.0, 1.0]
+        //    (When left leg swings forward (+Z), right arm pumps forward (+1) and left arm swings back (-1))
+        let mut leg_swing = arm_state.stride_phase.sin();
+        if let (Some(l_leg), Some(r_leg)) = (left_up_leg, right_up_leg) {
+            let l_dir = model_space_bone_dir(l_leg, char_ent, &parent_query, &transforms);
+            let r_dir = model_space_bone_dir(r_leg, char_ent, &parent_query, &transforms);
+            let raw_diff = (l_dir.z - r_dir.z).clamp(-1.25, 1.25) / 1.05;
+            if raw_diff.abs() > 0.08 {
+                leg_swing = raw_diff.clamp(-1.0, 1.0);
+                // Keep fallback phase aligned with animated leg stride
+                arm_state.stride_phase = leg_swing.asin();
+            }
+        }
+
+        let right_swing = leg_swing;
+        let left_swing = -leg_swing;
+        let rb = arm_state.run_blend;
+        let sprint_boost = ((horiz_speed - 8.5) / 4.5).clamp(0.0, 1.0);
+
+        // 2. Athletic Upper Arm + ~90-Degree Bent-Elbow Forearm & Hand Running Pump
+        //    (Fixes straight-down forearms/hands during running & idle)
+        // Upper arms: tucked closer to torso (x = ±0.16) and swinging forward/back with stride
+        let idle_r_arm = Vec3::new(-0.18, -0.96, 0.04).normalize();
+        let idle_l_arm = Vec3::new(0.18, -0.96, 0.04).normalize();
+
+        let run_r_arm = Vec3::new(
+            -0.16,
+            -0.80,
+            0.06 + right_swing * (0.50 + 0.10 * sprint_boost),
+        )
+        .normalize();
+        let run_l_arm = Vec3::new(
+            0.16,
+            -0.80,
+            0.06 + left_swing * (0.50 + 0.10 * sprint_boost),
+        )
+        .normalize();
+
+        let target_r_arm = idle_r_arm.lerp(run_r_arm, rb).normalize();
+        let target_l_arm = idle_l_arm.lerp(run_l_arm, rb).normalize();
+        let base_arm_w = 0.55 + 0.40 * rb;
+
+        if let Some(ent) = right_arm {
+            orient_bone_in_model_space(
+                ent,
+                char_ent,
+                target_r_arm,
+                base_arm_w,
+                &parent_query,
+                &mut transforms,
+            );
+        }
+        if let Some(ent) = left_arm {
+            orient_bone_in_model_space(
+                ent,
+                char_ent,
+                target_l_arm,
+                base_arm_w,
+                &parent_query,
+                &mut transforms,
+            );
+        }
+
+        // Forearms: bent forward at ~85°-100° during running (pointing +Z and slightly +Y across chest
+        // on the forward swing, and staying bent near horizontal beside the waist on the backswing),
+        // with a natural ready-stance bend in idle so hands never hang straight down.
+        let idle_r_fore = Vec3::new(0.08, -0.36, 0.93).normalize();
+        let idle_l_fore = Vec3::new(-0.08, -0.36, 0.93).normalize();
+
+        let r_fore_y = 0.24 + right_swing * (0.28 + 0.08 * sprint_boost);
+        let l_fore_y = 0.24 + left_swing * (0.28 + 0.08 * sprint_boost);
+        let r_fore_x = 0.12 + 0.10 * right_swing.max(0.0);
+        let l_fore_x = -0.12 - 0.10 * left_swing.max(0.0);
+
+        let run_r_fore = Vec3::new(r_fore_x, r_fore_y, 0.88).normalize();
+        let run_l_fore = Vec3::new(l_fore_x, l_fore_y, 0.88).normalize();
+
+        let target_r_fore = idle_r_fore.lerp(run_r_fore, rb).normalize();
+        let target_l_fore = idle_l_fore.lerp(run_l_fore, rb).normalize();
+        let base_fore_w = 0.65 + 0.32 * rb;
+
+        if let Some(ent) = right_forearm {
+            orient_bone_in_model_space(
+                ent,
+                char_ent,
+                target_r_fore,
+                base_fore_w,
+                &parent_query,
+                &mut transforms,
+            );
+        }
+        if let Some(ent) = left_forearm {
+            orient_bone_in_model_space(
+                ent,
+                char_ent,
+                target_l_fore,
+                base_fore_w,
+                &parent_query,
+                &mut transforms,
+            );
+        }
+
+        // Wrists/Hands: keep aligned with the bent forearms so hands never droop downward
+        let target_r_hand = (target_r_fore + Vec3::new(0.0, 0.06, 0.0)).normalize();
+        let target_l_hand = (target_l_fore + Vec3::new(0.0, 0.06, 0.0)).normalize();
+        if let Some(ent) = right_hand {
+            orient_bone_in_model_space(
+                ent,
+                char_ent,
+                target_r_hand,
+                base_fore_w,
+                &parent_query,
+                &mut transforms,
+            );
+        }
+        if let Some(ent) = left_hand {
+            orient_bone_in_model_space(
+                ent,
+                char_ent,
+                target_l_hand,
+                base_fore_w,
+                &parent_query,
+                &mut transforms,
+            );
+        }
+
+        // 3. Active Punch / Shove Lunge Override when punching (Space / LMB / F)
+        if tackle.punch_anim_timer <= 0.0 {
+            continue;
+        }
+
+        let u = (1.0 - (tackle.punch_anim_timer / 0.42)).clamp(0.0, 1.0);
+        let right_w = punch_envelope(u);
+        let left_w = punch_envelope((u * 1.06 - 0.06).clamp(0.0, 1.0));
+
         if let Some(ent) = right_arm {
             orient_bone_in_model_space(
                 ent,
@@ -615,8 +802,6 @@ fn apply_character_punch_pose(
                 &mut transforms,
             );
         }
-
-        // 2. Extend forearms forward in a punching thrust after upper arms are updated
         if let Some(ent) = right_forearm {
             orient_bone_in_model_space(
                 ent,
@@ -632,6 +817,26 @@ fn apply_character_punch_pose(
                 ent,
                 char_ent,
                 Vec3::new(-0.06, 0.08, 0.99).normalize(),
+                left_w,
+                &parent_query,
+                &mut transforms,
+            );
+        }
+        if let Some(ent) = right_hand {
+            orient_bone_in_model_space(
+                ent,
+                char_ent,
+                Vec3::new(0.06, 0.10, 0.99).normalize(),
+                right_w,
+                &parent_query,
+                &mut transforms,
+            );
+        }
+        if let Some(ent) = left_hand {
+            orient_bone_in_model_space(
+                ent,
+                char_ent,
+                Vec3::new(-0.06, 0.10, 0.99).normalize(),
                 left_w,
                 &parent_query,
                 &mut transforms,

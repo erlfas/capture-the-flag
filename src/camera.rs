@@ -1,14 +1,17 @@
+use avian3d::prelude::*;
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, PrimaryWindow};
 
+use crate::arena::{playable_max_x, playable_min_x, PLAYABLE_MAX_Z, PLAYABLE_MIN_Z};
 use crate::player::Player;
-use crate::types::PauseState;
+use crate::terrain_heights::sample_terrain_height;
+use crate::types::{Character, PauseState};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum CameraMode {
-    #[default]
     TacticalIsometric,
+    #[default]
     ThirdPersonAction,
 }
 
@@ -48,18 +51,18 @@ impl Default for OrbitCamera {
         let iso_dist = 42.0; // High vantage distance giving a broad overview of the compound
         let iso_height = 1.5;
 
-        let tp_yaw = -std::f32::consts::FRAC_PI_2; // Facing East (+X) towards center from West Blue base
-        let tp_pitch = 0.35;
-        let tp_dist = 8.5;
-        let tp_height = 2.0;
+        let tp_yaw = -std::f32::consts::FRAC_PI_2; // Directly behind Anders facing East (+X) from West Blue base
+        let tp_pitch = 0.18; // Low over-the-shoulder pitch so both the arena ahead and dark storm skies above are visible
+        let tp_dist = 6.5;
+        let tp_height = 1.65;
 
         Self {
             target: None,
-            mode: CameraMode::TacticalIsometric,
-            yaw: iso_yaw,
-            pitch: iso_pitch,
-            distance: iso_dist,
-            height: iso_height,
+            mode: CameraMode::ThirdPersonAction,
+            yaw: tp_yaw,
+            pitch: tp_pitch,
+            distance: tp_dist,
+            height: tp_height,
             sensitivity: 0.004,
             tp_yaw,
             tp_pitch,
@@ -118,15 +121,18 @@ fn handle_cursor_lock(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn update_camera(
     time: Res<Time>,
     keys: Res<ButtonInput<KeyCode>>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     pause_state: Res<PauseState>,
+    spatial_query: SpatialQuery,
     mut mouse_motion: EventReader<MouseMotion>,
     mut mouse_wheel: EventReader<MouseWheel>,
     mut primary_window: Query<&mut Window, With<PrimaryWindow>>,
     player_query: Query<Entity, With<Player>>,
+    character_entities: Query<Entity, With<Character>>,
     transforms: Query<&Transform, Without<OrbitCamera>>,
     mut camera_query: Query<(&mut OrbitCamera, &mut Transform)>,
 ) {
@@ -164,10 +170,23 @@ fn update_camera(
             }
         }
 
+        let Some(target_entity) = orbit.target else {
+            continue;
+        };
+        let Ok(target_transform) = transforms.get(target_entity) else {
+            continue;
+        };
+
+        let char_forward = (target_transform.rotation * Vec3::Z).normalize_or(Vec3::X);
+        let target_behind_yaw = (-char_forward.x).atan2(-char_forward.z);
+
         // 2. Toggle camera mode with KeyV or Tab
         if keys.just_pressed(KeyCode::KeyV) || keys.just_pressed(KeyCode::Tab) {
             orbit.mode = match orbit.mode {
-                CameraMode::TacticalIsometric => CameraMode::ThirdPersonAction,
+                CameraMode::TacticalIsometric => {
+                    orbit.tp_yaw = target_behind_yaw;
+                    CameraMode::ThirdPersonAction
+                }
                 CameraMode::ThirdPersonAction => {
                     window.cursor_options.grab_mode = CursorGrabMode::None;
                     window.cursor_options.visible = true;
@@ -181,12 +200,15 @@ fn update_camera(
             orbit.iso_yaw = -0.18;
             orbit.iso_pitch = 0.88;
             orbit.iso_distance = 42.0;
+            orbit.tp_yaw = target_behind_yaw;
+            orbit.tp_pitch = 0.18;
+            orbit.tp_distance = 6.5;
         }
 
         // 4. Keyboard Steering (Q / E and Arrow Keys rotate & tilt camera)
         let mut key_yaw_delta = 0.0;
         let mut key_pitch_delta = 0.0;
-        let rot_speed = 2.0 * dt;
+        let rot_speed = 2.2 * dt;
 
         if keys.pressed(KeyCode::KeyQ) || keys.pressed(KeyCode::ArrowLeft) {
             key_yaw_delta += rot_speed;
@@ -209,7 +231,7 @@ fn update_camera(
                         (orbit.iso_distance - scroll_delta * 3.0).clamp(18.0, 68.0);
                 }
                 CameraMode::ThirdPersonAction => {
-                    orbit.tp_distance = (orbit.tp_distance - scroll_delta * 1.0).clamp(4.0, 18.0);
+                    orbit.tp_distance = (orbit.tp_distance - scroll_delta * 1.0).clamp(3.5, 16.0);
                 }
             }
         }
@@ -232,12 +254,39 @@ fn update_camera(
                 orbit.height = orbit.iso_height;
             }
             CameraMode::ThirdPersonAction => {
+                let manual_mouse = (is_locked || is_dragging) && mouse_delta.length_squared() > 0.01;
+                let manual_key = key_yaw_delta.abs() > 0.0001 || key_pitch_delta.abs() > 0.0001;
+
                 if is_locked || is_dragging {
                     orbit.tp_yaw -= mouse_delta.x * orbit.sensitivity;
                     orbit.tp_pitch -= mouse_delta.y * orbit.sensitivity;
                 }
                 orbit.tp_yaw += key_yaw_delta;
-                orbit.tp_pitch = (orbit.tp_pitch + key_pitch_delta).clamp(0.1, 1.25);
+                orbit.tp_pitch = (orbit.tp_pitch + key_pitch_delta).clamp(-0.15, 1.15);
+
+                // Smoothly align camera behind the character's back when moving/facing forward
+                // (paused while holding S to backpedal or while actively rotating with mouse/keys)
+                let is_backpedaling = keys.pressed(KeyCode::KeyS)
+                    && !keys.pressed(KeyCode::KeyW)
+                    && !keys.pressed(KeyCode::KeyA)
+                    && !keys.pressed(KeyCode::KeyD);
+                if !manual_mouse && !manual_key && !is_backpedaling {
+                    let mut diff = (target_behind_yaw - orbit.tp_yaw) % std::f32::consts::TAU;
+                    if diff > std::f32::consts::PI {
+                        diff -= std::f32::consts::TAU;
+                    } else if diff < -std::f32::consts::PI {
+                        diff += std::f32::consts::TAU;
+                    }
+                    let align_rate = if keys.pressed(KeyCode::KeyW)
+                        || keys.pressed(KeyCode::KeyA)
+                        || keys.pressed(KeyCode::KeyD)
+                    {
+                        3.4
+                    } else {
+                        2.0
+                    };
+                    orbit.tp_yaw += diff * (align_rate * dt).min(1.0);
+                }
 
                 orbit.yaw = orbit.tp_yaw;
                 orbit.pitch = orbit.tp_pitch;
@@ -246,17 +295,8 @@ fn update_camera(
             }
         }
 
-        // 7. Smooth Damping & High-Distance Target Tracking
-        let Some(target_entity) = orbit.target else {
-            continue;
-        };
-        let Ok(target_transform) = transforms.get(target_entity) else {
-            continue;
-        };
-
-        // In Tactical Overview mode, follow the character while blending 20% towards arena center
-        // so the player always sees both their character and a great overview of the compound.
-        let focus_point = match orbit.mode {
+        // 7. Smooth Damping, Wall Avoidance & Overhead Look-Down Adjustment
+        let mut focus_point = match orbit.mode {
             CameraMode::TacticalIsometric => {
                 let player_pos = target_transform.translation;
                 Vec3::new(player_pos.x * 0.78, player_pos.y, player_pos.z * 0.78)
@@ -270,7 +310,80 @@ fn update_camera(
         let rotation = Quat::from_axis_angle(Vec3::Y, orbit.yaw)
             * Quat::from_axis_angle(Vec3::X, -orbit.pitch);
 
-        let desired_cam_pos = focus_point + rotation * Vec3::new(0.0, 0.0, orbit.distance);
+        let mut desired_cam_pos = focus_point + rotation * Vec3::new(0.0, 0.0, orbit.distance);
+
+        if orbit.mode == CameraMode::ThirdPersonAction {
+            let ideal_offset = desired_cam_pos - focus_point;
+            let ideal_horiz = Vec2::new(ideal_offset.x, ideal_offset.z);
+            let ideal_horiz_dist = ideal_horiz.length().max(0.001);
+            let horiz_dir = ideal_horiz / ideal_horiz_dist;
+
+            // A) Physics Raycast Spring-Arm: pull camera in front of interior walls / shipping containers
+            let excluded: Vec<Entity> = character_entities.iter().collect();
+            let filter = SpatialQueryFilter::from_excluded_entities(excluded);
+            let ray_vec = desired_cam_pos - focus_point;
+            let ray_len = ray_vec.length();
+            if ray_len > 0.1 {
+                if let Ok(ray_dir) = Dir3::new(ray_vec / ray_len) {
+                    if let Some(hit) =
+                        spatial_query.cast_ray(focus_point, ray_dir, ray_len, true, &filter)
+                    {
+                        let safe_dist = (hit.distance - 0.55).max(1.4);
+                        if safe_dist < ray_len {
+                            desired_cam_pos = focus_point + (ray_vec / ray_len) * safe_dist;
+                        }
+                    }
+                }
+            }
+
+            // B) Inner-Perimeter Fence Clamping so camera never goes behind the tall outer barbed-wire fences
+            //    while staying at least 0.25m on the behind-side of the player even when flat against a wall
+            let fence_allowance = 0.25;
+            let cam_min_z = PLAYABLE_MIN_Z - fence_allowance;
+            let cam_max_z = PLAYABLE_MAX_Z + fence_allowance;
+            desired_cam_pos.z = desired_cam_pos.z.clamp(cam_min_z, cam_max_z);
+
+            let cam_min_x = playable_min_x(desired_cam_pos.z) - fence_allowance;
+            let cam_max_x = playable_max_x(desired_cam_pos.z) + fence_allowance;
+            desired_cam_pos.x = desired_cam_pos.x.clamp(cam_min_x, cam_max_x);
+
+            // C) Compute how much the wall/fence compressed the horizontal camera distance,
+            //    and smoothly transition to an elevated "look-down on character" vantage when near walls!
+            let clamped_horiz = Vec2::new(
+                desired_cam_pos.x - focus_point.x,
+                desired_cam_pos.z - focus_point.z,
+            );
+            let actual_horiz_dist = clamped_horiz.length();
+            let wall_compression =
+                (1.0 - (actual_horiz_dist / ideal_horiz_dist)).clamp(0.0, 1.0);
+
+            if wall_compression > 0.01 {
+                // Smoothly rise above the wall/fence and angle downward onto the character
+                // while shifting the look target slightly ahead of the character so the camera
+                // never flips backward even when pressed flat against a wall.
+                let forward_xz = -horiz_dir;
+                let lift_y = wall_compression * 5.2;
+                let forward_look_shift = wall_compression * 1.85;
+                desired_cam_pos.y += lift_y;
+                focus_point.x += forward_xz.x * forward_look_shift;
+                focus_point.z += forward_xz.y * forward_look_shift;
+                focus_point.y -= wall_compression * 0.75;
+            }
+
+            // D) Terrain & Ledge Clearance along the camera arm so ledges/stairs behind the player
+            //    never bury the camera or block line of sight
+            for sample_t in [0.45_f32, 0.75_f32, 1.0_f32] {
+                let sx = target_transform.translation.x
+                    + (desired_cam_pos.x - target_transform.translation.x) * sample_t;
+                let sz = target_transform.translation.z
+                    + (desired_cam_pos.z - target_transform.translation.z) * sample_t;
+                let terr_y = sample_terrain_height(sx, sz);
+                let min_cam_y = terr_y + 1.45;
+                if desired_cam_pos.y < min_cam_y {
+                    desired_cam_pos.y = min_cam_y;
+                }
+            }
+        }
 
         if !orbit.initialized {
             orbit.current_pos = desired_cam_pos;
@@ -287,6 +400,17 @@ fn update_camera(
             orbit.current_look_at = orbit
                 .current_look_at
                 .lerp(focus_point, (follow_speed * dt).min(1.0));
+
+            if orbit.mode == CameraMode::ThirdPersonAction {
+                let fence_allowance = 0.25;
+                orbit.current_pos.z = orbit
+                    .current_pos
+                    .z
+                    .clamp(PLAYABLE_MIN_Z - fence_allowance, PLAYABLE_MAX_Z + fence_allowance);
+                let min_x = playable_min_x(orbit.current_pos.z) - fence_allowance;
+                let max_x = playable_max_x(orbit.current_pos.z) + fence_allowance;
+                orbit.current_pos.x = orbit.current_pos.x.clamp(min_x, max_x);
+            }
         }
 
         cam_transform.translation = orbit.current_pos;

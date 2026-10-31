@@ -1,5 +1,8 @@
 use avian3d::prelude::*;
+use bevy::pbr::{NotShadowCaster, NotShadowReceiver};
 use bevy::prelude::*;
+use bevy::render::mesh::{Indices, PrimitiveTopology};
+use bevy::render::render_asset::RenderAssetUsages;
 
 use crate::terrain_heights::{
     sample_terrain_height, TERRAIN_HEIGHTS, TERRAIN_NX, TERRAIN_NZ, TERRAIN_STEP, TERRAIN_X_MIN,
@@ -47,9 +50,25 @@ pub fn playable_max_x(z: f32) -> f32 {
 impl Plugin for ArenaPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup_arena)
-            .add_systems(Update, (handle_fallout_respawns, animate_sewer_water))
+            .add_systems(
+                Update,
+                (
+                    handle_fallout_respawns,
+                    animate_sewer_water,
+                    animate_ominous_sky,
+                ),
+            )
             .add_systems(PostUpdate, handle_fallout_respawns.after(PhysicsSet::Sync));
     }
+}
+
+#[derive(Component)]
+struct ScrollingSkyLayer {
+    angular_speed: f32,
+    base_y: f32,
+    bob_amp: f32,
+    bob_speed: f32,
+    phase: f32,
 }
 
 #[derive(Component)]
@@ -129,31 +148,31 @@ fn setup_arena(
 ) {
     // =========================================================================
     // 1. POST-APOCALYPTIC LIGHTING & ATMOSPHERE
-    //    (Calibrated to match snapshot_from_3d_model.png in WebGL2)
+    //    (Calibrated to match original_art.jpg & snapshot_from_3d_model.png)
     // =========================================================================
-    commands.insert_resource(ClearColor(Color::srgb(0.11, 0.11, 0.13)));
+    commands.insert_resource(ClearColor(Color::srgb(0.08, 0.09, 0.11)));
     commands.insert_resource(AmbientLight {
-        color: Color::srgb(0.90, 0.91, 0.94),
-        brightness: 680.0,
+        color: Color::srgb(0.88, 0.89, 0.92),
+        brightness: 640.0,
     });
 
-    // Warm key directional light from the North-West
+    // Warm sunset key directional light from the North-West
     commands.spawn((
         DirectionalLight {
-            illuminance: 11500.0,
+            illuminance: 11000.0,
             shadows_enabled: false,
-            color: Color::srgb(1.0, 0.93, 0.86),
+            color: Color::srgb(1.0, 0.92, 0.84),
             ..default()
         },
         Transform::from_xyz(-15.0, 42.0, -45.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
-    // Subtle cool sky fill from the South-East
+    // Cool storm-slate sky fill from the South-East
     commands.spawn((
         DirectionalLight {
-            illuminance: 6200.0,
+            illuminance: 5800.0,
             shadows_enabled: false,
-            color: Color::srgb(0.76, 0.82, 0.92),
+            color: Color::srgb(0.74, 0.80, 0.90),
             ..default()
         },
         Transform::from_xyz(20.0, 48.0, 40.0).looking_at(Vec3::ZERO, Vec3::Y),
@@ -293,9 +312,9 @@ fn setup_arena(
     ));
 
     // =========================================================================
-    // 4. OPEN-TOP STORMY POST-APOCALYPTIC SKY BACKDROP
+    // 4. PAINTED POST-APOCALYPTIC STORM SKY DOME & MOVING CLOUD LAYERS
     // =========================================================================
-    spawn_stormy_sky_ring(&mut commands, &mut meshes, &mut materials);
+    spawn_stormy_sky_ring(&mut commands, &asset_server, &mut meshes, &mut materials);
 
     // =========================================================================
     // 5. REALISTIC POURING SEWER WATERFALL & ANIMATED TRENCH WATER EFFECTS
@@ -303,69 +322,256 @@ fn setup_arena(
     spawn_sewer_water_effects(&mut commands, &mut meshes, &mut materials);
 }
 
+/// Builds a 360-degree UV-mapped sky dome/cylinder mesh that repeats a seamless
+/// painted panorama `repeats` times around the horizon and curves inward at the upper dome.
+/// Maps `v in [0.22, 0.85]` (the main cloud & sky body) across `[y_horizon, y_mid]` so the
+/// painted storm clouds fill the 3rd-person camera's sky viewport directly above the fences.
+fn build_sky_dome_mesh(
+    radius: f32,
+    repeats: usize,
+    y_bottom: f32,
+    y_horizon: f32,
+    y_mid: f32,
+    y_top: f32,
+) -> Mesh {
+    let segs_per_repeat = 32usize;
+    let rings = 20usize;
+    let span_angle = std::f32::consts::TAU / (repeats as f32);
+
+    let mut positions: Vec<[f32; 3]> = Vec::new();
+    let mut normals: Vec<[f32; 3]> = Vec::new();
+    let mut uvs: Vec<[f32; 2]> = Vec::new();
+    let mut indices: Vec<u32> = Vec::new();
+
+    for rep in 0..repeats {
+        let base_vert = positions.len() as u32;
+        let angle_offset = (rep as f32) * span_angle;
+
+        for r_idx in 0..=rings {
+            let v = (r_idx as f32) / (rings as f32); // 0.0 at top, 1.0 at bottom
+            let (y, r) = if v >= 0.85 {
+                // Below horizon skyline down to dark wasteland floor
+                let t = (v - 0.85) / 0.15;
+                let y = y_horizon + t * (y_bottom - y_horizon);
+                (y, radius)
+            } else if v >= 0.22 {
+                // Main storm cloud bank & amber cloud break (fills camera sky viewport)
+                let t = (0.85 - v) / (0.85 - 0.22);
+                let y = y_horizon + t * (y_mid - y_horizon);
+                let r = radius * (1.0 - 0.10 * t);
+                (y, r)
+            } else {
+                // Upper storm vault curving inward overhead
+                let t = (0.22 - v) / 0.22;
+                let y = y_mid + t * (y_top - y_mid);
+                let r = radius * (0.90 - 0.75 * t * t);
+                (y, r)
+            };
+
+            for s_idx in 0..=segs_per_repeat {
+                let u = (s_idx as f32) / (segs_per_repeat as f32);
+                let theta = angle_offset + u * span_angle;
+                let x = r * theta.sin();
+                let z = r * theta.cos();
+                positions.push([x, y, z]);
+                normals.push([-theta.sin(), 0.0, -theta.cos()]);
+                uvs.push([u, v]);
+            }
+        }
+
+        let stride = (segs_per_repeat + 1) as u32;
+        for r_idx in 0..(rings as u32) {
+            for s_idx in 0..(segs_per_repeat as u32) {
+                let i00 = base_vert + r_idx * stride + s_idx;
+                let i01 = i00 + 1;
+                let i10 = base_vert + (r_idx + 1) * stride + s_idx;
+                let i11 = i10 + 1;
+                indices.push(i00);
+                indices.push(i10);
+                indices.push(i01);
+                indices.push(i01);
+                indices.push(i10);
+                indices.push(i11);
+            }
+        }
+    }
+
+    Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::default(),
+    )
+    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+    .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+    .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+    .with_inserted_indices(Indices::U32(indices))
+}
+
 fn spawn_stormy_sky_ring(
     commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
 ) {
+    // 1. Dark wasteland ground plane outside the compound perimeter
     let dark_wasteland_mat = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.11, 0.11, 0.13),
+        base_color: Color::srgb(0.08, 0.09, 0.11),
         unlit: true,
         ..default()
     });
     commands.spawn((
-        Mesh3d(meshes.add(Cuboid::new(340.0, 1.0, 340.0))),
+        Mesh3d(meshes.add(Cuboid::new(380.0, 1.0, 380.0))),
         MeshMaterial3d(dark_wasteland_mat),
         Transform::from_xyz(0.0, -6.5, 0.0),
+        NotShadowCaster,
+        NotShadowReceiver,
     ));
 
-    let horizon_charcoal = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.12, 0.12, 0.14),
+    // 2. Overhead Zenith Storm Cap (matches top of sky_horizon_panorama.png)
+    let zenith_cap_mat = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.08, 0.09, 0.11),
         unlit: true,
         cull_mode: None,
         ..default()
     });
-    let mid_storm_slate = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.11, 0.11, 0.13),
+    commands.spawn((
+        Mesh3d(meshes.add(Cylinder::new(85.0, 1.0))),
+        MeshMaterial3d(zenith_cap_mat),
+        Transform::from_xyz(0.0, 59.5, 0.0),
+        NotShadowCaster,
+        NotShadowReceiver,
+    ));
+
+    // 3. Outer 360-Degree Painted Dark Storm Sky & Low Horizon Silhouette Dome
+    //    (Inspired directly by art/scene/dark_skies.jpg: brooding storm clouds, warm amber
+    //     cloud break, and low distant horizon silhouette right at y = 2.6m..4.5m)
+    let pano_tex: Handle<Image> = asset_server.load("ui/sky_horizon_panorama.png");
+    let pano_mat = materials.add(StandardMaterial {
+        base_color_texture: Some(pano_tex),
         unlit: true,
         cull_mode: None,
         ..default()
     });
-    let upper_charcoal_cloud = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.10, 0.10, 0.12),
+    commands.spawn((
+        Mesh3d(meshes.add(build_sky_dome_mesh(108.0, 2, -12.0, 2.6, 29.0, 60.0))),
+        MeshMaterial3d(pano_mat),
+        Transform::IDENTITY,
+        NotShadowCaster,
+        NotShadowReceiver,
+    ));
+
+    // 4. Continuously Moving Painted Storm Cloud Layers (Parallax Scrolling Domes)
+    //    Extracted strictly from the building-free upper clouds of art/scene/dark_skies.jpg
+    //    so ONLY dark storm clouds move across the sky (zero buildings/factories in cloud layers).
+    let clouds_tex_1: Handle<Image> = asset_server.load("ui/storm_clouds_layer1.png");
+    let clouds_tex_2: Handle<Image> = asset_server.load("ui/storm_clouds_layer2.png");
+
+    // Layer A: Heavy rolling dark thunderheads sweeping steadily across the sky
+    let cloud_mat_a = materials.add(StandardMaterial {
+        base_color: Color::srgba(0.95, 0.96, 1.0, 0.90),
+        base_color_texture: Some(clouds_tex_1.clone()),
+        alpha_mode: AlphaMode::Blend,
         unlit: true,
         cull_mode: None,
         ..default()
     });
+    commands.spawn((
+        ScrollingSkyLayer {
+            angular_speed: 0.068,
+            base_y: 0.0,
+            bob_amp: 0.65,
+            bob_speed: 0.38,
+            phase: 0.0,
+        },
+        Mesh3d(meshes.add(build_sky_dome_mesh(100.0, 3, -2.0, 3.2, 27.0, 58.0))),
+        MeshMaterial3d(cloud_mat_a),
+        Transform::IDENTITY,
+        NotShadowCaster,
+        NotShadowReceiver,
+    ));
 
-    let num_sky_segments = 24;
-    let sky_radius = 165.0_f32;
-    let seg_width = 2.0 * std::f32::consts::PI * sky_radius / (num_sky_segments as f32) + 3.0;
-    let band_low_mesh = meshes.add(Cuboid::new(seg_width, 28.0, 1.0));
-    let band_mid_mesh = meshes.add(Cuboid::new(seg_width, 34.0, 1.0));
-    let band_high_mesh = meshes.add(Cuboid::new(seg_width, 55.0, 1.0));
+    // Layer B: Faster low-to-mid scudding dark storm billows for strong parallax motion
+    let cloud_mat_b = materials.add(StandardMaterial {
+        base_color: Color::srgba(0.92, 0.93, 0.98, 0.84),
+        base_color_texture: Some(clouds_tex_2.clone()),
+        alpha_mode: AlphaMode::Blend,
+        unlit: true,
+        cull_mode: None,
+        ..default()
+    });
+    commands.spawn((
+        ScrollingSkyLayer {
+            angular_speed: 0.125,
+            base_y: 0.2,
+            bob_amp: 0.85,
+            bob_speed: 0.52,
+            phase: 1.7,
+        },
+        Mesh3d(meshes.add(build_sky_dome_mesh(92.0, 3, -1.5, 3.6, 25.5, 56.0))),
+        MeshMaterial3d(cloud_mat_b),
+        Transform::from_rotation(Quat::from_rotation_y(1.1)),
+        NotShadowCaster,
+        NotShadowReceiver,
+    ));
 
-    for i in 0..num_sky_segments {
-        let angle = (i as f32) * 2.0 * std::f32::consts::PI / (num_sky_segments as f32);
-        let sx = sky_radius * angle.sin();
-        let sz = sky_radius * angle.cos();
-        let rot = Quat::from_rotation_y(angle);
+    // Layer C: Brooding storm canopy drifting in opposite cross-wind shear
+    let cloud_mat_c = materials.add(StandardMaterial {
+        base_color: Color::srgba(0.82, 0.84, 0.92, 0.74),
+        base_color_texture: Some(clouds_tex_1),
+        alpha_mode: AlphaMode::Blend,
+        unlit: true,
+        cull_mode: None,
+        ..default()
+    });
+    commands.spawn((
+        ScrollingSkyLayer {
+            angular_speed: -0.055,
+            base_y: 0.8,
+            bob_amp: 0.55,
+            bob_speed: 0.32,
+            phase: 3.1,
+        },
+        Mesh3d(meshes.add(build_sky_dome_mesh(84.0, 3, 0.0, 4.8, 28.5, 55.0))),
+        MeshMaterial3d(cloud_mat_c),
+        Transform::from_rotation(Quat::from_rotation_y(2.4)),
+        NotShadowCaster,
+        NotShadowReceiver,
+    ));
 
-        commands.spawn((
-            Mesh3d(band_low_mesh.clone()),
-            MeshMaterial3d(horizon_charcoal.clone()),
-            Transform::from_xyz(sx, 8.0, sz).with_rotation(rot),
-        ));
-        commands.spawn((
-            Mesh3d(band_mid_mesh.clone()),
-            MeshMaterial3d(mid_storm_slate.clone()),
-            Transform::from_xyz(sx, 36.0, sz).with_rotation(rot),
-        ));
-        commands.spawn((
-            Mesh3d(band_high_mesh.clone()),
-            MeshMaterial3d(upper_charcoal_cloud.clone()),
-            Transform::from_xyz(sx, 78.0, sz).with_rotation(rot),
-        ));
+    // Layer D: Fast-drifting foreground storm cloud tendrils
+    let cloud_mat_d = materials.add(StandardMaterial {
+        base_color: Color::srgba(0.76, 0.78, 0.86, 0.62),
+        base_color_texture: Some(clouds_tex_2),
+        alpha_mode: AlphaMode::Blend,
+        unlit: true,
+        cull_mode: None,
+        ..default()
+    });
+    commands.spawn((
+        ScrollingSkyLayer {
+            angular_speed: 0.165,
+            base_y: 1.2,
+            bob_amp: 0.75,
+            bob_speed: 0.60,
+            phase: 4.5,
+        },
+        Mesh3d(meshes.add(build_sky_dome_mesh(77.0, 4, 0.5, 5.2, 26.5, 54.0))),
+        MeshMaterial3d(cloud_mat_d),
+        Transform::from_rotation(Quat::from_rotation_y(3.8)),
+        NotShadowCaster,
+        NotShadowReceiver,
+    ));
+}
+
+fn animate_ominous_sky(
+    time: Res<Time>,
+    mut sky_layers: Query<(&ScrollingSkyLayer, &mut Transform)>,
+) {
+    let t = time.elapsed_secs();
+    for (layer, mut transform) in sky_layers.iter_mut() {
+        let yaw = layer.phase + t * layer.angular_speed;
+        let y = layer.base_y + (t * layer.bob_speed + layer.phase).sin() * layer.bob_amp;
+        transform.translation.y = y;
+        transform.rotation = Quat::from_rotation_y(yaw);
     }
 }
 

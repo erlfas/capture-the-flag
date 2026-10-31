@@ -1,4 +1,3 @@
-use bevy::audio::Volume;
 use bevy::prelude::*;
 
 use crate::arena::PLATEAU_COORDS;
@@ -50,6 +49,7 @@ pub struct KothManager {
     pub status_color: Color,
     pub active_speaker: Option<(String, Team)>,
     pub event_notice: Option<VoiceCallout>,
+    pub queued_callout: Option<VoiceCallout>,
     pub pending_callouts: Vec<VoiceCallout>,
     pub voice_cooldown: f32,
     pub tackle_voice_cooldown: f32,
@@ -105,9 +105,10 @@ impl Default for KothManager {
             status_color: Color::srgb(0.3, 0.9, 1.0),
             active_speaker: None,
             event_notice: None,
+            queued_callout: None,
             pending_callouts: Vec::new(),
             voice_cooldown: 0.0,
-            tackle_voice_cooldown: 4.0,
+            tackle_voice_cooldown: 0.5,
             tactical_comms_cooldown: 6.0,
             flag_voice_cooldown: 0.0,
             last_speaker: None,
@@ -480,13 +481,13 @@ fn update_ctf_flags_and_scoring(
                                         "captured_flag",
                                         spoken,
                                         Color::srgb(0.2, 1.0, 0.5),
-                                        4.2,
+                                        3.4,
                                     )
                                     .with_priority(VoicePriority::FlagCapture, relevance),
                                 );
                                 if koth.blue_score >= WIN_SCORE {
                                     koth.winner = Some(Team::Blue);
-                                    koth.propose_callout(
+                                    koth.queued_callout = Some(
                                         VoiceCallout::new(
                                             "Anders",
                                             Team::Blue,
@@ -514,13 +515,13 @@ fn update_ctf_flags_and_scoring(
                                         "captured_flag",
                                         spoken,
                                         Color::srgb(1.0, 0.25, 0.25),
-                                        4.2,
+                                        3.4,
                                     )
                                     .with_priority(VoicePriority::FlagCapture, relevance),
                                 );
                                 if koth.red_score >= WIN_SCORE {
                                     koth.winner = Some(Team::Red);
-                                    koth.propose_callout(
+                                    koth.queued_callout = Some(
                                         VoiceCallout::new(
                                             "Siri",
                                             Team::Red,
@@ -816,10 +817,18 @@ fn arbitrate_voice_callouts(
         active.elapsed += dt;
         active.timer -= dt;
         if active.timer <= 0.0 {
-            koth.event_notice = None;
-            // Enforce a quiet pause after someone finishes speaking before non-critical lines can play
-            koth.voice_cooldown = 2.8;
+            if let Some(queued) = koth.queued_callout.take() {
+                koth.last_speaker = Some(queued.speaker.clone());
+                koth.event_notice = Some(queued);
+            } else {
+                koth.event_notice = None;
+                // Short natural pause after someone finishes speaking before ambient lines can play
+                koth.voice_cooldown = 0.75;
+            }
         }
+    } else if let Some(queued) = koth.queued_callout.take() {
+        koth.last_speaker = Some(queued.speaker.clone());
+        koth.event_notice = Some(queued);
     }
 
     // Evaluate all candidates proposed during this frame and select at most ONE winner
@@ -832,17 +841,16 @@ fn arbitrate_voice_callouts(
         for candidate in candidates {
             let can_speak = match candidate.priority {
                 VoicePriority::MatchVictory => true,
-                VoicePriority::FlagCapture => match current_active {
+                VoicePriority::FlagCapture => true,
+                VoicePriority::FlagEvent => match current_active {
                     None => true,
                     Some(curr) => {
-                        curr.priority < VoicePriority::FlagCapture || curr.elapsed >= 0.8
+                        curr.priority < VoicePriority::FlagEvent
+                            || (curr.priority == VoicePriority::FlagEvent
+                                && (candidate.line_id != curr.line_id
+                                    || curr.elapsed >= 0.45
+                                    || candidate.relevance > curr.relevance))
                     }
-                },
-                VoicePriority::FlagEvent => match current_active {
-                    None => koth.flag_voice_cooldown <= 0.0,
-                    // A flag event can preempt a low-priority tackle bark or tactical reminder,
-                    // but never cuts off another active FlagEvent speaker mid-sentence.
-                    Some(curr) => curr.priority < VoicePriority::FlagEvent,
                 },
                 VoicePriority::TacticalComms => {
                     current_active.is_none()
@@ -890,21 +898,21 @@ fn arbitrate_voice_callouts(
         if let Some((winner, _)) = best_candidate {
             match winner.priority {
                 VoicePriority::CombatBark => {
-                    koth.tackle_voice_cooldown = 9.0;
-                    koth.tactical_comms_cooldown = koth.tactical_comms_cooldown.max(4.5);
+                    koth.tackle_voice_cooldown = 4.5;
+                    koth.tactical_comms_cooldown = koth.tactical_comms_cooldown.max(4.0);
                 }
                 VoicePriority::TacticalComms => {
-                    koth.tactical_comms_cooldown = 15.0;
+                    koth.tactical_comms_cooldown = 20.0;
                 }
                 VoicePriority::FlagEvent => {
-                    koth.flag_voice_cooldown = 1.8;
-                    koth.tactical_comms_cooldown = koth.tactical_comms_cooldown.max(7.0);
-                    koth.tackle_voice_cooldown = koth.tackle_voice_cooldown.max(3.5);
+                    koth.flag_voice_cooldown = 0.25;
+                    koth.tactical_comms_cooldown = koth.tactical_comms_cooldown.max(8.0);
+                    koth.tackle_voice_cooldown = koth.tackle_voice_cooldown.max(2.0);
                 }
                 VoicePriority::FlagCapture | VoicePriority::MatchVictory => {
-                    koth.flag_voice_cooldown = 2.0;
-                    koth.tactical_comms_cooldown = 12.0;
-                    koth.tackle_voice_cooldown = 5.0;
+                    koth.flag_voice_cooldown = 0.5;
+                    koth.tactical_comms_cooldown = 14.0;
+                    koth.tackle_voice_cooldown = 3.0;
                 }
             }
             koth.last_speaker = Some(winner.speaker.clone());
@@ -1002,7 +1010,9 @@ fn play_voice_callout_audio(
     mut koth: ResMut<KothManager>,
     active_voice_query: Query<Entity, With<ActiveVoiceAudio>>,
 ) {
-    if pause_state.is_paused || pause_state.exited {
+    let is_paused = pause_state.is_paused || pause_state.exited || !koth.match_started;
+    crate::types::set_voice_audio_paused(is_paused);
+    if is_paused {
         return;
     }
     if let Some(ref mut callout) = koth.event_notice {
@@ -1013,11 +1023,7 @@ fn play_voice_callout_audio(
                 commands.entity(ent).despawn();
             }
             let sound_path = callout.audio_asset_path();
-            commands.spawn((
-                ActiveVoiceAudio,
-                AudioPlayer::new(asset_server.load(sound_path)),
-                PlaybackSettings::DESPAWN.with_volume(Volume::new(1.0)),
-            ));
+            crate::types::trigger_voice_audio(&mut commands, &asset_server, &sound_path);
         }
     }
 }

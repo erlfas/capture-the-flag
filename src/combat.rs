@@ -1,5 +1,4 @@
 use avian3d::prelude::*;
-use bevy::audio::Volume;
 use bevy::prelude::*;
 
 use crate::koth::KothManager;
@@ -241,10 +240,7 @@ fn check_tackle_hits(
                     }
 
                     // Play punch impact sound effect
-                    commands.spawn((
-                        AudioPlayer::new(asset_server.load("music/punch.mp3")),
-                        PlaybackSettings::DESPAWN.with_volume(Volume::new(0.95)),
-                    ));
+                    crate::types::trigger_punch_sfx(&mut commands, &asset_server, 1.0);
 
                     // Spawn a glowing 3D kinetic shockwave ring at the impact midpoint
                     let impact_pos =

@@ -18,10 +18,28 @@ export function return_to_intro_js() {
         window.returnToIntroScreen();
     }
 }
+export function play_voice_js(rel_path) {
+    if (typeof window !== 'undefined' && typeof window.playGameVoice === 'function') {
+        window.playGameVoice(rel_path);
+    }
+}
+export function set_voice_paused_js(paused) {
+    if (typeof window !== 'undefined' && typeof window.setGameVoicePaused === 'function') {
+        window.setGameVoicePaused(paused);
+    }
+}
+export function play_sfx_js(rel_path, volume) {
+    if (typeof window !== 'undefined' && typeof window.playGameSfx === 'function') {
+        window.playGameSfx(rel_path, volume);
+    }
+}
 ")]
 extern "C" {
     fn is_match_started_js() -> bool;
     fn return_to_intro_js();
+    fn play_voice_js(rel_path: &str);
+    fn set_voice_paused_js(paused: bool);
+    fn play_sfx_js(rel_path: &str, volume: f32);
 }
 
 pub fn is_match_started() -> bool {
@@ -39,6 +57,52 @@ pub fn trigger_return_to_intro() {
     #[cfg(target_arch = "wasm32")]
     {
         return_to_intro_js();
+    }
+}
+
+pub fn set_voice_audio_paused(paused: bool) {
+    #[cfg(target_arch = "wasm32")]
+    {
+        set_voice_paused_js(paused);
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let _ = paused;
+    }
+}
+
+pub fn trigger_punch_sfx(commands: &mut Commands, asset_server: &AssetServer, volume: f32) {
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = (commands, asset_server);
+        play_sfx_js("music/punch.mp3", volume);
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        commands.spawn((
+            AudioPlayer::new(asset_server.load("music/punch.mp3")),
+            PlaybackSettings::DESPAWN.with_volume(bevy::audio::Volume::new(volume)),
+        ));
+    }
+}
+
+pub fn trigger_voice_audio(
+    commands: &mut Commands,
+    asset_server: &AssetServer,
+    rel_path: &str,
+) {
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = (commands, asset_server);
+        play_voice_js(rel_path);
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        commands.spawn((
+            crate::koth::ActiveVoiceAudio,
+            AudioPlayer::new(asset_server.load(rel_path.to_string())),
+            PlaybackSettings::DESPAWN.with_volume(bevy::audio::Volume::new(1.0)),
+        ));
     }
 }
 
