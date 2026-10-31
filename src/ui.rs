@@ -25,18 +25,6 @@ pub struct ZoneTimerText;
 pub struct ZoneNameText;
 
 #[derive(Component)]
-pub struct StaminaFillBar;
-
-#[derive(Component)]
-pub struct StaminaLabelText;
-
-#[derive(Component)]
-pub struct HpFillBar;
-
-#[derive(Component)]
-pub struct HpLabelText;
-
-#[derive(Component)]
 pub struct TackleCdText;
 
 #[derive(Component)]
@@ -97,7 +85,8 @@ impl Plugin for UiPlugin {
                     sync_overhead_nametags,
                     update_overhead_nametags,
                     update_hud,
-                ),
+                )
+                    .chain(),
             );
     }
 }
@@ -152,7 +141,7 @@ fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ))
                             .with_children(|blue_box| {
                                 blue_box.spawn((
-                                    Text::new("BLUE FLAG: 1"),
+                                    Text::new("BLUE FLAG: 0"),
                                     TextFont {
                                         font: ui_font.clone(),
                                         font_size: 22.0,
@@ -248,138 +237,16 @@ fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
                 BorderColor(Color::srgb(0.0, 0.9, 1.0)),
             ));
 
-            // --- BOTTOM ROW: Operator Card (Left) & Tactical Abilities (Right) ---
+            // --- BOTTOM ROW: Tactical Abilities (Right) ---
             root.spawn(Node {
                 width: Val::Percent(100.0),
                 flex_direction: FlexDirection::Row,
-                justify_content: JustifyContent::SpaceBetween,
+                justify_content: JustifyContent::FlexEnd,
                 align_items: AlignItems::FlexEnd,
                 margin: UiRect::bottom(Val::Px(12.0)),
                 ..default()
             })
             .with_children(|bottom_row| {
-                // BOTTOM-LEFT OPERATOR CARD (Anders portrait, HP 100 green, STAMINA 75 yellow)
-                bottom_row
-                    .spawn((
-                        Node {
-                            flex_direction: FlexDirection::Row,
-                            align_items: AlignItems::Center,
-                            column_gap: Val::Px(12.0),
-                            padding: UiRect::all(Val::Px(8.0)),
-                            border: UiRect::all(Val::Px(1.5)),
-                            ..default()
-                        },
-                        BackgroundColor(Color::srgba(0.04, 0.07, 0.11, 0.9)),
-                        BorderColor(Color::srgb(0.0, 0.75, 1.0)),
-                        BorderRadius::all(Val::Px(8.0)),
-                    ))
-                    .with_children(|card| {
-                        // Anders Portrait Frame
-                        card.spawn((
-                            Node {
-                                width: Val::Px(78.0),
-                                height: Val::Px(94.0),
-                                border: UiRect::all(Val::Px(1.5)),
-                                overflow: Overflow::clip(),
-                                ..default()
-                            },
-                            BorderColor(Color::srgb(0.0, 0.85, 1.0)),
-                            BorderRadius::all(Val::Px(6.0)),
-                            ImageNode::new(asset_server.load("ui/portrait_anders.png")),
-                        ));
-
-                        // Anders Stats Column
-                        card.spawn(Node {
-                            flex_direction: FlexDirection::Column,
-                            row_gap: Val::Px(5.0),
-                            min_width: Val::Px(150.0),
-                            ..default()
-                        })
-                        .with_children(|stats_col| {
-                            stats_col.spawn((
-                                Text::new("ANDERS"),
-                                TextFont {
-                                    font: ui_font.clone(),
-                                    font_size: 18.0,
-                                    ..default()
-                                },
-                                TextColor(Color::WHITE),
-                            ));
-
-                            // HP Bar Row
-                            stats_col.spawn((
-                                Text::new("HP: 100"),
-                                TextFont {
-                                    font: ui_font.clone(),
-                                    font_size: 12.0,
-                                    ..default()
-                                },
-                                TextColor(Color::srgb(0.2, 0.95, 0.4)),
-                                HpLabelText,
-                            ));
-                            stats_col
-                                .spawn((
-                                    Node {
-                                        width: Val::Px(140.0),
-                                        height: Val::Px(11.0),
-                                        border: UiRect::all(Val::Px(1.0)),
-                                        padding: UiRect::all(Val::Px(1.0)),
-                                        ..default()
-                                    },
-                                    BackgroundColor(Color::srgb(0.04, 0.08, 0.05)),
-                                    BorderColor(Color::srgb(0.15, 0.85, 0.35)),
-                                    BorderRadius::all(Val::Px(2.0)),
-                                ))
-                                .with_children(|bar_bg| {
-                                    bar_bg.spawn((
-                                        Node {
-                                            width: Val::Percent(100.0),
-                                            height: Val::Percent(100.0),
-                                            ..default()
-                                        },
-                                        BackgroundColor(Color::srgb(0.12, 0.88, 0.35)),
-                                        HpFillBar,
-                                    ));
-                                });
-
-                            // STAMINA Bar Row
-                            stats_col.spawn((
-                                Text::new("STAMINA: 75"),
-                                TextFont {
-                                    font: ui_font.clone(),
-                                    font_size: 12.0,
-                                    ..default()
-                                },
-                                TextColor(Color::srgb(1.0, 0.85, 0.2)),
-                                StaminaLabelText,
-                            ));
-                            stats_col
-                                .spawn((
-                                    Node {
-                                        width: Val::Px(140.0),
-                                        height: Val::Px(11.0),
-                                        border: UiRect::all(Val::Px(1.0)),
-                                        padding: UiRect::all(Val::Px(1.0)),
-                                        ..default()
-                                    },
-                                    BackgroundColor(Color::srgb(0.08, 0.07, 0.03)),
-                                    BorderColor(Color::srgb(0.9, 0.75, 0.15)),
-                                    BorderRadius::all(Val::Px(2.0)),
-                                ))
-                                .with_children(|bar_bg| {
-                                    bar_bg.spawn((
-                                        Node {
-                                            width: Val::Percent(75.0),
-                                            height: Val::Percent(100.0),
-                                            ..default()
-                                        },
-                                        BackgroundColor(Color::srgb(0.96, 0.76, 0.12)),
-                                        StaminaFillBar,
-                                    ));
-                                });
-                        });
-                    });
-
                 // BOTTOM-RIGHT TACTICAL ACTION INDICATORS ('Hastighetsboost' & 'Kastbart nett (x2)')
                 bottom_row
                     .spawn(Node {
@@ -508,6 +375,7 @@ fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 },
                 TextColor(Color::srgb(0.2, 0.92, 1.0)),
+                PickingBehavior::IGNORE,
             ));
         });
 
@@ -562,6 +430,7 @@ fn spawn_pause_menu_button(
                     ..default()
                 },
                 TextColor(text_color),
+                PickingBehavior::IGNORE,
             ));
             if is_music_btn {
                 text_cmd.insert(MusicToggleButtonText);
@@ -619,7 +488,7 @@ fn spawn_pause_overlay(commands: &mut Commands, ui_font: &Handle<Font>) {
 
                     // Live Match Score & Timer Summary
                     card.spawn((
-                        Text::new("BLUE FLAG: 1   •   07:42   •   RED FLAG: 0"),
+                        Text::new("BLUE FLAG: 0   •   07:42   •   RED FLAG: 0"),
                         TextFont {
                             font: ui_font.clone(),
                             font_size: 14.0,
@@ -652,7 +521,7 @@ fn spawn_pause_overlay(commands: &mut Commands, ui_font: &Handle<Font>) {
                     spawn_pause_menu_button(
                         card,
                         ui_font,
-                        "RESTART MATCH  [R]",
+                        "RESET MATCH  [R]",
                         PauseMenuAction::RestartMatch,
                         false,
                         false,
@@ -909,11 +778,9 @@ fn update_overhead_nametags(
             Without<ZoneStatusText>,
             Without<TackleCdText>,
             Without<ZoneNameText>,
-            Without<HpLabelText>,
-            Without<StaminaLabelText>,
         ),
     >,
-    mut fill_nodes: Query<&mut Node, (Without<CharacterNametag>, Without<HpFillBar>, Without<StaminaFillBar>)>,
+    mut fill_nodes: Query<&mut Node, Without<CharacterNametag>>,
     mut commands: Commands,
 ) {
     let Ok((camera, cam_trans)) = camera_query.get_single() else {
@@ -994,7 +861,7 @@ fn update_overhead_nametags(
 
 fn update_hud(
     koth: Res<KothManager>,
-    player_query: Query<(&Health, &Stamina, &TackleAbility), With<Player>>,
+    player_query: Query<(&Stamina, &TackleAbility), With<Player>>,
     mut blue_text: Query<
         &mut Text,
         (
@@ -1004,8 +871,6 @@ fn update_hud(
             Without<ZoneStatusText>,
             Without<TackleCdText>,
             Without<ZoneNameText>,
-            Without<HpLabelText>,
-            Without<StaminaLabelText>,
         ),
     >,
     mut red_text: Query<
@@ -1017,8 +882,6 @@ fn update_hud(
             Without<ZoneStatusText>,
             Without<TackleCdText>,
             Without<ZoneNameText>,
-            Without<HpLabelText>,
-            Without<StaminaLabelText>,
         ),
     >,
     mut timer_text: Query<
@@ -1030,8 +893,6 @@ fn update_hud(
             Without<ZoneStatusText>,
             Without<TackleCdText>,
             Without<ZoneNameText>,
-            Without<HpLabelText>,
-            Without<StaminaLabelText>,
         ),
     >,
     mut name_text: Query<
@@ -1043,8 +904,6 @@ fn update_hud(
             Without<ZoneTimerText>,
             Without<ZoneStatusText>,
             Without<TackleCdText>,
-            Without<HpLabelText>,
-            Without<StaminaLabelText>,
         ),
     >,
     mut status_text: Query<
@@ -1056,8 +915,6 @@ fn update_hud(
             Without<ZoneTimerText>,
             Without<TackleCdText>,
             Without<ZoneNameText>,
-            Without<HpLabelText>,
-            Without<StaminaLabelText>,
         ),
     >,
     mut tackle_text: Query<
@@ -1069,38 +926,8 @@ fn update_hud(
             Without<ZoneTimerText>,
             Without<ZoneStatusText>,
             Without<ZoneNameText>,
-            Without<HpLabelText>,
-            Without<StaminaLabelText>,
         ),
     >,
-    mut hp_label: Query<
-        &mut Text,
-        (
-            With<HpLabelText>,
-            Without<BlueScoreText>,
-            Without<RedScoreText>,
-            Without<ZoneTimerText>,
-            Without<ZoneStatusText>,
-            Without<ZoneNameText>,
-            Without<TackleCdText>,
-            Without<StaminaLabelText>,
-        ),
-    >,
-    mut stam_label: Query<
-        &mut Text,
-        (
-            With<StaminaLabelText>,
-            Without<BlueScoreText>,
-            Without<RedScoreText>,
-            Without<ZoneTimerText>,
-            Without<ZoneStatusText>,
-            Without<ZoneNameText>,
-            Without<TackleCdText>,
-            Without<HpLabelText>,
-        ),
-    >,
-    mut stamina_bar: Query<&mut Node, (With<StaminaFillBar>, Without<HpFillBar>)>,
-    mut hp_bar: Query<&mut Node, (With<HpFillBar>, Without<StaminaFillBar>)>,
 ) {
     // 1. Top Match Banner Scores
     if let Ok(mut text) = blue_text.get_single_mut() {
@@ -1149,26 +976,8 @@ fn update_hud(
         }
     }
 
-    // 4. Player Operator Card & Tactical Actions
-    if let Ok((health, stamina, tackle)) = player_query.get_single() {
-        // Anders HP Bar & Text
-        if let Ok(mut label) = hp_label.get_single_mut() {
-            **label = format!("HP: {:.0}", health.current);
-        }
-        if let Ok(mut bar_node) = hp_bar.get_single_mut() {
-            let pct = (health.current / health.max * 100.0).clamp(0.0, 100.0);
-            bar_node.width = Val::Percent(pct);
-        }
-
-        // Anders Stamina Bar & Text
-        if let Ok(mut label) = stam_label.get_single_mut() {
-            **label = format!("STAMINA: {:.0}", stamina.current);
-        }
-        if let Ok(mut bar_node) = stamina_bar.get_single_mut() {
-            let pct = (stamina.current / stamina.max * 100.0).clamp(0.0, 100.0);
-            bar_node.width = Val::Percent(pct);
-        }
-
+    // 4. Tactical Actions
+    if let Ok((stamina, tackle)) = player_query.get_single() {
         // Bottom-Right Throwable Net Action Indicator
         if let Ok((mut text, mut color)) = tackle_text.get_single_mut() {
             if tackle.cooldown > 0.0 {
@@ -1191,6 +1000,7 @@ fn reset_match_entities(
     characters: &mut Query<(
         &mut Transform,
         Option<&mut Position>,
+        Option<&mut Rotation>,
         &mut LinearVelocity,
         &mut AngularVelocity,
         &mut Health,
@@ -1209,6 +1019,7 @@ fn reset_match_entities(
     for (
         mut transform,
         mut maybe_pos,
+        mut maybe_rot,
         mut lin_vel,
         mut ang_vel,
         mut health,
@@ -1223,9 +1034,13 @@ fn reset_match_entities(
             Team::Blue => std::f32::consts::FRAC_PI_2,
             Team::Red => -std::f32::consts::FRAC_PI_2,
         };
-        transform.rotation = Quat::from_rotation_y(yaw);
+        let rot = Quat::from_rotation_y(yaw);
+        transform.rotation = rot;
         if let Some(ref mut pos) = maybe_pos {
             pos.0 = char_info.spawn_point;
+        }
+        if let Some(ref mut r) = maybe_rot {
+            r.0 = rot;
         }
         lin_vel.0 = Vec3::ZERO;
         ang_vel.0 = Vec3::ZERO;
@@ -1252,6 +1067,7 @@ fn handle_pause_input_and_menu(
     mut characters: Query<(
         &mut Transform,
         Option<&mut Position>,
+        Option<&mut Rotation>,
         &mut LinearVelocity,
         &mut AngularVelocity,
         &mut Health,

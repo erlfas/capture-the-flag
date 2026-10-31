@@ -74,6 +74,9 @@ impl KothManager {
     pub fn reset_for_new_match(&mut self) {
         *self = Self {
             match_started: true,
+            blue_score: 0.0,
+            red_score: 0.0,
+            match_timer: INITIAL_MATCH_TIME,
             ..Self::default()
         };
         self.propose_callout(
@@ -95,8 +98,8 @@ impl Default for KothManager {
         Self {
             match_started: false,
             match_timer: INITIAL_MATCH_TIME,
-            blue_score: 1.0, // Matches initial "Blue Flag: 1" from art
-            red_score: 0.0,  // Matches initial "Red Flag: 0" from art
+            blue_score: 0.0,
+            red_score: 0.0,
             contest_state: ZoneContestState::Neutral,
             last_contest_state: ZoneContestState::Neutral,
             winner: None,
