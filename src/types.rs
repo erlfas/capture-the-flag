@@ -1,11 +1,85 @@
 use bevy::prelude::*;
 
-#[derive(Resource, Debug, Default, Clone)]
+#[derive(Resource, Debug, Clone)]
 pub struct PauseState {
     pub is_paused: bool,
+    pub in_settings_submenu: bool,
     pub exited: bool,
     pub match_active_secs: f32,
     pub music_muted: bool,
+    pub character_speed_mult: f32,
+    pub punch_power_mult: f32,
+    pub ai_intelligence_mult: f32,
+}
+
+impl Default for PauseState {
+    fn default() -> Self {
+        Self {
+            is_paused: false,
+            in_settings_submenu: false,
+            exited: false,
+            match_active_secs: 0.0,
+            music_muted: false,
+            character_speed_mult: 1.0,
+            punch_power_mult: 1.0,
+            ai_intelligence_mult: 1.0,
+        }
+    }
+}
+
+impl PauseState {
+    pub fn speed_label(&self) -> &'static str {
+        let m = self.character_speed_mult;
+        if m < 0.75 {
+            "SLOW"
+        } else if m < 0.95 {
+            "REDUCED"
+        } else if m <= 1.05 {
+            "NORMAL"
+        } else if m <= 1.35 {
+            "FAST"
+        } else if m <= 1.65 {
+            "TURBO"
+        } else {
+            "HYPER"
+        }
+    }
+
+    pub fn punch_label(&self) -> &'static str {
+        let m = self.punch_power_mult;
+        if m < 0.75 {
+            "LIGHT"
+        } else if m < 0.95 {
+            "REDUCED"
+        } else if m <= 1.05 {
+            "NORMAL"
+        } else if m <= 1.45 {
+            "HEAVY"
+        } else if m <= 1.85 {
+            "BRUTAL"
+        } else {
+            "MEGA LAUNCH"
+        }
+    }
+
+    pub fn ai_label(&self) -> &'static str {
+        let m = self.ai_intelligence_mult;
+        if m < 0.45 {
+            "ROOKIE"
+        } else if m < 0.75 {
+            "CASUAL"
+        } else if m < 0.95 {
+            "CAUTIOUS"
+        } else if m <= 1.05 {
+            "TACTICAL"
+        } else if m <= 1.35 {
+            "VETERAN"
+        } else if m <= 1.65 {
+            "ELITE"
+        } else {
+            "MASTERMIND"
+        }
+    }
 }
 
 #[cfg(target_arch = "wasm32")]

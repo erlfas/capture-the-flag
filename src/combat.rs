@@ -98,8 +98,9 @@ fn update_cooldowns_and_stagger(
                 }
             }
 
-            if lin_vel.y > 2.4 {
-                lin_vel.y = 2.4;
+            let max_upward_vel = 2.4 * pause_state.punch_power_mult.max(1.0);
+            if lin_vel.y > max_upward_vel {
+                lin_vel.y = max_upward_vel;
             }
         }
     }
@@ -223,20 +224,23 @@ fn check_tackle_hits(
                     }
                     knockback_dir = knockback_dir.normalize_or(Vec3::ZERO);
 
-                    // Combine base shove force with a capped portion of the shover's forward momentum
+                    // Combine base shove force with a capped portion of the shover's forward momentum,
+                    // scaled by the adjustable Punching Power setting (`pause_state.punch_power_mult`)
+                    let punch_mult = pause_state.punch_power_mult;
                     let momentum_bonus = (Vec3::new(tackler_vel.x, 0.0, tackler_vel.z)
                         .dot(knockback_dir)
                         .max(0.0)
                         * 0.25)
                         .min(3.2);
-                    let total_push_speed = KNOCKBACK_FORCE + momentum_bonus;
+                    let total_push_speed = (KNOCKBACK_FORCE + momentum_bonus) * punch_mult;
+                    let upward_lift = UPWARD_LIFT * punch_mult.clamp(0.5, 2.2);
 
-                    target_vel.0 = knockback_dir * total_push_speed + Vec3::Y * UPWARD_LIFT;
+                    target_vel.0 = knockback_dir * total_push_speed + Vec3::Y * upward_lift;
                     target_ang_vel.0 = Vec3::ZERO;
-                    target_stagger.duration = 0.86;
+                    target_stagger.duration = (0.86 * punch_mult.sqrt()).clamp(0.45, 1.45);
 
                     if let Some(ref mut health) = maybe_health {
-                        health.current = (health.current - 22.0).max(10.0);
+                        health.current = (health.current - 22.0 * punch_mult).max(10.0);
                     }
 
                     // Play punch impact sound effect
@@ -258,7 +262,7 @@ fn check_tackle_hits(
                             elapsed: 0.0,
                             duration: 0.28,
                             start_scale: 0.35,
-                            end_scale: 2.35,
+                            end_scale: 2.35 * punch_mult.sqrt(),
                             normal_rot: ring_rot,
                         },
                         Mesh3d(meshes.add(Torus {

@@ -54,6 +54,9 @@ pub struct PauseOverlayRoot;
 pub struct PauseModalCard;
 
 #[derive(Component)]
+pub struct SettingsModalCard;
+
+#[derive(Component)]
 pub struct ExitModalCard;
 
 #[derive(Component)]
@@ -62,9 +65,36 @@ pub struct PauseMatchSummaryText;
 #[derive(Component)]
 pub struct MusicToggleButtonText;
 
+#[derive(Component)]
+pub struct SpeedSettingValueText;
+
+#[derive(Component)]
+pub struct PunchSettingValueText;
+
+#[derive(Component)]
+pub struct AiSettingValueText;
+
+#[derive(Component)]
+pub struct SpeedSettingFillBar;
+
+#[derive(Component)]
+pub struct PunchSettingFillBar;
+
+#[derive(Component)]
+pub struct AiSettingFillBar;
+
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PauseMenuAction {
     Resume,
+    OpenSettingsSubmenu,
+    CloseSettingsSubmenu,
+    ResetSettingsDefaults,
+    DecreaseSpeed,
+    IncreaseSpeed,
+    DecreasePunchPower,
+    IncreasePunchPower,
+    DecreaseAiIntelligence,
+    IncreaseAiIntelligence,
     RestartMatch,
     ToggleMusic,
     ExitGame,
@@ -438,6 +468,142 @@ fn spawn_pause_menu_button(
         });
 }
 
+fn spawn_setting_adjuster_row<T: Component, F: Component>(
+    parent: &mut ChildBuilder,
+    ui_font: &Handle<Font>,
+    initial_label: &str,
+    dec_action: PauseMenuAction,
+    inc_action: PauseMenuAction,
+    text_marker: T,
+    fill_marker: F,
+    fill_color: Color,
+    initial_pct: f32,
+) {
+    parent
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(6.0),
+                padding: UiRect::axes(Val::Px(12.0), Val::Px(10.0)),
+                border: UiRect::all(Val::Px(1.2)),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.05, 0.11, 0.19, 0.85)),
+            BorderColor(Color::srgba(0.0, 0.75, 1.0, 0.35)),
+            BorderRadius::all(Val::Px(6.0)),
+        ))
+        .with_children(|row_box| {
+            // Setting Title & Live Percentage Readout
+            row_box.spawn((
+                Text::new(initial_label),
+                TextFont {
+                    font: ui_font.clone(),
+                    font_size: 14.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.88, 0.96, 1.0)),
+                text_marker,
+            ));
+
+            // Controls Row: [-]  [==== Fill Bar ====]  [+]
+            row_box
+                .spawn(Node {
+                    width: Val::Percent(100.0),
+                    flex_direction: FlexDirection::Row,
+                    justify_content: JustifyContent::SpaceBetween,
+                    align_items: AlignItems::Center,
+                    column_gap: Val::Px(10.0),
+                    ..default()
+                })
+                .with_children(|ctrl| {
+                    // Decrease [-] Button
+                    ctrl.spawn((
+                        Button,
+                        dec_action,
+                        Node {
+                            width: Val::Px(46.0),
+                            height: Val::Px(34.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            border: UiRect::all(Val::Px(1.6)),
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgba(0.06, 0.14, 0.24, 0.92)),
+                        BorderColor(Color::srgb(0.0, 0.78, 1.0)),
+                        BorderRadius::all(Val::Px(5.0)),
+                    ))
+                    .with_children(|btn| {
+                        btn.spawn((
+                            Text::new("−"),
+                            TextFont {
+                                font: ui_font.clone(),
+                                font_size: 20.0,
+                                ..default()
+                            },
+                            TextColor(Color::srgb(0.88, 0.96, 1.0)),
+                            PickingBehavior::IGNORE,
+                        ));
+                    });
+
+                    // Progress Bar Track
+                    ctrl.spawn((
+                        Node {
+                            flex_grow: 1.0,
+                            height: Val::Px(14.0),
+                            padding: UiRect::all(Val::Px(2.0)),
+                            border: UiRect::all(Val::Px(1.0)),
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgba(0.02, 0.05, 0.09, 0.95)),
+                        BorderColor(Color::srgba(0.0, 0.75, 1.0, 0.45)),
+                        BorderRadius::all(Val::Px(4.0)),
+                    ))
+                    .with_children(|track| {
+                        track.spawn((
+                            Node {
+                                width: Val::Percent(initial_pct),
+                                height: Val::Percent(100.0),
+                                ..default()
+                            },
+                            BackgroundColor(fill_color),
+                            BorderRadius::all(Val::Px(2.0)),
+                            fill_marker,
+                        ));
+                    });
+
+                    // Increase [+] Button
+                    ctrl.spawn((
+                        Button,
+                        inc_action,
+                        Node {
+                            width: Val::Px(46.0),
+                            height: Val::Px(34.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            border: UiRect::all(Val::Px(1.6)),
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgba(0.06, 0.14, 0.24, 0.92)),
+                        BorderColor(Color::srgb(0.0, 0.78, 1.0)),
+                        BorderRadius::all(Val::Px(5.0)),
+                    ))
+                    .with_children(|btn| {
+                        btn.spawn((
+                            Text::new("+"),
+                            TextFont {
+                                font: ui_font.clone(),
+                                font_size: 20.0,
+                                ..default()
+                            },
+                            TextColor(Color::srgb(0.88, 0.96, 1.0)),
+                            PickingBehavior::IGNORE,
+                        ));
+                    });
+                });
+        });
+}
+
 fn spawn_pause_overlay(commands: &mut Commands, ui_font: &Handle<Font>) {
     commands
         .spawn((
@@ -521,6 +687,14 @@ fn spawn_pause_overlay(commands: &mut Commands, ui_font: &Handle<Font>) {
                     spawn_pause_menu_button(
                         card,
                         ui_font,
+                        "GAMEPLAY & AI SETTINGS  [G]",
+                        PauseMenuAction::OpenSettingsSubmenu,
+                        false,
+                        false,
+                    );
+                    spawn_pause_menu_button(
+                        card,
+                        ui_font,
                         "RESET MATCH  [R]",
                         PauseMenuAction::RestartMatch,
                         false,
@@ -549,7 +723,7 @@ fn spawn_pause_overlay(commands: &mut Commands, ui_font: &Handle<Font>) {
                             margin: UiRect::top(Val::Px(8.0)),
                             ..default()
                         },
-                        Text::new("WASD: Move  •  SHIFT: Sprint  •  SPACE: Jump  •  LMB/F: Tackle  •  TAB/V: View"),
+                        Text::new("WASD: Move  •  SHIFT: Sprint  •  SPACE/LMB/F: Punch  •  TAB/V: View"),
                         TextFont {
                             font: ui_font.clone(),
                             font_size: 11.0,
@@ -559,7 +733,127 @@ fn spawn_pause_overlay(commands: &mut Commands, ui_font: &Handle<Font>) {
                     ));
                 });
 
-            // --- B) EXIT CONFIRMATION / MAIN MENU SCREEN CARD ---
+            // --- B) GAMEPLAY & AI SETTINGS SUBMENU CARD ---
+            overlay
+                .spawn((
+                    SettingsModalCard,
+                    Node {
+                        width: Val::Px(480.0),
+                        display: Display::None,
+                        flex_direction: FlexDirection::Column,
+                        align_items: AlignItems::Center,
+                        row_gap: Val::Px(12.0),
+                        padding: UiRect::axes(Val::Px(32.0), Val::Px(26.0)),
+                        border: UiRect::all(Val::Px(2.0)),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgba(0.04, 0.08, 0.14, 0.98)),
+                    BorderColor(Color::srgb(0.0, 0.88, 1.0)),
+                    BorderRadius::all(Val::Px(10.0)),
+                ))
+                .with_children(|card| {
+                    card.spawn((
+                        Text::new("GAMEPLAY & AI SETTINGS"),
+                        TextFont {
+                            font: ui_font.clone(),
+                            font_size: 26.0,
+                            ..default()
+                        },
+                        TextColor(Color::srgb(0.0, 0.92, 1.0)),
+                    ));
+
+                    card.spawn((
+                        Text::new("Tune character movement speed, punch knockback power, and AI intelligence"),
+                        TextFont {
+                            font: ui_font.clone(),
+                            font_size: 12.0,
+                            ..default()
+                        },
+                        TextLayout::new_with_justify(JustifyText::Center),
+                        TextColor(Color::srgb(0.68, 0.80, 0.92)),
+                    ));
+
+                    // 1. Character Speed Adjuster
+                    spawn_setting_adjuster_row(
+                        card,
+                        ui_font,
+                        "CHARACTER SPEED: 100% (NORMAL)",
+                        PauseMenuAction::DecreaseSpeed,
+                        PauseMenuAction::IncreaseSpeed,
+                        SpeedSettingValueText,
+                        SpeedSettingFillBar,
+                        Color::srgb(0.12, 0.85, 1.0),
+                        37.5,
+                    );
+
+                    // 2. Punching Power Adjuster
+                    spawn_setting_adjuster_row(
+                        card,
+                        ui_font,
+                        "PUNCHING POWER: 100% (NORMAL)",
+                        PauseMenuAction::DecreasePunchPower,
+                        PauseMenuAction::IncreasePunchPower,
+                        PunchSettingValueText,
+                        PunchSettingFillBar,
+                        Color::srgb(1.0, 0.42, 0.25),
+                        28.6,
+                    );
+
+                    // 3. AI Intelligence Adjuster
+                    spawn_setting_adjuster_row(
+                        card,
+                        ui_font,
+                        "AI INTELLIGENCE: 100% (TACTICAL)",
+                        PauseMenuAction::DecreaseAiIntelligence,
+                        PauseMenuAction::IncreaseAiIntelligence,
+                        AiSettingValueText,
+                        AiSettingFillBar,
+                        Color::srgb(0.25, 0.95, 0.55),
+                        44.4,
+                    );
+
+                    // Submenu Action Buttons
+                    spawn_pause_menu_button(
+                        card,
+                        ui_font,
+                        "RESET TO DEFAULTS  [D]",
+                        PauseMenuAction::ResetSettingsDefaults,
+                        false,
+                        false,
+                    );
+                    spawn_pause_menu_button(
+                        card,
+                        ui_font,
+                        "◄ BACK TO PAUSE MENU  [ESC]",
+                        PauseMenuAction::CloseSettingsSubmenu,
+                        false,
+                        false,
+                    );
+                    spawn_pause_menu_button(
+                        card,
+                        ui_font,
+                        "RESUME MATCH",
+                        PauseMenuAction::Resume,
+                        false,
+                        false,
+                    );
+
+                    card.spawn((
+                        Node {
+                            margin: UiRect::top(Val::Px(4.0)),
+                            ..default()
+                        },
+                        Text::new("Shortcuts: [1/2] Speed  •  [3/4] Punch  •  [5/6] AI  •  [D] Defaults  •  [ESC] Back"),
+                        TextFont {
+                            font: ui_font.clone(),
+                            font_size: 10.5,
+                            ..default()
+                        },
+                        TextColor(Color::srgb(0.55, 0.65, 0.76)),
+                    ));
+                });
+
+            // --- C) EXIT CONFIRMATION / MAIN MENU SCREEN CARD ---
             overlay
                 .spawn((
                     ExitModalCard,
@@ -1100,19 +1394,62 @@ fn handle_pause_input_and_menu(
             // Pressing Esc from the exited screen starts a fresh match
             reset_match_entities(&mut koth, &mut flags, &mut characters);
             pause_state.exited = false;
+            pause_state.in_settings_submenu = false;
             pause_state.is_paused = false;
+        } else if pause_state.is_paused && pause_state.in_settings_submenu {
+            // Pressing Esc inside the Gameplay & AI Settings submenu returns to the main Pause Menu
+            pause_state.in_settings_submenu = false;
         } else {
             pause_state.is_paused = !pause_state.is_paused;
+            pause_state.in_settings_submenu = false;
         }
     }
 
-    // Keyboard shortcuts while inside the Pause Menu
+    // Keyboard shortcuts while inside the Pause Menu or Gameplay Settings Submenu
     if pause_state.is_paused && !pause_state.exited {
-        if keys.just_pressed(KeyCode::KeyR) {
+        if pause_state.in_settings_submenu {
+            if keys.just_pressed(KeyCode::KeyD) {
+                pause_state.character_speed_mult = 1.0;
+                pause_state.punch_power_mult = 1.0;
+                pause_state.ai_intelligence_mult = 1.0;
+            } else if keys.just_pressed(KeyCode::Digit1) {
+                pause_state.character_speed_mult =
+                    ((pause_state.character_speed_mult - 0.10) * 10.0).round() / 10.0;
+                pause_state.character_speed_mult =
+                    pause_state.character_speed_mult.clamp(0.40, 2.00);
+            } else if keys.just_pressed(KeyCode::Digit2) {
+                pause_state.character_speed_mult =
+                    ((pause_state.character_speed_mult + 0.10) * 10.0).round() / 10.0;
+                pause_state.character_speed_mult =
+                    pause_state.character_speed_mult.clamp(0.40, 2.00);
+            } else if keys.just_pressed(KeyCode::Digit3) {
+                pause_state.punch_power_mult =
+                    ((pause_state.punch_power_mult - 0.10) * 10.0).round() / 10.0;
+                pause_state.punch_power_mult = pause_state.punch_power_mult.clamp(0.40, 2.50);
+            } else if keys.just_pressed(KeyCode::Digit4) {
+                pause_state.punch_power_mult =
+                    ((pause_state.punch_power_mult + 0.10) * 10.0).round() / 10.0;
+                pause_state.punch_power_mult = pause_state.punch_power_mult.clamp(0.40, 2.50);
+            } else if keys.just_pressed(KeyCode::Digit5) {
+                pause_state.ai_intelligence_mult =
+                    ((pause_state.ai_intelligence_mult - 0.10) * 10.0).round() / 10.0;
+                pause_state.ai_intelligence_mult =
+                    pause_state.ai_intelligence_mult.clamp(0.20, 2.00);
+            } else if keys.just_pressed(KeyCode::Digit6) {
+                pause_state.ai_intelligence_mult =
+                    ((pause_state.ai_intelligence_mult + 0.10) * 10.0).round() / 10.0;
+                pause_state.ai_intelligence_mult =
+                    pause_state.ai_intelligence_mult.clamp(0.20, 2.00);
+            }
+        } else if keys.just_pressed(KeyCode::KeyG) || keys.just_pressed(KeyCode::KeyS) {
+            pause_state.in_settings_submenu = true;
+        } else if keys.just_pressed(KeyCode::KeyR) {
             reset_match_entities(&mut koth, &mut flags, &mut characters);
             pause_state.is_paused = false;
+            pause_state.in_settings_submenu = false;
         } else if keys.just_pressed(KeyCode::KeyQ) {
             pause_state.exited = true;
+            pause_state.in_settings_submenu = false;
             #[cfg(not(target_arch = "wasm32"))]
             {
                 app_exit_events.send(AppExit::Success);
@@ -1126,6 +1463,7 @@ fn handle_pause_input_and_menu(
             Interaction::Pressed => {
                 if koth.match_started {
                     pause_state.is_paused = !pause_state.is_paused;
+                    pause_state.in_settings_submenu = false;
                     pause_state.exited = false;
                 }
                 *bg = BackgroundColor(Color::srgba(0.0, 0.55, 0.78, 0.96));
@@ -1142,7 +1480,7 @@ fn handle_pause_input_and_menu(
         }
     }
 
-    // 3. Pause & Exit Menu Action Buttons
+    // 3. Pause, Settings Submenu & Exit Menu Action Buttons
     for (interaction, action, mut bg, mut border) in menu_btn_query.iter_mut() {
         let is_danger = *action == PauseMenuAction::ExitGame;
         match *interaction {
@@ -1150,11 +1488,60 @@ fn handle_pause_input_and_menu(
                 match *action {
                     PauseMenuAction::Resume => {
                         pause_state.is_paused = false;
+                        pause_state.in_settings_submenu = false;
                         pause_state.exited = false;
+                    }
+                    PauseMenuAction::OpenSettingsSubmenu => {
+                        pause_state.in_settings_submenu = true;
+                    }
+                    PauseMenuAction::CloseSettingsSubmenu => {
+                        pause_state.in_settings_submenu = false;
+                    }
+                    PauseMenuAction::ResetSettingsDefaults => {
+                        pause_state.character_speed_mult = 1.0;
+                        pause_state.punch_power_mult = 1.0;
+                        pause_state.ai_intelligence_mult = 1.0;
+                    }
+                    PauseMenuAction::DecreaseSpeed => {
+                        pause_state.character_speed_mult =
+                            ((pause_state.character_speed_mult - 0.10) * 10.0).round() / 10.0;
+                        pause_state.character_speed_mult =
+                            pause_state.character_speed_mult.clamp(0.40, 2.00);
+                    }
+                    PauseMenuAction::IncreaseSpeed => {
+                        pause_state.character_speed_mult =
+                            ((pause_state.character_speed_mult + 0.10) * 10.0).round() / 10.0;
+                        pause_state.character_speed_mult =
+                            pause_state.character_speed_mult.clamp(0.40, 2.00);
+                    }
+                    PauseMenuAction::DecreasePunchPower => {
+                        pause_state.punch_power_mult =
+                            ((pause_state.punch_power_mult - 0.10) * 10.0).round() / 10.0;
+                        pause_state.punch_power_mult =
+                            pause_state.punch_power_mult.clamp(0.40, 2.50);
+                    }
+                    PauseMenuAction::IncreasePunchPower => {
+                        pause_state.punch_power_mult =
+                            ((pause_state.punch_power_mult + 0.10) * 10.0).round() / 10.0;
+                        pause_state.punch_power_mult =
+                            pause_state.punch_power_mult.clamp(0.40, 2.50);
+                    }
+                    PauseMenuAction::DecreaseAiIntelligence => {
+                        pause_state.ai_intelligence_mult =
+                            ((pause_state.ai_intelligence_mult - 0.10) * 10.0).round() / 10.0;
+                        pause_state.ai_intelligence_mult =
+                            pause_state.ai_intelligence_mult.clamp(0.20, 2.00);
+                    }
+                    PauseMenuAction::IncreaseAiIntelligence => {
+                        pause_state.ai_intelligence_mult =
+                            ((pause_state.ai_intelligence_mult + 0.10) * 10.0).round() / 10.0;
+                        pause_state.ai_intelligence_mult =
+                            pause_state.ai_intelligence_mult.clamp(0.20, 2.00);
                     }
                     PauseMenuAction::RestartMatch | PauseMenuAction::StartNewMatchFromExit => {
                         reset_match_entities(&mut koth, &mut flags, &mut characters);
                         pause_state.is_paused = false;
+                        pause_state.in_settings_submenu = false;
                         pause_state.exited = false;
                     }
                     PauseMenuAction::ToggleMusic => {
@@ -1162,6 +1549,7 @@ fn handle_pause_input_and_menu(
                     }
                     PauseMenuAction::ExitGame => {
                         pause_state.is_paused = true;
+                        pause_state.in_settings_submenu = false;
                         pause_state.exited = true;
                         #[cfg(not(target_arch = "wasm32"))]
                         {
@@ -1172,6 +1560,7 @@ fn handle_pause_input_and_menu(
                         reset_match_entities(&mut koth, &mut flags, &mut characters);
                         koth.match_started = false;
                         pause_state.is_paused = false;
+                        pause_state.in_settings_submenu = false;
                         pause_state.exited = false;
                         pause_state.match_active_secs = 0.0;
                         crate::types::trigger_return_to_intro();
@@ -1221,81 +1610,119 @@ fn handle_pause_input_and_menu(
 fn update_pause_overlay_ui(
     pause_state: Res<PauseState>,
     koth: Res<KothManager>,
-    mut overlay_query: Query<
+    mut node_query: Query<(
         &mut Node,
-        (
-            With<PauseOverlayRoot>,
-            Without<PauseModalCard>,
-            Without<ExitModalCard>,
-        ),
-    >,
-    mut pause_card_query: Query<
-        &mut Node,
-        (
-            With<PauseModalCard>,
-            Without<PauseOverlayRoot>,
-            Without<ExitModalCard>,
-        ),
-    >,
-    mut exit_card_query: Query<
-        &mut Node,
-        (
-            With<ExitModalCard>,
-            Without<PauseOverlayRoot>,
-            Without<PauseModalCard>,
-        ),
-    >,
-    mut summary_text_query: Query<
+        Option<&PauseOverlayRoot>,
+        Option<&PauseModalCard>,
+        Option<&SettingsModalCard>,
+        Option<&ExitModalCard>,
+        Option<&SpeedSettingFillBar>,
+        Option<&PunchSettingFillBar>,
+        Option<&AiSettingFillBar>,
+    )>,
+    mut text_query: Query<(
         &mut Text,
-        (With<PauseMatchSummaryText>, Without<MusicToggleButtonText>),
-    >,
-    mut music_btn_text_query: Query<
-        &mut Text,
-        (With<MusicToggleButtonText>, Without<PauseMatchSummaryText>),
-    >,
+        Option<&PauseMatchSummaryText>,
+        Option<&MusicToggleButtonText>,
+        Option<&SpeedSettingValueText>,
+        Option<&PunchSettingValueText>,
+        Option<&AiSettingValueText>,
+    )>,
 ) {
     let show_overlay = pause_state.is_paused || pause_state.exited;
+    let show_main_pause =
+        pause_state.is_paused && !pause_state.exited && !pause_state.in_settings_submenu;
+    let show_settings_submenu =
+        pause_state.is_paused && !pause_state.exited && pause_state.in_settings_submenu;
 
-    if let Ok(mut overlay_node) = overlay_query.get_single_mut() {
-        overlay_node.display = if show_overlay {
-            Display::Flex
-        } else {
-            Display::None
-        };
-    }
+    let speed_fill_pct =
+        ((pause_state.character_speed_mult - 0.40) / (2.00 - 0.40) * 100.0).clamp(4.0, 100.0);
+    let punch_fill_pct =
+        ((pause_state.punch_power_mult - 0.40) / (2.50 - 0.40) * 100.0).clamp(4.0, 100.0);
+    let ai_fill_pct =
+        ((pause_state.ai_intelligence_mult - 0.20) / (2.00 - 0.20) * 100.0).clamp(4.0, 100.0);
 
-    if let Ok(mut pause_card_node) = pause_card_query.get_single_mut() {
-        pause_card_node.display = if pause_state.is_paused && !pause_state.exited {
-            Display::Flex
-        } else {
-            Display::None
-        };
-    }
-
-    if let Ok(mut exit_card_node) = exit_card_query.get_single_mut() {
-        exit_card_node.display = if pause_state.exited {
-            Display::Flex
-        } else {
-            Display::None
-        };
+    for (
+        mut node,
+        is_overlay,
+        is_pause_card,
+        is_settings_card,
+        is_exit_card,
+        is_speed_fill,
+        is_punch_fill,
+        is_ai_fill,
+    ) in node_query.iter_mut()
+    {
+        if is_overlay.is_some() {
+            node.display = if show_overlay {
+                Display::Flex
+            } else {
+                Display::None
+            };
+        } else if is_pause_card.is_some() {
+            node.display = if show_main_pause {
+                Display::Flex
+            } else {
+                Display::None
+            };
+        } else if is_settings_card.is_some() {
+            node.display = if show_settings_submenu {
+                Display::Flex
+            } else {
+                Display::None
+            };
+        } else if is_exit_card.is_some() {
+            node.display = if pause_state.exited {
+                Display::Flex
+            } else {
+                Display::None
+            };
+        } else if is_speed_fill.is_some() {
+            node.width = Val::Percent(speed_fill_pct);
+        } else if is_punch_fill.is_some() {
+            node.width = Val::Percent(punch_fill_pct);
+        } else if is_ai_fill.is_some() {
+            node.width = Val::Percent(ai_fill_pct);
+        }
     }
 
     if show_overlay {
         let mins = (koth.match_timer / 60.0) as u32;
         let secs = (koth.match_timer % 60.0) as u32;
-        if let Ok(mut summary_text) = summary_text_query.get_single_mut() {
-            **summary_text = format!(
-                "BLUE FLAG: {:.0}   •   {:02}:{:02}   •   RED FLAG: {:.0}",
-                koth.blue_score, mins, secs, koth.red_score
-            );
-        }
 
-        if let Ok(mut music_text) = music_btn_text_query.get_single_mut() {
-            **music_text = if pause_state.music_muted {
-                "MUSIC: OFF  [M]".to_string()
-            } else {
-                "MUSIC: ON  [M]".to_string()
-            };
+        for (mut text, is_summary, is_music, is_speed_txt, is_punch_txt, is_ai_txt) in
+            text_query.iter_mut()
+        {
+            if is_summary.is_some() {
+                **text = format!(
+                    "BLUE FLAG: {:.0}   •   {:02}:{:02}   •   RED FLAG: {:.0}",
+                    koth.blue_score, mins, secs, koth.red_score
+                );
+            } else if is_music.is_some() {
+                **text = if pause_state.music_muted {
+                    "MUSIC: OFF  [M]".to_string()
+                } else {
+                    "MUSIC: ON  [M]".to_string()
+                };
+            } else if is_speed_txt.is_some() {
+                **text = format!(
+                    "CHARACTER SPEED: {:.0}% ({})",
+                    pause_state.character_speed_mult * 100.0,
+                    pause_state.speed_label()
+                );
+            } else if is_punch_txt.is_some() {
+                **text = format!(
+                    "PUNCHING POWER: {:.0}% ({})",
+                    pause_state.punch_power_mult * 100.0,
+                    pause_state.punch_label()
+                );
+            } else if is_ai_txt.is_some() {
+                **text = format!(
+                    "AI INTELLIGENCE: {:.0}% ({})",
+                    pause_state.ai_intelligence_mult * 100.0,
+                    pause_state.ai_label()
+                );
+            }
         }
     }
 }

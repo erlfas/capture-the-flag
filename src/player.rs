@@ -295,12 +295,16 @@ fn handle_player_movement(
     let carry_mult = if is_carrying_flag { 0.90 } else { 1.0 };
 
     let is_sprinting = keys.pressed(KeyCode::ShiftLeft) && stamina.current > 5.0 && move_len > 0.1;
+    let speed_mult = pause_state.character_speed_mult;
+    let punch_mult = pause_state.punch_power_mult;
     let base_speed = if is_sprinting {
         PLAYER_SPEED * SPRINT_MULTIPLIER
     } else {
         PLAYER_SPEED
     };
-    let speed = base_speed * carry_mult;
+    let speed = base_speed * carry_mult * speed_mult;
+    let effective_tackle_impulse =
+        TACKLE_IMPULSE * speed_mult.sqrt() * punch_mult.sqrt().clamp(0.75, 1.35);
 
     if is_sprinting && is_grounded {
         stamina.current = (stamina.current - 14.0 * dt).max(0.0);
@@ -352,7 +356,7 @@ fn handle_player_movement(
         }
 
         transform.rotation = Quat::from_rotation_y(best_dir.x.atan2(best_dir.z));
-        let lunge_vel = best_dir * TACKLE_IMPULSE;
+        let lunge_vel = best_dir * effective_tackle_impulse;
         lin_vel.x = lunge_vel.x;
         lin_vel.z = lunge_vel.z;
         if is_grounded && lin_vel.y < 1.0 {
@@ -363,7 +367,7 @@ fn handle_player_movement(
     // Sustain forward drive during an active shove/tackle lunge
     if tackle.is_tackling {
         let lunge_dir = (transform.rotation * Vec3::Z).normalize_or(forward_dir);
-        let sustain_speed = TACKLE_IMPULSE * 0.88;
+        let sustain_speed = effective_tackle_impulse * 0.88;
         lin_vel.x = lunge_dir.x * sustain_speed;
         lin_vel.z = lunge_dir.z * sustain_speed;
 
@@ -488,7 +492,7 @@ fn update_character_animation_and_materials(
 
                         if should_run {
                             if let Some(active_anim) = anim_player.animation_mut(anims.run_node) {
-                                let speed_scale = (horiz_speed / 8.5).clamp(0.75, 1.65);
+                                let speed_scale = (horiz_speed / 8.5).clamp(0.55, 2.40);
                                 active_anim.set_speed(speed_scale);
                             }
                         }

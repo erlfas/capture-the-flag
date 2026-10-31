@@ -187,7 +187,7 @@ fn update_bot_behaviors(
     koth: Res<KothManager>,
     pause_state: Res<PauseState>,
     mut queries: ParamSet<(
-        Query<(Entity, &Transform, &Character)>,
+        Query<(Entity, &Transform, &LinearVelocity, &Character)>,
         Query<
             (
                 Entity,
@@ -211,6 +211,9 @@ fn update_bot_behaviors(
     let dt = time.delta_secs();
     let blue_base = PLATEAU_COORDS[1].2;
     let red_base = PLATEAU_COORDS[2].2;
+    let speed_mult = pause_state.character_speed_mult;
+    let punch_mult = pause_state.punch_power_mult;
+    let ai_iq = pause_state.ai_intelligence_mult;
 
     if !koth.match_started {
         for (_, _, mut lin_vel, mut ang_vel, _, _, _, _, _) in queries.p1().iter_mut() {
@@ -221,10 +224,10 @@ fn update_bot_behaviors(
         return;
     }
 
-    let char_snapshots: Vec<(Entity, Vec3, Team)> = queries
+    let char_snapshots: Vec<(Entity, Vec3, Vec3, Team)> = queries
         .p0()
         .iter()
-        .map(|(ent, trans, ch)| (ent, trans.translation, ch.team))
+        .map(|(ent, trans, vel, ch)| (ent, trans.translation, vel.0, ch.team))
         .collect();
 
     for (
@@ -251,8 +254,20 @@ fn update_bot_behaviors(
             continue;
         }
 
+        bot_data.state_timer += dt;
         bot_data.reaction_cooldown = (bot_data.reaction_cooldown - dt).max(0.0);
         let my_pos = transform.translation;
+
+        // Low-intelligence hesitation: rookie bots periodically pause/daydream briefly
+        if ai_iq < 0.75 {
+            let phase = (bot_data.state_timer * 1.3 + bot_ent.index() as f32 * 1.9).sin();
+            let hesitation_threshold = 0.35 + ai_iq * 0.80;
+            if phase > hesitation_threshold {
+                lin_vel.x = lin_vel.x.lerp(0.0, (8.0 * dt).min(1.0));
+                lin_vel.z = lin_vel.z.lerp(0.0, (8.0 * dt).min(1.0));
+                continue;
+            }
+        }
 
         // Check if this bot is currently carrying the enemy flag
         let am_carrying = match bot_char.team {
@@ -268,43 +283,69 @@ fn update_bot_behaviors(
                 .unwrap_or(false),
         };
 
-        // Check if an enemy is carrying our team's flag
-        let enemy_flag_carrier = match bot_char.team {
-            Team::Blue => koth.red_carrier.as_ref().map(|(e, _)| *e),
-            Team::Red => koth.blue_carrier.as_ref().map(|(e, _)| *e),
+        // Check if an enemy is carrying our team's flag, or if an ally is carrying the enemy flag
+        let (enemy_flag_carrier, allied_flag_carrier) = match bot_char.team {
+            Team::Blue => (
+                koth.red_carrier.as_ref().map(|(e, _)| *e),
+                koth.blue_carrier.as_ref().map(|(e, _)| *e),
+            ),
+            Team::Red => (
+                koth.blue_carrier.as_ref().map(|(e, _)| *e),
+                koth.red_carrier.as_ref().map(|(e, _)| *e),
+            ),
         };
 
-        // Find nearest opponent (prioritizing the enemy flag carrier!)
+        // Find nearest opponent (smart bots strongly prioritize the enemy flag carrier!)
         let mut nearest_enemy_dist = f32::MAX;
         let mut nearest_enemy_pos = Vec3::ZERO;
+        let mut nearest_enemy_vel = Vec3::ZERO;
+        let carrier_priority_weight = if ai_iq >= 0.75 {
+            (0.60 / ai_iq).clamp(0.32, 0.75)
+        } else {
+            0.95
+        };
 
-        for (other_ent, other_pos, other_team) in char_snapshots.iter() {
+        for (other_ent, other_pos, other_vel, other_team) in char_snapshots.iter() {
             if *other_ent == bot_ent || *other_team == bot_char.team {
                 continue;
             }
             let d = my_pos.distance(*other_pos);
             let effective_d = if Some(*other_ent) == enemy_flag_carrier {
-                d * 0.6 // Strongly prioritize tackling the flag thief
+                d * carrier_priority_weight
             } else {
                 d
             };
             if effective_d < nearest_enemy_dist {
                 nearest_enemy_dist = d;
                 nearest_enemy_pos = *other_pos;
+                nearest_enemy_vel = *other_vel;
             }
         }
 
-        // 1. If enemy is in tackle range (< 2.6m) and we are not carrying the flag, tackle them!
+        // 1. If enemy is in tackle range and we are not carrying the flag, tackle them!
+        //    AI intelligence governs trigger range, predictive target leading, aim accuracy, and reaction speed.
+        let tackle_trigger_range = (2.6 * ai_iq.sqrt()).clamp(1.65, 3.05);
         if !am_carrying
-            && nearest_enemy_dist < 2.6
+            && nearest_enemy_dist < tackle_trigger_range
             && tackle.cooldown <= 0.0
             && stamina.current >= TACKLE_STAMINA_COST
             && bot_data.reaction_cooldown <= 0.0
             && lin_vel.y.abs() < 0.8
         {
-            let mut to_enemy = nearest_enemy_pos - my_pos;
+            let lead_time = ((ai_iq - 0.85) * 0.16).clamp(0.0, 0.22);
+            let predicted_pos =
+                nearest_enemy_pos + Vec3::new(nearest_enemy_vel.x, 0.0, nearest_enemy_vel.z) * lead_time;
+            let mut to_enemy = predicted_pos - my_pos;
             to_enemy.y = 0.0;
-            let to_enemy = to_enemy.normalize_or_zero();
+            let mut to_enemy = to_enemy.normalize_or_zero();
+
+            // Low-IQ bots have slight angular aim error when lunging
+            if ai_iq < 0.90 {
+                let err_angle =
+                    (0.90 - ai_iq) * 0.65 * (bot_data.state_timer * 3.7 + bot_ent.index() as f32).sin();
+                to_enemy = (Quat::from_rotation_y(err_angle) * to_enemy).normalize_or_zero();
+            }
+
             transform.rotation = Quat::from_rotation_y(to_enemy.x.atan2(to_enemy.z));
 
             tackle.is_tackling = true;
@@ -312,16 +353,23 @@ fn update_bot_behaviors(
             tackle.punch_anim_timer = 0.42;
             tackle.cooldown = TACKLE_COOLDOWN;
             stamina.current -= TACKLE_STAMINA_COST;
-            bot_data.reaction_cooldown = 0.25;
+            bot_data.reaction_cooldown = (0.25 / ai_iq).clamp(0.08, 1.15);
 
-            lin_vel.x = to_enemy.x * TACKLE_LUNGE_SPEED;
-            lin_vel.z = to_enemy.z * TACKLE_LUNGE_SPEED;
+            let effective_lunge_speed =
+                TACKLE_LUNGE_SPEED * speed_mult.sqrt() * punch_mult.sqrt().clamp(0.75, 1.35);
+            lin_vel.x = to_enemy.x * effective_lunge_speed;
+            lin_vel.z = to_enemy.z * effective_lunge_speed;
             lin_vel.y = lin_vel.y.min(0.0);
             continue;
         }
 
-        // 2. Capture the Flag Tactical Target Selection:
-        let raw_target = if am_carrying {
+        // 2. Capture the Flag Tactical Target Selection (scaled by AI Intelligence):
+        let defense_awareness_dist = 18.0 * ai_iq;
+        let intercept_lead = ((ai_iq - 0.90) * 0.25).clamp(0.0, 0.35);
+        let intercepted_enemy_pos =
+            nearest_enemy_pos + Vec3::new(nearest_enemy_vel.x, 0.0, nearest_enemy_vel.z) * intercept_lead;
+
+        let mut raw_target = if am_carrying {
             // Run straight back to our Home Base capture circle to score!
             match bot_char.team {
                 Team::Blue => blue_base,
@@ -341,23 +389,38 @@ fn update_bot_behaviors(
                 ),
             };
 
-            if !own_flag_at_base && (!bot_data.role_attacker || my_pos.distance(own_flag_pos) < 18.0)
+            if !own_flag_at_base
+                && (!bot_data.role_attacker || my_pos.distance(own_flag_pos) < defense_awareness_dist)
             {
                 // Chase down our stolen/dropped flag to tackle the thief or return it!
                 own_flag_pos
+            } else if ai_iq >= 1.20
+                && allied_flag_carrier.is_some()
+                && nearest_enemy_dist < 13.5 * ai_iq
+            {
+                // High-intelligence bots actively screen/escort their flag carrier by intercepting nearby enemies
+                intercepted_enemy_pos
             } else if bot_data.role_attacker {
                 // Raid the enemy base to steal their flag!
                 enemy_flag_pos
             } else {
                 // Defender patrols near own flag or intercepts nearby enemies
-                if nearest_enemy_dist < 14.0 {
-                    nearest_enemy_pos
+                if nearest_enemy_dist < 14.0 * ai_iq.clamp(0.5, 1.4) {
+                    intercepted_enemy_pos
                 } else {
                     let hash_offset = (bot_ent.index() as f32 * 1.7).sin() * 2.8;
                     own_flag_pos + Vec3::new(hash_offset, 0.0, hash_offset.cos() * 2.8)
                 }
             }
         };
+
+        // Low-IQ wandering/distraction offset so lower intelligence bots take less direct paths
+        if ai_iq < 0.85 {
+            let wander_mag = (0.85 - ai_iq) * 9.0;
+            let phase = bot_data.state_timer * 0.85 + bot_ent.index() as f32 * 2.1;
+            raw_target.x += phase.sin() * wander_mag;
+            raw_target.z += phase.cos() * wander_mag;
+        }
 
         let target = route_via_platform_ramp(my_pos, raw_target);
 
@@ -367,19 +430,29 @@ fn update_bot_behaviors(
 
         if dist_to_target > 0.65 {
             let dir = move_dir.normalize();
-            let wants_sprint =
-                stamina.current > 18.0 && (dist_to_target > 7.0 || nearest_enemy_dist < 9.0);
+            // High-IQ bots conserve stamina for a punch when closing in on an enemy (< 4.5m)
+            let save_stamina_for_tackle =
+                ai_iq >= 1.15 && !am_carrying && nearest_enemy_dist < 4.5;
+            let min_sprint_stamina = if save_stamina_for_tackle {
+                TACKLE_STAMINA_COST + 6.0
+            } else {
+                18.0
+            };
+            let wants_sprint = ai_iq > 0.45
+                && stamina.current > min_sprint_stamina
+                && (dist_to_target > 7.0 || nearest_enemy_dist < 9.0 || am_carrying);
             let carry_mult = if am_carrying { 0.90 } else { 1.0 };
             let bot_speed = if wants_sprint {
                 stamina.current = (stamina.current - 12.0 * dt).max(0.0);
-                BOT_BASE_SPEED * BOT_SPRINT_MULTIPLIER * carry_mult
+                BOT_BASE_SPEED * BOT_SPRINT_MULTIPLIER * carry_mult * speed_mult
             } else {
-                BOT_BASE_SPEED * carry_mult
+                BOT_BASE_SPEED * carry_mult * speed_mult
             };
             let desired_vel = dir * bot_speed;
 
-            lin_vel.x = lin_vel.x.lerp(desired_vel.x, (11.5 * dt).min(1.0));
-            lin_vel.z = lin_vel.z.lerp(desired_vel.z, (11.5 * dt).min(1.0));
+            let accel_rate = (11.5 * ai_iq.clamp(0.55, 1.5)).min(18.0);
+            lin_vel.x = lin_vel.x.lerp(desired_vel.x, (accel_rate * dt).min(1.0));
+            lin_vel.z = lin_vel.z.lerp(desired_vel.z, (accel_rate * dt).min(1.0));
 
             // Smooth uphill slope/staircase climbing for bots
             let curr_y = crate::terrain_heights::sample_terrain_height(
@@ -405,8 +478,9 @@ fn update_bot_behaviors(
                 }
             }
 
+            let turn_rate = (14.0 * ai_iq.clamp(0.5, 1.6)).min(22.0);
             let target_rot = Quat::from_rotation_y(desired_vel.x.atan2(desired_vel.z));
-            transform.rotation = transform.rotation.slerp(target_rot, (14.0 * dt).min(1.0));
+            transform.rotation = transform.rotation.slerp(target_rot, (turn_rate * dt).min(1.0));
 
             // Athletic hop if blocked by a low obstacle
             if lin_vel.y.abs() < 0.15
@@ -415,7 +489,7 @@ fn update_bot_behaviors(
                 && bot_data.reaction_cooldown <= 0.0
             {
                 lin_vel.y = 5.4;
-                bot_data.reaction_cooldown = 0.45;
+                bot_data.reaction_cooldown = (0.45 / ai_iq).clamp(0.20, 1.10);
             }
         } else {
             lin_vel.x = lin_vel.x.lerp(0.0, (12.0 * dt).min(1.0));
