@@ -46,3 +46,10 @@ wsl.exe -e bash -c "rsync -av --exclude='target' --exclude='dist' --exclude='.gi
   ```powershell
   wsl.exe -e bash -c "pkill -f 'trunk serve'"
   ```
+
+---
+
+## 5. Troubleshooting & Process Monitoring
+
+- If checking whether compilation has finished or waiting for server readiness, avoid `while pgrep -f wasm-bindgen; do sleep 1; done` as it matches itself.
+- See [`BUILD_MONITORING_MEMO.md`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/BUILD_MONITORING_MEMO.md) for solutions, robust watcher patterns, and healthcheck polling.

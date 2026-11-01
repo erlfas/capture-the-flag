@@ -201,6 +201,7 @@ cyber_coliseum_koth/
 ├── Trunk.toml                      # Trunk bundler settings (port 8080, address 0.0.0.0, dist output)
 ├── index.html                      # HTML5 canvas viewport, loading overlay, and Wasm bootstrap
 ├── SERVER_GUIDE.md                 # Standalone reference for starting, syncing, and stopping the server
+├── BUILD_MONITORING_MEMO.md        # Engineering memo on process watching & avoiding self-matching loops
 ├── KEY_LESSONS_LEARNED.md          # Technical documentation on 3D decimation, sky domes & camera occlusion
 │
 ├── src/                            # Rust game logic & ECS systems

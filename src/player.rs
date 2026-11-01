@@ -37,6 +37,18 @@ pub struct CharacterArmPoseState {
     pub run_blend: f32,
 }
 
+#[derive(Component, Clone, Copy, Debug)]
+pub struct CharacterBones {
+    pub right_arm: Option<Entity>,
+    pub left_arm: Option<Entity>,
+    pub right_forearm: Option<Entity>,
+    pub left_forearm: Option<Entity>,
+    pub right_hand: Option<Entity>,
+    pub left_hand: Option<Entity>,
+    pub right_up_leg: Option<Entity>,
+    pub left_up_leg: Option<Entity>,
+}
+
 #[derive(Component)]
 pub struct MainPlayerMeshConfigured;
 
@@ -539,15 +551,19 @@ fn model_space_parent_rot(
     parent_query: &Query<&Parent>,
     transforms: &Query<&mut Transform>,
 ) -> Quat {
-    let mut chain = Vec::with_capacity(8);
+    let mut chain = [Entity::PLACEHOLDER; 16];
+    let mut count = 0;
     for anc in parent_query.iter_ancestors(bone_ent) {
         if anc == char_ent {
             break;
         }
-        chain.push(anc);
+        if count < chain.len() {
+            chain[count] = anc;
+            count += 1;
+        }
     }
     let mut rot = Quat::IDENTITY;
-    for &anc in chain.iter().rev() {
+    for &anc in chain[..count].iter().rev() {
         if let Ok(t) = transforms.get(anc) {
             rot = rot * t.rotation;
         }
@@ -592,6 +608,7 @@ fn model_space_bone_dir(
 }
 
 fn apply_character_punch_pose(
+    mut commands: Commands,
     time: Res<Time>,
     mut character_query: Query<
         (
@@ -599,6 +616,7 @@ fn apply_character_punch_pose(
             &LinearVelocity,
             &TackleAbility,
             &mut CharacterArmPoseState,
+            Option<&CharacterBones>,
         ),
         With<Character>,
     >,
@@ -609,7 +627,7 @@ fn apply_character_punch_pose(
 ) {
     let dt = time.delta_secs();
 
-    for (char_ent, lin_vel, tackle, mut arm_state) in character_query.iter_mut() {
+    for (char_ent, lin_vel, tackle, mut arm_state, maybe_bones) in character_query.iter_mut() {
         let horiz_speed = Vec2::new(lin_vel.x, lin_vel.z).length();
         let target_run_blend = ((horiz_speed - 0.35) / 2.2).clamp(0.0, 1.0);
         let blend_rate = if target_run_blend > arm_state.run_blend {
@@ -625,30 +643,59 @@ fn apply_character_punch_pose(
                 (arm_state.stride_phase + stride_freq * dt) % std::f32::consts::TAU;
         }
 
-        let mut right_arm = None;
-        let mut left_arm = None;
-        let mut right_forearm = None;
-        let mut left_forearm = None;
-        let mut right_hand = None;
-        let mut left_hand = None;
-        let mut right_up_leg = None;
-        let mut left_up_leg = None;
+        let (right_arm, left_arm, right_forearm, left_forearm, right_hand, left_hand, right_up_leg, left_up_leg) =
+            if let Some(cached) = maybe_bones {
+                (
+                    cached.right_arm,
+                    cached.left_arm,
+                    cached.right_forearm,
+                    cached.left_forearm,
+                    cached.right_hand,
+                    cached.left_hand,
+                    cached.right_up_leg,
+                    cached.left_up_leg,
+                )
+            } else {
+                let mut r_arm = None;
+                let mut l_arm = None;
+                let mut r_forearm = None;
+                let mut l_forearm = None;
+                let mut r_hand = None;
+                let mut l_hand = None;
+                let mut r_up_leg = None;
+                let mut l_up_leg = None;
 
-        for desc in children_query.iter_descendants(char_ent) {
-            if let Ok(name) = name_query.get(desc) {
-                match name.as_str() {
-                    "mixamorig:RightArm" => right_arm = Some(desc),
-                    "mixamorig:LeftArm" => left_arm = Some(desc),
-                    "mixamorig:RightForeArm" => right_forearm = Some(desc),
-                    "mixamorig:LeftForeArm" => left_forearm = Some(desc),
-                    "mixamorig:RightHand" => right_hand = Some(desc),
-                    "mixamorig:LeftHand" => left_hand = Some(desc),
-                    "mixamorig:RightUpLeg" => right_up_leg = Some(desc),
-                    "mixamorig:LeftUpLeg" => left_up_leg = Some(desc),
-                    _ => {}
+                for desc in children_query.iter_descendants(char_ent) {
+                    if let Ok(name) = name_query.get(desc) {
+                        match name.as_str() {
+                            "mixamorig:RightArm" => r_arm = Some(desc),
+                            "mixamorig:LeftArm" => l_arm = Some(desc),
+                            "mixamorig:RightForeArm" => r_forearm = Some(desc),
+                            "mixamorig:LeftForeArm" => l_forearm = Some(desc),
+                            "mixamorig:RightHand" => r_hand = Some(desc),
+                            "mixamorig:LeftHand" => l_hand = Some(desc),
+                            "mixamorig:RightUpLeg" => r_up_leg = Some(desc),
+                            "mixamorig:LeftUpLeg" => l_up_leg = Some(desc),
+                            _ => {}
+                        }
+                    }
                 }
-            }
-        }
+
+                if r_arm.is_some() || l_arm.is_some() {
+                    commands.entity(char_ent).insert(CharacterBones {
+                        right_arm: r_arm,
+                        left_arm: l_arm,
+                        right_forearm: r_forearm,
+                        left_forearm: l_forearm,
+                        right_hand: r_hand,
+                        left_hand: l_hand,
+                        right_up_leg: r_up_leg,
+                        left_up_leg: l_up_leg,
+                    });
+                }
+
+                (r_arm, l_arm, r_forearm, l_forearm, r_hand, l_hand, r_up_leg, l_up_leg)
+            };
 
         // 1. Compute footstep-synchronized contralateral arm swing phase in [-1.0, 1.0]
         //    (When left leg swings forward (+Z), right arm pumps forward (+1) and left arm swings back (-1))
