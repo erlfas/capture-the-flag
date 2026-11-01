@@ -15,8 +15,8 @@
 | **✅ FIXED** | #5 | **Replace downward ground raycast with `sample_terrain_height`** | `src/player.rs` | Physics / CPU | Eliminates 60 raycasts/sec into 20k-triangle trimesh |
 | **✅ FIXED** | #6 | **Add `CollisionLayers` & optimize camera spring-arm raycast** | `src/camera.rs`, `src/types.rs` | Physics / Raycasts | Stops camera ray from traversing 20k terrain BVH; eliminates heap alloc |
 | **✅ FIXED** | #7 | **Tune Avian physics solver substeps (`SubstepCount(2)`)** | `src/main.rs` | Physics | Halves contact solver CPU time on single-threaded WASM |
-| **⏳ NOT FIXED** | #8 | **Fix sky dome backface culling & consolidate cloud layers** | `src/arena.rs` | GPU / Fillrate | Cuts transparent sky passes from 8 to 2 fullscreen passes |
-| **⏳ NOT FIXED** | #9 | **Consolidate sewer water effects (135 entities → 2–3 meshes)** | `src/arena.rs` | GPU / Draw Calls | Eliminates ~125 unbatched draw calls & 129 transform updates |
+| **✅ FIXED** | #8 | **Fix sky dome backface culling & consolidate cloud layers** | `src/arena.rs` | GPU / Fillrate | Cuts transparent sky passes from 8 to 2 fullscreen passes |
+| **✅ FIXED** | #9 | **Consolidate sewer water effects (135 entities → 2–3 meshes)** | `src/arena.rs` | GPU / Draw Calls | Eliminates ~125 unbatched draw calls & 129 transform updates |
 | **⏳ NOT FIXED** | #10 | **Downscale 4K bot character textures to 1024×1024** | `assets/models/` | GPU / VRAM | Saves ~450 MB uncompressed VRAM & ~40 MB download payload |
 | **⏳ NOT FIXED** | #11 | **Decimate `post_apocalyptic_battlefield.glb` (736k → 120k)** | `assets/models/` | GPU / Geometry | 80% reduction in vertex shading; re-enables backface culling |
 | **⏳ NOT FIXED** | #12 | **Decimate bot meshes (38k → 10k vertices) to match player** | `assets/models/` | GPU / Skinning | Cuts skinned vertex count from ~200k to ~65k per frame |
@@ -230,8 +230,8 @@
 - [x] **Item #5**: Remove redundant downward ground raycast in `src/player.rs`. *(✅ FIXED)*
 - [x] **Item #6**: Add `CollisionLayers` and optimize camera spring-arm raycast in `src/camera.rs` & `src/types.rs`. *(✅ FIXED)*
 - [x] **Item #7**: Set `SubstepCount(2)` in `src/main.rs`. *(✅ FIXED)*
-- [ ] **Item #8**: Enable backface culling on sky domes and reduce cloud layers in `src/arena.rs`. *(⏳ NOT FIXED)*
-- [ ] **Item #9**: Consolidate sewer water effects (135 entities → 2–3 meshes) in `src/arena.rs`. *(⏳ NOT FIXED)*
+- [x] **Item #8**: Enable backface culling on sky domes and reduce cloud layers in `src/arena.rs`. *(✅ FIXED)*
+- [x] **Item #9**: Consolidate sewer water effects (135 entities → 2–3 meshes) in `src/arena.rs`. *(✅ FIXED)*
 - [ ] **Item #10**: Downscale bot textures from 4K to 1024×1024 in `assets/models/`. *(⏳ NOT FIXED)*
 - [ ] **Item #11**: Decimate `post_apocalyptic_battlefield.glb` from 736k to 120k triangles. *(⏳ NOT FIXED)*
 - [ ] **Item #12**: Decimate bot character meshes from 38k to 10k vertices. *(⏳ NOT FIXED)*
