@@ -1099,18 +1099,22 @@ fn update_overhead_nametags(
                 .unwrap_or(false)
                 && koth.event_notice.is_some();
 
-            if is_speaking {
-                **label = format!(
+            let target_text = if is_speaking {
+                format!(
                     "[SPEAKING] {} [{}]",
                     char_info.name.to_uppercase(),
                     char_info.team.name()
-                );
+                )
             } else {
-                **label = format!(
+                format!(
                     "{} [{}]",
                     char_info.name.to_uppercase(),
                     char_info.team.name()
-                );
+                )
+            };
+
+            if **label != target_text {
+                **label = target_text;
             }
         }
 
@@ -1120,23 +1124,41 @@ fn update_overhead_nametags(
         // Check if behind camera
         if let Some(ndc) = camera.world_to_ndc(cam_trans, head_world) {
             if ndc.z < 0.0 || ndc.z > 1.0 {
-                tag_node.display = Display::None;
+                if tag_node.display != Display::None {
+                    tag_node.display = Display::None;
+                }
                 continue;
             }
         }
 
         // Project to screen viewport
         if let Ok(viewport_pos) = camera.world_to_viewport(cam_trans, head_world) {
-            tag_node.display = Display::Flex;
+            if tag_node.display != Display::Flex {
+                tag_node.display = Display::Flex;
+            }
             // Center horizontally (half estimated tag width 48px) and position slightly above head
-            tag_node.left = Val::Px(viewport_pos.x - 48.0);
-            tag_node.top = Val::Px(viewport_pos.y - 32.0);
+            let target_left = viewport_pos.x - 48.0;
+            let target_top = viewport_pos.y - 32.0;
+
+            let should_update_pos = match (tag_node.left, tag_node.top) {
+                (Val::Px(l), Val::Px(t)) => {
+                    (l - target_left).abs() > 0.5 || (t - target_top).abs() > 0.5
+                }
+                _ => true,
+            };
+            if should_update_pos {
+                tag_node.left = Val::Px(target_left);
+                tag_node.top = Val::Px(target_top);
+            }
 
             // Update mini health fill
             if let Some(health) = maybe_hp {
                 if let Ok(mut hp_fill) = fill_nodes.get_mut(tag_data.hp_bar) {
                     let pct = (health.current / health.max * 100.0).clamp(0.0, 100.0);
-                    hp_fill.width = Val::Percent(pct);
+                    let target_width = Val::Percent(pct);
+                    if hp_fill.width != target_width {
+                        hp_fill.width = target_width;
+                    }
                 }
             }
 
@@ -1144,10 +1166,13 @@ fn update_overhead_nametags(
             if let Some(stamina) = maybe_stam {
                 if let Ok(mut stam_fill) = fill_nodes.get_mut(tag_data.stamina_bar) {
                     let pct = (stamina.current / stamina.max * 100.0).clamp(0.0, 100.0);
-                    stam_fill.width = Val::Percent(pct);
+                    let target_width = Val::Percent(pct);
+                    if stam_fill.width != target_width {
+                        stam_fill.width = target_width;
+                    }
                 }
             }
-        } else {
+        } else if tag_node.display != Display::None {
             tag_node.display = Display::None;
         }
     }
@@ -1225,48 +1250,63 @@ fn update_hud(
 ) {
     // 1. Top Match Banner Scores
     if let Ok(mut text) = blue_text.get_single_mut() {
-        **text = format!("BLUE FLAG: {:.0}", koth.blue_score);
+        let new_text = format!("BLUE FLAG: {:.0}", koth.blue_score);
+        if **text != new_text {
+            **text = new_text;
+        }
     }
     if let Ok(mut text) = red_text.get_single_mut() {
-        **text = format!("RED FLAG: {:.0}", koth.red_score);
+        let new_text = format!("RED FLAG: {:.0}", koth.red_score);
+        if **text != new_text {
+            **text = new_text;
+        }
     }
 
     // 2. Top Match Timer (Formatted MM:SS matching 07:42)
     let mins = (koth.match_timer / 60.0) as u32;
     let secs = (koth.match_timer % 60.0) as u32;
     if let Ok(mut text) = timer_text.get_single_mut() {
-        **text = format!("{:02}:{:02}", mins, secs);
+        let new_text = format!("{:02}:{:02}", mins, secs);
+        if **text != new_text {
+            **text = new_text;
+        }
     }
 
     // Active CTF Objective Subtitle
     if let Ok(mut text) = name_text.get_single_mut() {
-        if koth.blue_carrier.is_some() {
-            **text = "DELIVER RED FLAG TO BLUE BASE!".to_string();
+        let target_text = if koth.blue_carrier.is_some() {
+            "DELIVER RED FLAG TO BLUE BASE!"
         } else if !koth.blue_flag_at_base {
-            **text = "TACKLE THE ENEMY TO SAVE BLUE FLAG!".to_string();
+            "TACKLE THE ENEMY TO SAVE BLUE FLAG!"
         } else {
-            **text = "CAPTURE THE FLAG (FIRST TO 5)".to_string();
+            "CAPTURE THE FLAG (FIRST TO 5)"
+        };
+        if text.as_str() != target_text {
+            **text = target_text.to_string();
         }
     }
 
     // 3. Dynamic CTF Warning & Event Alert
     if let Ok((mut text, mut color)) = status_text.get_single_mut() {
-        **text = koth.status_banner.clone();
-        color.0 = koth.status_color;
-
-        if let Some(winner) = koth.winner {
+        let (new_text, new_color) = if let Some(winner) = koth.winner {
             match winner {
-                Team::Blue => {
-                    **text =
-                        "ANDERS [BLUE]: «Victory! Blue Team won Capture the Flag!»".to_string();
-                    color.0 = Color::srgb(0.2, 1.0, 0.6);
-                }
-                Team::Red => {
-                    **text =
-                        "SIRI [RED]: «Victory for Red Team! We own this arena!»".to_string();
-                    color.0 = Color::srgb(1.0, 0.2, 0.2);
-                }
+                Team::Blue => (
+                    "ANDERS [BLUE]: «Victory! Blue Team won Capture the Flag!»".to_string(),
+                    Color::srgb(0.2, 1.0, 0.6),
+                ),
+                Team::Red => (
+                    "SIRI [RED]: «Victory for Red Team! We own this arena!»".to_string(),
+                    Color::srgb(1.0, 0.2, 0.2),
+                ),
             }
+        } else {
+            (koth.status_banner.clone(), koth.status_color)
+        };
+        if **text != new_text {
+            **text = new_text;
+        }
+        if color.0 != new_color {
+            color.0 = new_color;
         }
     }
 
@@ -1274,15 +1314,27 @@ fn update_hud(
     if let Ok((stamina, tackle)) = player_query.get_single() {
         // Bottom-Right Throwable Net Action Indicator
         if let Ok((mut text, mut color)) = tackle_text.get_single_mut() {
-            if tackle.cooldown > 0.0 {
-                **text = format!("Throwable Net ({:.1}s)", tackle.cooldown);
-                color.0 = Color::srgb(0.7, 0.7, 0.7);
+            let (new_text, new_color) = if tackle.cooldown > 0.0 {
+                (
+                    format!("Throwable Net ({:.1}s)", tackle.cooldown),
+                    Color::srgb(0.7, 0.7, 0.7),
+                )
             } else if stamina.current < 25.0 {
-                **text = "Low Stamina for Net".to_string();
-                color.0 = Color::srgb(1.0, 0.5, 0.3);
+                (
+                    "Low Stamina for Net".to_string(),
+                    Color::srgb(1.0, 0.5, 0.3),
+                )
             } else {
-                **text = "Throwable Net (x2)".to_string();
-                color.0 = Color::srgb(0.9, 0.95, 1.0);
+                (
+                    "Throwable Net (x2)".to_string(),
+                    Color::srgb(0.9, 0.95, 1.0),
+                )
+            };
+            if **text != new_text {
+                **text = new_text;
+            }
+            if color.0 != new_color {
+                color.0 = new_color;
             }
         }
     }
@@ -1654,35 +1706,56 @@ fn update_pause_overlay_ui(
     ) in node_query.iter_mut()
     {
         if is_overlay.is_some() {
-            node.display = if show_overlay {
+            let target_display = if show_overlay {
                 Display::Flex
             } else {
                 Display::None
             };
+            if node.display != target_display {
+                node.display = target_display;
+            }
         } else if is_pause_card.is_some() {
-            node.display = if show_main_pause {
+            let target_display = if show_main_pause {
                 Display::Flex
             } else {
                 Display::None
             };
+            if node.display != target_display {
+                node.display = target_display;
+            }
         } else if is_settings_card.is_some() {
-            node.display = if show_settings_submenu {
+            let target_display = if show_settings_submenu {
                 Display::Flex
             } else {
                 Display::None
             };
+            if node.display != target_display {
+                node.display = target_display;
+            }
         } else if is_exit_card.is_some() {
-            node.display = if pause_state.exited {
+            let target_display = if pause_state.exited {
                 Display::Flex
             } else {
                 Display::None
             };
+            if node.display != target_display {
+                node.display = target_display;
+            }
         } else if is_speed_fill.is_some() {
-            node.width = Val::Percent(speed_fill_pct);
+            let target_width = Val::Percent(speed_fill_pct);
+            if node.width != target_width {
+                node.width = target_width;
+            }
         } else if is_punch_fill.is_some() {
-            node.width = Val::Percent(punch_fill_pct);
+            let target_width = Val::Percent(punch_fill_pct);
+            if node.width != target_width {
+                node.width = target_width;
+            }
         } else if is_ai_fill.is_some() {
-            node.width = Val::Percent(ai_fill_pct);
+            let target_width = Val::Percent(ai_fill_pct);
+            if node.width != target_width {
+                node.width = target_width;
+            }
         }
     }
 
@@ -1694,34 +1767,49 @@ fn update_pause_overlay_ui(
             text_query.iter_mut()
         {
             if is_summary.is_some() {
-                **text = format!(
+                let target = format!(
                     "BLUE FLAG: {:.0}   •   {:02}:{:02}   •   RED FLAG: {:.0}",
                     koth.blue_score, mins, secs, koth.red_score
                 );
+                if **text != target {
+                    **text = target;
+                }
             } else if is_music.is_some() {
-                **text = if pause_state.music_muted {
-                    "MUSIC: OFF  [M]".to_string()
+                let target = if pause_state.music_muted {
+                    "MUSIC: OFF  [M]"
                 } else {
-                    "MUSIC: ON  [M]".to_string()
+                    "MUSIC: ON  [M]"
                 };
+                if text.as_str() != target {
+                    **text = target.to_string();
+                }
             } else if is_speed_txt.is_some() {
-                **text = format!(
+                let target = format!(
                     "CHARACTER SPEED: {:.0}% ({})",
                     pause_state.character_speed_mult * 100.0,
                     pause_state.speed_label()
                 );
+                if **text != target {
+                    **text = target;
+                }
             } else if is_punch_txt.is_some() {
-                **text = format!(
+                let target = format!(
                     "PUNCHING POWER: {:.0}% ({})",
                     pause_state.punch_power_mult * 100.0,
                     pause_state.punch_label()
                 );
+                if **text != target {
+                    **text = target;
+                }
             } else if is_ai_txt.is_some() {
-                **text = format!(
+                let target = format!(
                     "AI INTELLIGENCE: {:.0}% ({})",
                     pause_state.ai_intelligence_mult * 100.0,
                     pause_state.ai_label()
                 );
+                if **text != target {
+                    **text = target;
+                }
             }
         }
     }

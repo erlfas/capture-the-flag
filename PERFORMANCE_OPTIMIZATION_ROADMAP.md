@@ -10,8 +10,8 @@
 |:---:|:---:|:---|:---|:---:|:---|
 | **✅ FIXED** | #1 | **Remove `SweptCcd` on all 6 characters** | `src/player.rs`, `src/ai.rs` | Physics | Eliminates continuous TOI checks against 20,160-triangle trimesh |
 | **✅ FIXED** | #2 | **Cache skeletal bone entities & remove per-frame heap allocs** | `src/player.rs` | CPU / Anim | Eliminates ~600 string matches & 48–84 heap allocs per frame |
-| **⏳ NOT FIXED** | #3 | **Guard UI `Text` & nametag mutations to stop Taffy layout thrashing** | `src/ui.rs` | UI / Layout | Stops full-tree flexbox recalculation & font re-rasterization |
-| **⏳ NOT FIXED** | #4 | **Deduplicate `handle_fallout_respawns` from `Update`** | `src/arena.rs` | Systems | Halves terrain sampling & box collision clamping passes |
+| **✅ FIXED** | #3 | **Guard UI `Text` & nametag mutations to stop Taffy layout thrashing** | `src/ui.rs` | UI / Layout | Stops full-tree flexbox recalculation & font re-rasterization |
+| **✅ FIXED** | #4 | **Deduplicate `handle_fallout_respawns` from `Update`** | `src/arena.rs` | Systems | Halves terrain sampling & box collision clamping passes |
 | **⏳ NOT FIXED** | #5 | **Replace downward ground raycast with `sample_terrain_height`** | `src/player.rs` | Physics / CPU | Eliminates 60 raycasts/sec into 20k-triangle trimesh |
 | **⏳ NOT FIXED** | #6 | **Add `CollisionLayers` & optimize camera spring-arm raycast** | `src/camera.rs`, `src/types.rs` | Physics / Raycasts | Stops camera ray from traversing 20k terrain BVH; eliminates heap alloc |
 | **⏳ NOT FIXED** | #7 | **Tune Avian physics solver substeps (`SubstepCount(2)`)** | `src/main.rs` | Physics | Halves contact solver CPU time on single-threaded WASM |
@@ -44,33 +44,25 @@
 * **Result**:
   Eliminates recurring per-frame GC pressure and single-threaded WASM allocator lock contention.
 
+### ✅ FIXED: Item #3 — Guarded UI `Text`, Nametag & Node Mutations Against Taffy Thrashing
+* **File Modified**: [`src/ui.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/ui.rs#L1094-L1770)
+* **What Was Changed**:
+  1. Added equality checks (`if **text != new_text`) across all HUD text elements (`blue_text`, `red_text`, `timer_text`, `name_text`, `status_text`, `tackle_text`) and pause overlay text elements before invoking `DerefMut`.
+  2. Guarded overhead nametag projections so `Node.left` and `Node.top` only mutate when moving by more than a 0.5px viewport threshold.
+  3. Guarded nametag HP and Stamina bar `Node.width` (`Val::Percent(pct)`) and all menu `Node.display` / fill bars to only mutate on actual value changes.
+* **Result**:
+  Prevents Bevy 0.15's Taffy Flexbox engine from invalidating the entire layout tree, re-measuring text bounds, and re-rasterizing font glyphs on every frame.
+
+### ✅ FIXED: Item #4 — Deduplicated `handle_fallout_respawns` Registration
+* **File Modified**: [`src/arena.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/arena.rs#L50-L63)
+* **What Was Changed**:
+  Removed duplicate `handle_fallout_respawns` from `Update`, keeping it exclusively in `PostUpdate.after(PhysicsSet::Sync)`.
+* **Result**:
+  Halves per-frame boundary trigonometry, box container ejection calculations, and bilinear `sample_terrain_height` terrain lookups across all 6 characters.
+
 ---
 
 ## 3. Category A: UI & ECS Systems (Pending Fixes)
-
-### ⏳ NOT FIXED: Item #3 — Guard UI `Text` & Nametag Mutations Against Taffy Thrashing
-* **Target File**: [`src/ui.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/ui.rs#L1094-L1288)
-* **Status**: **NOT FIXED (Ready for next step)**
-* **Root Cause**:
-  In `update_hud` and `update_overhead_nametags`, `**text = format!(...)` is called unconditionally on 6 HUD labels and 6 nametag labels every single frame, even when values are identical. In Bevy 0.15, dereferencing `&mut Text` marks the node dirty in **Taffy** (the CSS Flexbox layout engine), forcing full layout recalculations, glyph bounding box re-measurements, and font atlas updates every frame.
-* **Fix**:
-  1. Add equality guards before writing to `Text`:
-     ```rust
-     let new_text = format!("{:02}:{:02}", mins, secs);
-     if **timer_text != new_text {
-         **timer_text = new_text;
-     }
-     ```
-  2. Only update overhead nametag `Node.left` and `Node.top` when screen projection moves by more than a 0.5px threshold.
-  3. Only mutate health and stamina bar `Node.width` when values change.
-
-### ⏳ NOT FIXED: Item #4 — Deduplicate `handle_fallout_respawns` Registration
-* **Target File**: [`src/arena.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/arena.rs#L56-L62)
-* **Status**: **NOT FIXED**
-* **Root Cause**:
-  `handle_fallout_respawns` is registered in **both** `Update` (line 56) and `PostUpdate` (line 61: `.after(PhysicsSet::Sync)`). It runs twice per frame on all characters, calculating box container ejection trigonometry and `sample_terrain_height` twice every frame.
-* **Fix**:
-  Remove `handle_fallout_respawns` from `Update`, keeping it exclusively in `PostUpdate.after(PhysicsSet::Sync)`.
 
 ### ⏳ NOT FIXED: Guard Material Mutation in `update_hologram_visuals`
 * **Target File**: [`src/koth.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/koth.rs#L980-L1005)
@@ -222,8 +214,8 @@
 
 - [x] **Item #1**: Remove `SweptCcd` on all 6 characters in `src/player.rs` and `src/ai.rs`. *(✅ FIXED)*
 - [x] **Item #2**: Cache skeletal bones (`CharacterBones`) and eliminate per-frame heap allocations in `src/player.rs`. *(✅ FIXED)*
-- [ ] **Item #3**: Guard UI `Text` and nametag mutations against Taffy flexbox layout thrashing in `src/ui.rs`. *(⏳ NOT FIXED)*
-- [ ] **Item #4**: Remove duplicate `handle_fallout_respawns` registration from `src/arena.rs`. *(⏳ NOT FIXED)*
+- [x] **Item #3**: Guard UI `Text` and nametag mutations against Taffy flexbox layout thrashing in `src/ui.rs`. *(✅ FIXED)*
+- [x] **Item #4**: Remove duplicate `handle_fallout_respawns` registration from `src/arena.rs`. *(✅ FIXED)*
 - [ ] **Item #5**: Remove redundant downward ground raycast in `src/player.rs`. *(⏳ NOT FIXED)*
 - [ ] **Item #6**: Add `CollisionLayers` and optimize camera spring-arm raycast in `src/camera.rs` & `src/types.rs`. *(⏳ NOT FIXED)*
 - [ ] **Item #7**: Set `SubstepCount(2)` in `src/main.rs`. *(⏳ NOT FIXED)*

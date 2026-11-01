@@ -53,7 +53,6 @@ impl Plugin for ArenaPlugin {
             .add_systems(
                 Update,
                 (
-                    handle_fallout_respawns,
                     animate_sewer_water,
                     animate_ominous_sky,
                 ),
