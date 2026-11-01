@@ -28,6 +28,10 @@ SCENES = [
         "Inside the sixty-by-forty-two meter Delta Sector Compound, Blue Squad and Red Squad clash across elevated platforms, central ruins, and a flooded sewer trench. First team to five captures rules the arena.",
     ),
     (
+        "scene_pillars",
+        "Three core technologies power the engine. Bevy drives the Entity-Component-System, WebGL2 rendering, and skeletal animations. Avian 3D handles 120-hertz capsule physics and spatial raycasts, while wasm-bindgen bridges Rust directly with browser JavaScript and HTML5 audio.",
+    ),
+    (
         "scene_03",
         "The runtime pairs a lightweight HTML5 host with a compiled WebAssembly core. JavaScript manages the cinematic intro and low-latency audio pools, while Bevy drives the WebGL2 canvas through a wasm-bindgen bridge.",
     ),

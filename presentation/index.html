@@ -678,7 +678,7 @@
         #timeline-dots {
             flex: 1;
             display: grid;
-            grid-template-columns: repeat(10, 1fr);
+            grid-template-columns: repeat(11, 1fr);
             gap: 6px;
             max-width: 680px;
         }
@@ -773,7 +773,7 @@
     <!-- TOP TELEMETRY HUD -->
     <header id="top-hud">
         <div class="hud-left">
-            <div class="scene-badge" id="hud-scene-num">SCENE 01 // 10</div>
+            <div class="scene-badge" id="hud-scene-num">SCENE 01 // 11</div>
             <div id="hud-scene-title">CYBER-ATHLETIC COLISEUM</div>
         </div>
         <div class="hud-right">
@@ -871,7 +871,7 @@
                 <div class="squad-column">
                     <div style="font-size:12px; font-weight:900; letter-spacing:2px; color:var(--blue-team); text-align:center;">BLUE SQUAD // WEST BASE</div>
                     <div class="operator-card">
-                        <img class="operator-portrait" src="../art/test_anders.png" alt="Anders"/>
+                        <img class="operator-portrait" src="../players/anders-t-poise.png" alt="Anders"/>
                         <div>
                             <div class="op-name">ANDERS</div>
                             <div class="op-role">HUMAN PLAYER • LEADER</div>
@@ -975,8 +975,146 @@
             </div>
         </section>
 
-        <!-- SCENE 03: DUAL-LAYER HYBRID RUNTIME (HTML5 + WASM) -->
-        <section class="slide" data-title="03 // DUAL-LAYER HYBRID BROWSER RUNTIME">
+        <!-- SCENE 03: CORE TECHNOLOGY PILLARS (BEVY 0.15 • AVIAN 3D 0.2 • WASM-BINDGEN 0.2) -->
+        <section class="slide" data-title="03 // CORE PILLARS: BEVY • AVIAN3D • WASM-BINDGEN">
+            <div class="holo-card" style="height:100%; padding:22px; display:flex; flex-direction:column; justify-content:space-between;">
+                <svg viewBox="0 0 1000 390" style="width:100%; height:86%;">
+                    <!-- Animated Conduits Connecting the 3 Pillars -->
+                    <path class="conduit-track" d="M 326 195 L 354 195 M 646 195 L 674 195" stroke-width="4"/>
+                    <path class="conduit-pulse" d="M 326 195 L 354 195" stroke-width="4"/>
+                    <path class="conduit-pulse emerald" d="M 646 195 L 674 195" stroke-width="4"/>
+
+                    <!-- =========================================================
+                         PILLAR 1: BEVY 0.15.3 (ECS GAME ENGINE & RENDERER)
+                         ========================================================= -->
+                    <g transform="translate(22, 16)">
+                        <rect width="304" height="356" rx="10" fill="rgba(7, 20, 38, 0.9)" stroke="#00f0ff" stroke-width="2.2"/>
+                        <rect width="304" height="42" rx="8" fill="rgba(0, 240, 255, 0.18)"/>
+                        <text x="152" y="27" text-anchor="middle" fill="#00f0ff" font-size="14" font-weight="900" letter-spacing="1.5">1. BEVY 0.15.3 (ECS ENGINE)</text>
+
+                        <!-- Entities + Components + Resources Mini-Nodes -->
+                        <rect x="18" y="58" width="84" height="50" rx="5" fill="#091d36" stroke="#1e90ff" stroke-width="1.5"/>
+                        <text x="60" y="79" text-anchor="middle" fill="#00f0ff" font-size="10" font-weight="900">ENTITIES</text>
+                        <text x="60" y="95" text-anchor="middle" fill="#9ab8d8" font-size="8.5" font-weight="700">6 Ops • 2 Flags</text>
+
+                        <rect x="110" y="58" width="84" height="50" rx="5" fill="#091d36" stroke="#00f0ff" stroke-width="1.5"/>
+                        <text x="152" y="79" text-anchor="middle" fill="#00f0ff" font-size="10" font-weight="900">COMPONENTS</text>
+                        <text x="152" y="95" text-anchor="middle" fill="#9ab8d8" font-size="8.5" font-weight="700">Health • Stamina</text>
+
+                        <rect x="202" y="58" width="84" height="50" rx="5" fill="#091d36" stroke="#00ff88" stroke-width="1.5"/>
+                        <text x="244" y="79" text-anchor="middle" fill="#00ff88" font-size="10" font-weight="900">RESOURCES</text>
+                        <text x="244" y="95" text-anchor="middle" fill="#9ab8d8" font-size="8.5" font-weight="700">KothManager</text>
+
+                        <!-- Internal Flow Arrows -->
+                        <path class="conduit-track" d="M 60 108 L 152 132 M 152 108 L 152 132 M 244 108 L 152 132"/>
+                        <path class="conduit-pulse" d="M 60 108 L 152 132 M 152 108 L 152 132 M 244 108 L 152 132"/>
+
+                        <!-- ECS Systems Hub -->
+                        <rect x="18" y="132" width="268" height="58" rx="6" fill="#0a213d" stroke="#00f0ff" stroke-width="1.8"/>
+                        <text x="152" y="156" text-anchor="middle" fill="#fff" font-size="12" font-weight="900">PURE RUST ECS SYSTEMS</text>
+                        <text x="152" y="175" text-anchor="middle" fill="#89a7cc" font-size="9.5" font-family="monospace">Query&lt;(&amp;Character, &amp;mut Stamina)&gt;</text>
+
+                        <!-- Subsystems: WebGL2 PBR, Skeletal Animation, Taffy UI -->
+                        <rect x="18" y="206" width="268" height="40" rx="5" fill="#071629" stroke="#1e90ff" stroke-width="1.4"/>
+                        <text x="152" y="224" text-anchor="middle" fill="#00f0ff" font-size="11" font-weight="800">3D WEBGL2 PBR RENDERER</text>
+                        <text x="152" y="238" text-anchor="middle" fill="#9ab8d8" font-size="9">GLB Meshes • Cascaded Shadows • Fog</text>
+
+                        <rect x="18" y="254" width="268" height="40" rx="5" fill="#071629" stroke="#1e90ff" stroke-width="1.4"/>
+                        <text x="152" y="272" text-anchor="middle" fill="#00f0ff" font-size="11" font-weight="800">SKELETAL ANIMATION GRAPH</text>
+                        <text x="152" y="286" text-anchor="middle" fill="#9ab8d8" font-size="9">AnimationPlayer • PostUpdate Bone IK</text>
+
+                        <rect x="18" y="302" width="268" height="40" rx="5" fill="#071629" stroke="#1e90ff" stroke-width="1.4"/>
+                        <text x="152" y="320" text-anchor="middle" fill="#00f0ff" font-size="11" font-weight="800">TAFFY FLEXBOX UI &amp; INPUT</text>
+                        <text x="152" y="334" text-anchor="middle" fill="#9ab8d8" font-size="9">HUD Scoreboard • 3D World-to-Viewport</text>
+                    </g>
+
+                    <!-- =========================================================
+                         PILLAR 2: AVIAN 3D 0.2.1 (ECS RIGID-BODY PHYSICS)
+                         ========================================================= -->
+                    <g transform="translate(348, 16)">
+                        <rect width="304" height="356" rx="10" fill="rgba(7, 20, 38, 0.9)" stroke="#ffb800" stroke-width="2.2"/>
+                        <rect width="304" height="42" rx="8" fill="rgba(255, 184, 0, 0.18)"/>
+                        <text x="152" y="27" text-anchor="middle" fill="#ffb800" font-size="14" font-weight="900" letter-spacing="1.5">2. AVIAN 3D 0.2.1 (PHYSICS)</text>
+
+                        <!-- Visual Capsule vs Trimesh Illustration -->
+                        <rect x="18" y="56" width="268" height="124" rx="6" fill="#08182c" stroke="rgba(255,184,0,0.45)" stroke-width="1.5"/>
+                        <!-- Trimesh Ramp Wireframe -->
+                        <path d="M 32 162 L 135 162 L 220 112 L 274 112" fill="none" stroke="#00ff88" stroke-width="3"/>
+                        <path d="M 32 162 L 85 162 L 135 162 L 178 137 L 220 112" fill="none" stroke="#00f0ff" stroke-width="1.2" stroke-dasharray="4 3"/>
+                        <text x="208" y="156" text-anchor="middle" fill="#00ff88" font-size="9.5" font-weight="800">20,160-TRI TRIMESH</text>
+                        <text x="208" y="169" text-anchor="middle" fill="#89a7cc" font-size="8.5">RigidBody::Static Arena</text>
+
+                        <!-- Dynamic Capsule Collider -->
+                        <rect x="92" y="86" width="28" height="62" rx="14" fill="rgba(255,184,0,0.28)" stroke="#ffb800" stroke-width="2.5"/>
+                        <line x1="106" y1="74" x2="106" y2="160" stroke="#00f0ff" stroke-width="1.5" stroke-dasharray="3 3"/>
+                        <text x="106" y="70" text-anchor="middle" fill="#ffb800" font-size="9" font-weight="900">CAPSULE (0.4×1.0M)</text>
+
+                        <!-- Velocity Vector Arrow -->
+                        <path class="conduit-pulse amber" d="M 124 115 L 185 90"/>
+                        <text x="195" y="84" fill="#ffb800" font-size="9.5" font-weight="900">LinearVelocity</text>
+
+                        <!-- Physics Features Cards -->
+                        <rect x="18" y="194" width="268" height="46" rx="5" fill="#071629" stroke="#ffb800" stroke-width="1.4"/>
+                        <text x="152" y="213" text-anchor="middle" fill="#ffb800" font-size="11" font-weight="800">120 HZ SUBSTEP SOLVER</text>
+                        <text x="152" y="229" text-anchor="middle" fill="#9ab8d8" font-size="9">SubstepCount(2) • Gravity -9.81 m/s² • Zero Tip-Over</text>
+
+                        <rect x="18" y="248" width="268" height="46" rx="5" fill="#071629" stroke="#ffb800" stroke-width="1.4"/>
+                        <text x="152" y="267" text-anchor="middle" fill="#ffb800" font-size="11" font-weight="800">COLLISION LAYER BITMASKS</text>
+                        <text x="152" y="283" text-anchor="middle" fill="#9ab8d8" font-size="9">GameLayer::Player • Ground • Obstacle Filtering</text>
+
+                        <rect x="18" y="302" width="268" height="40" rx="5" fill="#071629" stroke="#ffb800" stroke-width="1.4"/>
+                        <text x="152" y="320" text-anchor="middle" fill="#ffb800" font-size="11" font-weight="800">SPATIALQUERY RAYCASTING</text>
+                        <text x="152" y="334" text-anchor="middle" fill="#9ab8d8" font-size="9">Camera Spring-Arm Anti-Occlusion Raycasts</text>
+                    </g>
+
+                    <!-- =========================================================
+                         PILLAR 3: WASM-BINDGEN 0.2 (RUST <-> JS BRIDGE)
+                         ========================================================= -->
+                    <g transform="translate(674, 16)">
+                        <rect width="304" height="356" rx="10" fill="rgba(7, 20, 38, 0.9)" stroke="#00ff88" stroke-width="2.2"/>
+                        <rect width="304" height="42" rx="8" fill="rgba(0, 255, 136, 0.18)"/>
+                        <text x="152" y="27" text-anchor="middle" fill="#00ff88" font-size="14" font-weight="900" letter-spacing="1.5">3. WASM-BINDGEN 0.2 (FFI)</text>
+
+                        <!-- Top Box: Rust Wasm Sandbox -->
+                        <rect x="18" y="58" width="268" height="58" rx="6" fill="#091d36" stroke="#00f0ff" stroke-width="1.6"/>
+                        <text x="152" y="81" text-anchor="middle" fill="#00f0ff" font-size="11.5" font-weight="900">COMPILED RUST .WASM BINARY</text>
+                        <text x="152" y="99" text-anchor="middle" fill="#9ab8d8" font-size="9.5">Sandboxed Linear Memory (No Direct DOM)</text>
+
+                        <!-- Bi-Directional Conduits -->
+                        <path class="conduit-track" d="M 110 116 L 110 150 M 194 150 L 194 116"/>
+                        <path class="conduit-pulse emerald" d="M 110 116 L 110 150"/>
+                        <path class="conduit-pulse" d="M 194 150 L 194 116"/>
+
+                        <!-- Middle Box: #[wasm_bindgen] Bridge -->
+                        <rect x="18" y="150" width="268" height="94" rx="6" fill="#0a2436" stroke="#00ff88" stroke-width="2"/>
+                        <text x="152" y="172" text-anchor="middle" fill="#00ff88" font-size="11.5" font-weight="900">#[WASM_BINDGEN(INLINE_JS)]</text>
+                        <text x="152" y="191" text-anchor="middle" fill="#fff" font-size="9.5" font-family="monospace">is_match_started_js() → bool</text>
+                        <text x="152" y="208" text-anchor="middle" fill="#ffb800" font-size="9.5" font-family="monospace">play_sfx_js(id) • play_voice_js(p)</text>
+                        <text x="152" y="225" text-anchor="middle" fill="#00f0ff" font-size="9.5" font-family="monospace">return_to_intro_js() + WebGL2 Glue</text>
+
+                        <!-- Bi-Directional Conduits to Browser -->
+                        <path class="conduit-track" d="M 110 244 L 110 276 M 194 276 L 194 244"/>
+                        <path class="conduit-pulse emerald" d="M 110 244 L 110 276"/>
+                        <path class="conduit-pulse" d="M 194 276 L 194 244"/>
+
+                        <!-- Bottom Box: Browser DOM / Web APIs -->
+                        <rect x="18" y="276" width="268" height="66" rx="6" fill="#071629" stroke="#1e90ff" stroke-width="1.6"/>
+                        <text x="152" y="298" text-anchor="middle" fill="#fff" font-size="11.5" font-weight="900">BROWSER DOM &amp; WEB APIS</text>
+                        <text x="152" y="316" text-anchor="middle" fill="#00ff88" font-size="9.5">window.* Globals • HTML5 Audio Pool</text>
+                        <text x="152" y="331" text-anchor="middle" fill="#9ab8d8" font-size="9">Intro Video Overlay • Canvas PointerLock</text>
+                    </g>
+                </svg>
+
+                <div class="kpi-row">
+                    <div class="kpi-badge"><span class="kpi-val">BEVY 0.15.3</span><span class="kpi-lbl">ECS • WEBGL2 • ANIMATION • UI</span></div>
+                    <div class="kpi-badge"><span class="kpi-val">AVIAN 3D 0.2.1</span><span class="kpi-lbl">120HZ CAPSULE &amp; TRIMESH PHYSICS</span></div>
+                    <div class="kpi-badge"><span class="kpi-val">WASM-BINDGEN 0.2</span><span class="kpi-lbl">ZERO-OVERHEAD RUST ↔ JS FFI</span></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SCENE 04: DUAL-LAYER HYBRID RUNTIME (HTML5 + WASM) -->
+        <section class="slide" data-title="04 // DUAL-LAYER HYBRID BROWSER RUNTIME">
             <div class="holo-card" style="height:100%; padding:24px; display:flex; flex-direction:column; justify-content:space-between;">
                 <svg viewBox="0 0 1000 390" style="width:100%; height:85%;">
                     <!-- LEFT: HTML5 / JS HOST -->
@@ -1036,8 +1174,8 @@
             </div>
         </section>
 
-        <!-- SCENE 04: MODULAR ECS PLUGIN ARCHITECTURE -->
-        <section class="slide" data-title="04 // DOMAIN-DRIVEN BEVY ECS PLUGINS">
+        <!-- SCENE 05: MODULAR ECS PLUGIN ARCHITECTURE -->
+        <section class="slide" data-title="05 // DOMAIN-DRIVEN BEVY ECS PLUGINS">
             <div class="holo-card" style="height:100%; padding:20px; display:flex; flex-direction:column; justify-content:space-between;">
                 <svg viewBox="0 0 1000 400" style="width:100%; height:88%;">
                     <!-- Conduits from Central ECS World to 7 Domain Plugins -->
@@ -1125,8 +1263,8 @@
             </div>
         </section>
 
-        <!-- SCENE 05: DETERMINISTIC 16.6MS FRAME PIPELINE -->
-        <section class="slide" data-title="05 // 16.6MS DETERMINISTIC FRAME PIPELINE">
+        <!-- SCENE 06: DETERMINISTIC 16.6MS FRAME PIPELINE -->
+        <section class="slide" data-title="06 // 16.6MS DETERMINISTIC FRAME PIPELINE">
             <div class="holo-card" style="height:100%; padding:24px; display:flex; flex-direction:column; justify-content:space-between;">
                 <svg viewBox="0 0 1000 380" style="width:100%; height:85%;">
                     <!-- Main Horizontal Conduit Spine -->
@@ -1215,8 +1353,8 @@
             </div>
         </section>
 
-        <!-- SCENE 06: CTF STATE MACHINE & 5-TIER VOICE ARBITRATOR -->
-        <section class="slide" data-title="06 // FLAG STATE MACHINE & RADIO ARBITRATOR">
+        <!-- SCENE 07: CTF STATE MACHINE & 5-TIER VOICE ARBITRATOR -->
+        <section class="slide" data-title="07 // FLAG STATE MACHINE & RADIO ARBITRATOR">
             <div class="split-stage">
                 <!-- LEFT: CTF FLAG STATE TRIANGLE -->
                 <div class="holo-card" style="padding:20px; display:flex; flex-direction:column; justify-content:space-between;">
@@ -1289,8 +1427,8 @@
             </div>
         </section>
 
-        <!-- SCENE 07: ZERO-RAYCAST TERRAIN & 3-LAYER CAMERA -->
-        <section class="slide" data-title="07 // O(1) TERRAIN HEIGHTFIELD & SPRING-ARM CAMERA">
+        <!-- SCENE 08: ZERO-RAYCAST TERRAIN & 3-LAYER CAMERA -->
+        <section class="slide" data-title="08 // O(1) TERRAIN HEIGHTFIELD & SPRING-ARM CAMERA">
             <div class="split-stage">
                 <!-- LEFT: BILINEAR HEIGHTFIELD + SLOPE CLIMBING SCHEMATIC -->
                 <div class="holo-card" style="padding:20px; display:flex; flex-direction:column; justify-content:space-between;">
@@ -1369,8 +1507,8 @@
             </div>
         </section>
 
-        <!-- SCENE 08: SKELETAL RETARGETING & PROCEDURAL IK PUNCH -->
-        <section class="slide" data-title="08 // SKELETAL RETARGETING & PROCEDURAL PUNCH IK">
+        <!-- SCENE 09: SKELETAL RETARGETING & PROCEDURAL IK PUNCH -->
+        <section class="slide" data-title="09 // SKELETAL RETARGETING & PROCEDURAL PUNCH IK">
             <div class="split-stage">
                 <!-- LEFT: 2-STAGE SKELETAL + PROCEDURAL BONE IK SCHEMATIC -->
                 <div class="holo-card" style="padding:20px; display:flex; flex-direction:column; justify-content:space-between;">
@@ -1445,8 +1583,8 @@
             </div>
         </section>
 
-        <!-- SCENE 09: IQ-SCALED BOT AI DECISION TREE -->
-        <section class="slide" data-title="09 // IQ-SCALED BOT AUTONOMY (AI.RS)">
+        <!-- SCENE 10: IQ-SCALED BOT AI DECISION TREE -->
+        <section class="slide" data-title="10 // IQ-SCALED BOT AUTONOMY (AI.RS)">
             <div class="holo-card" style="height:100%; padding:22px; display:flex; flex-direction:column; justify-content:space-between;">
                 <svg viewBox="0 0 1000 385" style="width:100%; height:86%;">
                     <!-- Conduits across AI Decision Tree -->
@@ -1527,8 +1665,8 @@
             </div>
         </section>
 
-        <!-- SCENE 10: WINDOWS -> WSL 2 -> TRUNK COMPILATION & LIVE SERVER -->
-        <section class="slide" data-title="10 // COMPILATION & LIVE DEV SERVER PIPELINE">
+        <!-- SCENE 11: WINDOWS -> WSL 2 -> TRUNK COMPILATION & LIVE SERVER -->
+        <section class="slide" data-title="11 // COMPILATION & LIVE DEV SERVER PIPELINE">
             <div class="holo-card" style="height:100%; padding:24px; display:flex; flex-direction:column; justify-content:space-between;">
                 <svg viewBox="0 0 1000 360" style="width:100%; height:82%;">
                     <!-- Pipeline Conduits -->
@@ -1619,7 +1757,7 @@
             <div style="font-size:12px; font-weight:800; letter-spacing:3px; color:var(--cyan);">DELTA SECTOR TACTICAL BRIEFING</div>
             <h1 class="hero-title" style="font-size:34px; margin:12px 0;">CYBER-ATHLETIC COLISEUM</h1>
             <p style="color:var(--text-muted); font-size:14px; line-height:1.6;">
-                10-Scene Self-Playing Architectural Presentation featuring <strong style="color:#fff;">ElevenLabs Deep Bass Narration</strong>,
+                11-Scene Self-Playing Architectural Presentation featuring <strong style="color:#fff;">ElevenLabs Deep Bass Narration</strong>,
                 synchronized game soundtrack ducking, and interactive holographic telemetry.
             </p>
             <button class="start-btn-big" onclick="beginPresentation()">▶ START CINEMATIC PRESENTATION</button>
@@ -1636,6 +1774,10 @@
             {
                 file: "audio/scene_02.mp3",
                 text: "Inside the sixty-by-forty-two meter Delta Sector Compound, Blue Squad and Red Squad clash across elevated platforms, central ruins, and a flooded sewer trench. First team to five captures rules the arena."
+            },
+            {
+                file: "audio/scene_pillars.mp3",
+                text: "Three core technologies power the engine. Bevy drives the Entity-Component-System, WebGL2 rendering, and skeletal animations. Avian 3D handles 120-hertz capsule physics and spatial raycasts, while wasm-bindgen bridges Rust directly with browser JavaScript and HTML5 audio."
             },
             {
                 file: "audio/scene_03.mp3",
@@ -1830,7 +1972,8 @@
             });
 
             const numStr = String(currentIdx + 1).padStart(2, "0");
-            hudSceneNum.textContent = `SCENE ${numStr} // 10`;
+            const totalStr = String(slides.length).padStart(2, "0");
+            hudSceneNum.textContent = `SCENE ${numStr} // ${totalStr}`;
             hudSceneTitle.textContent = slides[currentIdx].dataset.title.replace(/^\d+\s*\/\/\s*/, "");
 
             triggerLaserSweep();

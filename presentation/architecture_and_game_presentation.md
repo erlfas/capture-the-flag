@@ -38,7 +38,28 @@
 
 ---
 
-## Slide 3: High-Level System Architecture
+## Slide 3: Core Technology Pillars — Bevy, Avian3D & `wasm-bindgen`
+
+### 1. Bevy (`0.15.3`) — The Data-Oriented ECS Game Engine
+* **Entity-Component-System (ECS):**
+  * **Entities:** Lightweight IDs representing every object in the arena (6 operators, 2 flags, camera, sky domes, HUD nodes).
+  * **Components ([`src/types.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/types.rs)):** Pure Rust data structs attached to entities (`Character`, `Health`, `Stamina`, `TackleAbility`, `StaggerState`, `TeamFlag`, `Transform`).
+  * **Resources:** Global singletons (`KothManager`, `PauseState`, `VoiceArbitrator`).
+  * **Systems:** Deterministic Rust functions querying component tuples across `Startup`, `Update`, and `PostUpdate` schedules.
+* **3D WebGL2 PBR Renderer, Animation & Taffy UI:** Loads `.glb` scenes/characters, renders cascaded directional shadows and distance fog, blends `AnimationGraph` clips (`Idle` ↔ `Run`) with `PostUpdate` procedural bone overrides, and lays out the HUD scoreboard and projected 3D nametags.
+
+### 2. Avian3D (`0.2.1`) — ECS-Native 3D Rigid-Body Physics
+* **Rigid Bodies & Colliders:** Every character is a `RigidBody::Dynamic` with `Collider::capsule(0.4, 1.0)` and `LockedAxes::ROTATION_LOCKED` (preventing capsules from tipping over), while the arena is a `RigidBody::Static` with a `20,160`-triangle `Collider::trimesh` plus perimeter barrier cuboids ([`src/arena.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/arena.rs#L65-L96)).
+* **120 Hz Substep Solver:** Runs `SubstepCount(2)` at `-9.81 m/s²` gravity ([`src/main.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/main.rs#L35-L39)), updating `Transform` directly from `LinearVelocity` impulses (movement, jumps, and `17.2 m/s` tackle knockbacks).
+* **Collision Layer Bitmasks & Spatial Queries:** Uses [`GameLayer`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/types.rs#L5-L11) (`Player`, `Ground`, `KothZone`, `Obstacle`) and `SpatialQuery` raycasting ([`src/camera.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/camera.rs#L225-L246)) so the camera spring-arm detects walls while ignoring characters.
+
+### 3. `wasm-bindgen` (`0.2`) — Rust ↔ Browser JavaScript FFI Bridge
+* **Breaking Out of the Wasm Sandbox:** WebAssembly runs in isolated linear memory with no direct access to the browser DOM, `<video>`, or `HTMLAudioElement`.
+* **Inline JS FFI ([`src/types.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/types.rs#L371-L395)):** Exposes 4 direct Rust-to-JS bridge calls (`is_match_started_js()`, `return_to_intro_js()`, `play_sfx_js(id)`, `play_voice_js(path)`) linked to [`index.html`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/index.html#L204-L280), while auto-generating `cyber_coliseum_koth.js` glue for WebGL2, keyboard, and mouse events.
+
+---
+
+## Slide 4: High-Level System Architecture
 
 ### Dual-Layer Runtime: HTML5/JS Host + Bevy/Wasm Engine
 
