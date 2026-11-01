@@ -17,8 +17,8 @@
 | **✅ FIXED** | #7 | **Tune Avian physics solver substeps (`SubstepCount(2)`)** | `src/main.rs` | Physics | Halves contact solver CPU time on single-threaded WASM |
 | **✅ FIXED** | #8 | **Fix sky dome backface culling & consolidate cloud layers** | `src/arena.rs` | GPU / Fillrate | Cuts transparent sky passes from 8 to 2 fullscreen passes |
 | **✅ FIXED** | #9 | **Consolidate sewer water effects (135 entities → 2–3 meshes)** | `src/arena.rs` | GPU / Draw Calls | Eliminates ~125 unbatched draw calls & 129 transform updates |
-| **⏳ NOT FIXED** | #10 | **Downscale 4K bot character textures to 1024×1024** | `assets/models/` | GPU / VRAM | Saves ~450 MB uncompressed VRAM & ~40 MB download payload |
-| **⏳ NOT FIXED** | #11 | **Decimate `post_apocalyptic_battlefield.glb` (736k → 120k)** | `assets/models/` | GPU / Geometry | 80% reduction in vertex shading; re-enables backface culling |
+| **✅ FIXED** | #10 | **Downscale 4K bot character textures to 1024×1024** | `assets/models/` | GPU / VRAM | Saves ~472 MB uncompressed VRAM & ~38.3 MB download payload |
+| **✅ FIXED** | #11 | **Decimate `post_apocalyptic_battlefield.glb` (736k → 140k)** | `assets/models/` | GPU / Geometry | 81% reduction in triangles & 17.3 MB file size reduction; re-enables backface culling |
 | **⏳ NOT FIXED** | #12 | **Decimate bot meshes (38k → 10k vertices) to match player** | `assets/models/` | GPU / Skinning | Cuts skinned vertex count from ~200k to ~65k per frame |
 | **⏳ NOT FIXED** | #13 | **Optimize `Cargo.toml` release profile (`panic = "abort"`, LTO)** | `Cargo.toml` | WASM / Build | Shrinks WASM binary by 30%–50% and removes landing pads |
 | **⏳ NOT FIXED** | #14 | **Trim unused Bevy default features (`default-features = false`)** | `Cargo.toml` | WASM / Binary | Cuts ~25–35 MB of unused crates (gizmos, gilrs, tonemapping LUTs) |
@@ -84,6 +84,36 @@
 * **Result**:
   Cuts narrowphase contact solver CPU time by ~66% during gameplay and 100% while paused or on the title screen.
 
+### ✅ FIXED: Item #8 — Enabled Sky Dome Backface Culling & Consolidated Cloud Layers
+* **File Modified**: [`src/arena.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/arena.rs#L410-L535)
+* **What Was Changed**:
+  1. Reversed sky dome triangle winding to face inward and enabled standard hardware backface culling (`cull_mode` default) so exterior dome faces are culled.
+  2. Consolidated from 4 scrolling transparent cloud domes down to 2 parallax layers (Layer A and Layer B).
+* **Result**:
+  Reduces full-screen transparent sky overdraw passes from 8 down to 2 (75% fillrate reduction).
+
+### ✅ FIXED: Item #9 — Consolidated Sewer Water Effects (135 Entities → 4 Meshes)
+* **File Modified**: [`src/arena.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/arena.rs#L689-L940)
+* **What Was Changed**:
+  Replaced 135 individual transparent water particle/droplet/wave entities with 4 consolidated meshes (`build_waterfall_arch_mesh` for the core stream and oscillating foam sheath, `build_trench_water_ribbon_mesh` for the canal surface, and 1 expanding plunge pool torus ripple).
+* **Result**:
+  Eliminates 131 unbatched transparent WebGL2 draw calls and 129 per-frame CPU `Transform` updates.
+
+### ✅ FIXED: Item #10 — Downscaled Bot Character Textures (4096×4096 → 1024×1024 / 512×512)
+* **Assets Modified**: `assets/models/jonas-blue.glb`, `lisa-red.glb`, `morten-blue.glb`, `per-red.glb`, `siri-red.glb`
+* **What Was Changed**:
+  Downscaled all 5 bot character basecolor textures from `4096×4096` to `1024×1024` (Lanczos filter) and roughness/metallic + normal maps from `2048×2048` to `512×512`, rebuilding all GLB binary buffers with 4-byte alignment while preserving skeletal skins and embedded animations.
+* **Result**:
+  Reduces uncompressed GPU texture VRAM across all 5 bots from **503.3 MB** down to **31.5 MB** (**~472 MB VRAM saved**, a 93.7% reduction) and shrinks total bot GLB download payload from **53.8 MB** down to **15.4 MB** (**38.3 MB saved**).
+
+### ✅ FIXED: Item #11 — Decimated Battlefield Mesh (`post_apocalyptic_battlefield.glb`) & Split Single/Double-Sided Sub-Meshes
+* **Asset Modified**: [`assets/models/post_apocalyptic_battlefield.glb`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/assets/models/post_apocalyptic_battlefield.glb)
+* **What Was Changed**:
+  1. Stripped 50,681 unseen underground bottom-slab triangles (`y < -4.2` facing downward) and applied `MeshoptSimplifier` Quadric Error Metric (QEM) simplification with UV-seam preservation, reducing geometry from **735,845 triangles (456,667 vertices)** down to **140,438 triangles (126,589 vertices)**.
+  2. Split the mesh into two primitives: `BattlefieldPBR` (`100,193` triangles with `doubleSided: false` for hardware backface culling across terrain, trenches, platforms, ramps, and buildings) and `BattlefieldFencePBR` (`40,245` triangles with `doubleSided: true` for thin perimeter barbed-wire fences and two-sided sheets).
+* **Result**:
+  Cuts battlefield triangle count by **80.9%**, shrinks `post_apocalyptic_battlefield.glb` from **28.5 MB** to **10.8 MB** (**17.7 MB saved**), and enables hardware backface culling across over 71% of the battlefield geometry.
+
 ---
 
 ## 3. Category A: UI & ECS Systems (Pending Fixes)
@@ -108,73 +138,7 @@
 
 ---
 
-## 4. Category B: Physics, Colliders & Spatial Queries (Pending Fixes)
-
-### ⏳ NOT FIXED: Item #6 — Add `CollisionLayers` & Fix Camera Spring-Arm Raycast
-* **Target Files**: [`src/camera.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/camera.rs#L322-L337), [`src/types.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/types.rs)
-* **Status**: **NOT FIXED**
-* **Root Cause**:
-  1. The spring-arm raycast in `camera.rs` allocates a new heap `Vec<Entity>` every frame (`character_entities.iter().collect()`).
-  2. Because there are no collision layers, the raycast tests against the 20,160-triangle terrain mesh rather than just interior solid obstacles (shipping containers and walls).
-* **Fix**:
-  Define explicit `PhysicsLayer` groups (`Terrain`, `Obstacle`, `Character`):
-  ```rust
-  #[derive(PhysicsLayer, Default)]
-  pub enum GameLayer {
-      #[default]
-      Default,
-      Terrain,
-      Obstacle,
-      Character,
-  }
-  ```
-  Change the camera raycast filter to `SpatialQueryFilter::from_mask([GameLayer::Obstacle])`. This eliminates the per-frame `Vec` heap allocation and skips the 20k terrain trimesh BVH.
-
-### ⏳ NOT FIXED: Item #7 — Tune Avian Solver Substeps (`SubstepCount(2)`)
-* **Target File**: [`src/main.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/main.rs#L40-L43)
-* **Status**: **NOT FIXED**
-* **Root Cause**:
-  Avian defaults to 6 substeps per fixed step (360 solver ticks/sec at 60 Hz). For an arcade capture-the-flag game with simple capsules and static cuboids/trimesh, 6 substeps is unnecessary.
-* **Fix**:
-  Insert `SubstepCount(2)` in `main.rs`. Reduces contact solver and narrowphase CPU load by ~50%–65%.
-
----
-
-## 5. Category C: Rendering, Shaders & 3D Assets (Pending Fixes)
-
-### ⏳ NOT FIXED: Item #8 — Fix Sky Dome Backface Culling & Consolidate Cloud Layers
-* **Target File**: [`src/arena.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/arena.rs#L468-L563)
-* **Status**: **NOT FIXED**
-* **Root Cause**:
-  4 scrolling cloud layers use `cull_mode: None` and `AlphaMode::Blend`. The GPU renders both front and back faces of all 4 domes, producing **8 full-screen transparency passes** across the entire sky viewport. In WebGL2, transparent passes cannot use early-Z rejection and force continuous framebuffer read-modify-writes.
-* **Fix**:
-  1. Change `cull_mode: None` to `cull_mode: Some(bevy::render::render_resource::Face::Front)` so the exterior faces outside the dome are culled.
-  2. Consolidate from 4 scrolling cloud layers down to **2 layers** (Layer A and Layer B). Cuts overdraw passes from 8 to 2 (75% fillrate reduction).
-
-### ⏳ NOT FIXED: Item #9 — Consolidate Sewer Water Draw Calls (135 Entities → 2–3 Meshes)
-* **Target File**: [`src/arena.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/arena.rs#L718-L1075)
-* **Status**: **NOT FIXED**
-* **Root Cause**:
-  `spawn_sewer_water_effects` spawns 135 separate 3D entities (48 stream parcels, 28 splash droplets, 32 arch capsules, 6 ripples, 14 waves). Each uses `AlphaMode::Blend`, which Bevy sorts back-to-front and **cannot batch**. This creates 135 individual WebGL2 draw calls, and `animate_sewer_water` updates 129 `Transform` components on the CPU every frame.
-* **Fix**:
-  Replace individual particle entities with a scrolling UV waterfall strip and a rotating ripple decal/quad, reducing draw calls from 135 to 2–3 and eliminating 129 per-frame CPU transform updates.
-
-### ⏳ NOT FIXED: Item #10 — Downscale Bot Character Textures (4096×4096 → 1024×1024)
-* **Target Assets**: `assets/models/jonas-blue.glb`, `lisa-red.glb`, `morten-blue.glb`, `per-red.glb`, `siri-red.glb`
-* **Status**: **NOT FIXED**
-* **Root Cause**:
-  Each bot contains 4096×4096 basecolor textures (67.1 MB uncompressed VRAM each = 335.5 MB total) plus 2048×2048 normal and roughness maps. Total texture VRAM exceeds **565 MB**, causing severe GPU memory pressure and cache thrashing on characters only 200–300 pixels high.
-* **Fix**:
-  Downscale bot basecolor, roughness, and normal maps to 1024×1024 (or 512×512 for normal maps). Shrinks VRAM from 565 MB to ~110 MB and reduces each bot file from ~11 MB to ~2 MB.
-
-### ⏳ NOT FIXED: Item #11 — Decimate Battlefield Mesh (`post_apocalyptic_battlefield.glb`)
-* **Target Asset**: [`assets/models/post_apocalyptic_battlefield.glb`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/assets/models/post_apocalyptic_battlefield.glb)
-* **Status**: **NOT FIXED**
-* **Root Cause**:
-  Contains **735,845 triangles** and **456,667 vertices** with `"doubleSided": true`. WebGL2 vertex shaders are overwhelmed, and disabled backface culling forces all interior/underground faces to rasterize.
-* **Fix**:
-  1. Decimate geometry using Quadric Error Metric (QEM) simplification down to **120k–150k triangles**.
-  2. Split the thin barbed-wire fences into a separate sub-mesh with `doubleSided: true`, allowing 95% of the terrain and buildings to use standard single-sided backface culling (`doubleSided: false`).
+## 4. Category C: Rendering, Shaders & 3D Assets (Pending Fixes)
 
 ### ⏳ NOT FIXED: Item #12 — Decimate Bot Character Meshes (38k → 10k Vertices)
 * **Target Assets**: `assets/models/*.glb`
@@ -186,7 +150,7 @@
 
 ---
 
-## 6. Category D: WASM Compilation, Browser Environment & Cargo Profiles (Pending Fixes)
+## 5. Category D: WASM Compilation, Browser Environment & Cargo Profiles (Pending Fixes)
 
 ### ⏳ NOT FIXED: Item #13 — Optimize `Cargo.toml` Release Profile
 * **Target File**: [`Cargo.toml`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/Cargo.toml#L23-L25)
@@ -221,7 +185,7 @@
 
 ---
 
-## 7. Master Checklist
+## 6. Master Checklist
 
 - [x] **Item #1**: Remove `SweptCcd` on all 6 characters in `src/player.rs` and `src/ai.rs`. *(✅ FIXED)*
 - [x] **Item #2**: Cache skeletal bones (`CharacterBones`) and eliminate per-frame heap allocations in `src/player.rs`. *(✅ FIXED)*
@@ -232,8 +196,8 @@
 - [x] **Item #7**: Set `SubstepCount(2)` in `src/main.rs`. *(✅ FIXED)*
 - [x] **Item #8**: Enable backface culling on sky domes and reduce cloud layers in `src/arena.rs`. *(✅ FIXED)*
 - [x] **Item #9**: Consolidate sewer water effects (135 entities → 2–3 meshes) in `src/arena.rs`. *(✅ FIXED)*
-- [ ] **Item #10**: Downscale bot textures from 4K to 1024×1024 in `assets/models/`. *(⏳ NOT FIXED)*
-- [ ] **Item #11**: Decimate `post_apocalyptic_battlefield.glb` from 736k to 120k triangles. *(⏳ NOT FIXED)*
+- [x] **Item #10**: Downscale bot textures from 4K to 1024×1024 in `assets/models/`. *(✅ FIXED)*
+- [x] **Item #11**: Decimate `post_apocalyptic_battlefield.glb` from 736k to 140k triangles. *(✅ FIXED)*
 - [ ] **Item #12**: Decimate bot character meshes from 38k to 10k vertices. *(⏳ NOT FIXED)*
 - [ ] **Item #13**: Optimize `Cargo.toml` release profile (`panic = "abort"`, LTO). *(⏳ NOT FIXED)*
 - [ ] **Item #14**: Strip unused Bevy default features in `Cargo.toml`. *(⏳ NOT FIXED)*
