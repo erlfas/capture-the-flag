@@ -979,6 +979,7 @@ fn update_hologram_visuals(
     koth: Res<KothManager>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut query: Query<(&mut Transform, &MeshMaterial3d<StandardMaterial>), With<HologramZone>>,
+    mut last_delivering: Local<Option<bool>>,
 ) {
     // Highlight the player's current objective with the glowing ground ring:
     // If Blue team is carrying the Red Flag, highlight the Blue Home Base capture circle!
@@ -989,16 +990,26 @@ fn update_hologram_visuals(
         (koth.red_flag_world_pos, false)
     };
 
-    for (mut transform, mat_handle) in query.iter_mut() {
-        transform.translation = target_pos + Vec3::new(0.0, 0.10, 0.0);
+    let desired_translation = target_pos + Vec3::new(0.0, 0.10, 0.0);
+    let state_changed = *last_delivering != Some(is_delivering);
+    if state_changed {
+        *last_delivering = Some(is_delivering);
+    }
 
-        if let Some(mat) = materials.get_mut(mat_handle) {
-            if is_delivering {
-                mat.base_color = Color::srgba(0.1, 1.0, 0.4, 0.45);
-                mat.emissive = LinearRgba::new(0.2, 4.5, 1.5, 1.0);
-            } else {
-                mat.base_color = Color::srgba(1.0, 0.3, 0.2, 0.45);
-                mat.emissive = LinearRgba::new(4.5, 0.8, 0.4, 1.0);
+    for (mut transform, mat_handle) in query.iter_mut() {
+        if transform.translation.distance_squared(desired_translation) > 1e-6 {
+            transform.translation = desired_translation;
+        }
+
+        if state_changed {
+            if let Some(mat) = materials.get_mut(mat_handle) {
+                if is_delivering {
+                    mat.base_color = Color::srgba(0.1, 1.0, 0.4, 0.45);
+                    mat.emissive = LinearRgba::new(0.2, 4.5, 1.5, 1.0);
+                } else {
+                    mat.base_color = Color::srgba(1.0, 0.3, 0.2, 0.45);
+                    mat.emissive = LinearRgba::new(4.5, 0.8, 0.4, 1.0);
+                }
             }
         }
     }

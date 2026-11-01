@@ -185,40 +185,14 @@
         }
 
         function preloadGameAudio() {
-            // Preload a pool of punch.mp3 instances for zero-latency rapid punching
+            // Preload a small pool of punch.mp3 instances for zero-latency rapid punching.
+            // Character voice callouts are lazy-loaded and memoized on demand in window.playGameVoice
+            // to avoid a 45-file network/decoder stampede during initial WASM startup.
             for (let i = 0; i < 6; i++) {
                 const a = new Audio("assets/music/punch.mp3");
                 a.preload = "auto";
                 a.load();
                 window.__punchAudioPool.push(a);
-            }
-
-            // Preload all character voice lines (especially captured_flag, took_flag, dropped_flag, returned_flag, tackle_hit, victory, match_start)
-            const speakers = ["anders", "morten", "jonas", "siri", "lisa", "per"];
-            const commonLines = ["captured_flag", "took_flag", "dropped_flag", "returned_flag", "tackle_hit"];
-            for (const spk of speakers) {
-                for (const line of commonLines) {
-                    const url = `assets/voices/${spk}/${line}.mp3`;
-                    const a = new Audio(url);
-                    a.preload = "auto";
-                    window.__voiceAudioCache.set(url, a);
-                }
-            }
-            const extraLines = [
-                "assets/voices/anders/match_start.mp3",
-                "assets/voices/anders/victory.mp3",
-                "assets/voices/siri/victory.mp3",
-                "assets/voices/anders/flag_stolen_alert.mp3",
-                "assets/voices/anders/escort_carrier.mp3",
-                "assets/voices/morten/escort_carrier.mp3",
-                "assets/voices/jonas/both_flags_stolen.mp3",
-                "assets/voices/jonas/flag_auto_returned.mp3",
-                "assets/voices/per/flag_auto_returned.mp3"
-            ];
-            for (const url of extraLines) {
-                const a = new Audio(url);
-                a.preload = "auto";
-                window.__voiceAudioCache.set(url, a);
             }
         }
 

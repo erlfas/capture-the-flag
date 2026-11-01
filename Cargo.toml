@@ -4,7 +4,30 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = { version = "0.15.3", default-features = true, features = ["webgl2", "mp3", "jpeg"] }
+bevy = { version = "0.15.3", default-features = false, features = [
+    "animation",
+    "bevy_asset",
+    "bevy_audio",
+    "bevy_color",
+    "bevy_core_pipeline",
+    "bevy_gltf",
+    "bevy_pbr",
+    "bevy_picking",
+    "bevy_render",
+    "bevy_scene",
+    "bevy_sprite",
+    "bevy_state",
+    "bevy_text",
+    "bevy_ui",
+    "bevy_ui_picking_backend",
+    "bevy_window",
+    "bevy_winit",
+    "jpeg",
+    "mp3",
+    "png",
+    "webgl2",
+    "x11",
+] }
 avian3d = "0.2.1"
 console_error_panic_hook = "0.1"
 

@@ -64,6 +64,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Spawn 3rd-person Orbit Follow Camera
     commands.spawn((
         Camera3d::default(),
+        bevy::core_pipeline::tonemapping::Tonemapping::SomewhatBoringDisplayTransform,
         Transform::from_xyz(0.0, 8.0, 35.0).looking_at(Vec3::new(0.0, 2.0, 0.0), Vec3::Y),
         camera::OrbitCamera::default(),
     ));

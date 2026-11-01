@@ -16,6 +16,8 @@ pub struct Bot {
     pub role_attacker: bool,
     pub state_timer: f32,
     pub reaction_cooldown: f32,
+    pub decision_timer: f32,
+    pub cached_target: Vec3,
 }
 
 pub struct AiPlugin;
@@ -98,6 +100,8 @@ fn spawn_single_bot(
                 role_attacker,
                 state_timer: 0.0,
                 reaction_cooldown: 0.0,
+                decision_timer: 0.0,
+                cached_target: spawn_pos,
             },
             Character {
                 team,
@@ -234,11 +238,15 @@ fn update_bot_behaviors(
         return;
     }
 
-    let char_snapshots: Vec<(Entity, Vec3, Vec3, Team)> = queries
-        .p0()
-        .iter()
-        .map(|(ent, trans, vel, ch)| (ent, trans.translation, vel.0, ch.team))
-        .collect();
+    let mut char_snapshots = [(Entity::PLACEHOLDER, Vec3::ZERO, Vec3::ZERO, Team::Blue); 6];
+    let mut snapshot_count = 0usize;
+    for (ent, trans, vel, ch) in queries.p0().iter() {
+        if snapshot_count < char_snapshots.len() {
+            char_snapshots[snapshot_count] = (ent, trans.translation, vel.0, ch.team);
+            snapshot_count += 1;
+        }
+    }
+    let char_snapshots = &char_snapshots[..snapshot_count];
 
     for (
         bot_ent,
@@ -266,6 +274,7 @@ fn update_bot_behaviors(
 
         bot_data.state_timer += dt;
         bot_data.reaction_cooldown = (bot_data.reaction_cooldown - dt).max(0.0);
+        bot_data.decision_timer -= dt;
         let my_pos = transform.translation;
 
         // Low-intelligence hesitation: rookie bots periodically pause/daydream briefly
@@ -373,66 +382,71 @@ fn update_bot_behaviors(
             continue;
         }
 
-        // 2. Capture the Flag Tactical Target Selection (scaled by AI Intelligence):
-        let defense_awareness_dist = 18.0 * ai_iq;
-        let intercept_lead = ((ai_iq - 0.90) * 0.25).clamp(0.0, 0.35);
-        let intercepted_enemy_pos =
-            nearest_enemy_pos + Vec3::new(nearest_enemy_vel.x, 0.0, nearest_enemy_vel.z) * intercept_lead;
+        // 2. Capture the Flag Tactical Target Selection (time-sliced at 10 Hz / 0.1s):
+        if bot_data.decision_timer <= 0.0 {
+            bot_data.decision_timer = 0.10;
+            let defense_awareness_dist = 18.0 * ai_iq;
+            let intercept_lead = ((ai_iq - 0.90) * 0.25).clamp(0.0, 0.35);
+            let intercepted_enemy_pos =
+                nearest_enemy_pos + Vec3::new(nearest_enemy_vel.x, 0.0, nearest_enemy_vel.z) * intercept_lead;
 
-        let mut raw_target = if am_carrying {
-            // Run straight back to our Home Base capture circle to score!
-            match bot_char.team {
-                Team::Blue => blue_base,
-                Team::Red => red_base,
-            }
-        } else {
-            let (own_flag_at_base, own_flag_pos, enemy_flag_pos) = match bot_char.team {
-                Team::Blue => (
-                    koth.blue_flag_at_base,
-                    koth.blue_flag_world_pos,
-                    koth.red_flag_world_pos,
-                ),
-                Team::Red => (
-                    koth.red_flag_at_base,
-                    koth.red_flag_world_pos,
-                    koth.blue_flag_world_pos,
-                ),
+            let mut raw_target = if am_carrying {
+                // Run straight back to our Home Base capture circle to score!
+                match bot_char.team {
+                    Team::Blue => blue_base,
+                    Team::Red => red_base,
+                }
+            } else {
+                let (own_flag_at_base, own_flag_pos, enemy_flag_pos) = match bot_char.team {
+                    Team::Blue => (
+                        koth.blue_flag_at_base,
+                        koth.blue_flag_world_pos,
+                        koth.red_flag_world_pos,
+                    ),
+                    Team::Red => (
+                        koth.red_flag_at_base,
+                        koth.red_flag_world_pos,
+                        koth.blue_flag_world_pos,
+                    ),
+                };
+
+                if !own_flag_at_base
+                    && (!bot_data.role_attacker || my_pos.distance(own_flag_pos) < defense_awareness_dist)
+                {
+                    // Chase down our stolen/dropped flag to tackle the thief or return it!
+                    own_flag_pos
+                } else if ai_iq >= 1.20
+                    && allied_flag_carrier.is_some()
+                    && nearest_enemy_dist < 13.5 * ai_iq
+                {
+                    // High-intelligence bots actively screen/escort their flag carrier by intercepting nearby enemies
+                    intercepted_enemy_pos
+                } else if bot_data.role_attacker {
+                    // Raid the enemy base to steal their flag!
+                    enemy_flag_pos
+                } else {
+                    // Defender patrols near own flag or intercepts nearby enemies
+                    if nearest_enemy_dist < 14.0 * ai_iq.clamp(0.5, 1.4) {
+                        intercepted_enemy_pos
+                    } else {
+                        let hash_offset = (bot_ent.index() as f32 * 1.7).sin() * 2.8;
+                        own_flag_pos + Vec3::new(hash_offset, 0.0, hash_offset.cos() * 2.8)
+                    }
+                }
             };
 
-            if !own_flag_at_base
-                && (!bot_data.role_attacker || my_pos.distance(own_flag_pos) < defense_awareness_dist)
-            {
-                // Chase down our stolen/dropped flag to tackle the thief or return it!
-                own_flag_pos
-            } else if ai_iq >= 1.20
-                && allied_flag_carrier.is_some()
-                && nearest_enemy_dist < 13.5 * ai_iq
-            {
-                // High-intelligence bots actively screen/escort their flag carrier by intercepting nearby enemies
-                intercepted_enemy_pos
-            } else if bot_data.role_attacker {
-                // Raid the enemy base to steal their flag!
-                enemy_flag_pos
-            } else {
-                // Defender patrols near own flag or intercepts nearby enemies
-                if nearest_enemy_dist < 14.0 * ai_iq.clamp(0.5, 1.4) {
-                    intercepted_enemy_pos
-                } else {
-                    let hash_offset = (bot_ent.index() as f32 * 1.7).sin() * 2.8;
-                    own_flag_pos + Vec3::new(hash_offset, 0.0, hash_offset.cos() * 2.8)
-                }
+            // Low-IQ wandering/distraction offset so lower intelligence bots take less direct paths
+            if ai_iq < 0.85 {
+                let wander_mag = (0.85 - ai_iq) * 9.0;
+                let phase = bot_data.state_timer * 0.85 + bot_ent.index() as f32 * 2.1;
+                raw_target.x += phase.sin() * wander_mag;
+                raw_target.z += phase.cos() * wander_mag;
             }
-        };
 
-        // Low-IQ wandering/distraction offset so lower intelligence bots take less direct paths
-        if ai_iq < 0.85 {
-            let wander_mag = (0.85 - ai_iq) * 9.0;
-            let phase = bot_data.state_timer * 0.85 + bot_ent.index() as f32 * 2.1;
-            raw_target.x += phase.sin() * wander_mag;
-            raw_target.z += phase.cos() * wander_mag;
+            bot_data.cached_target = route_via_platform_ramp(my_pos, raw_target);
         }
 
-        let target = route_via_platform_ramp(my_pos, raw_target);
+        let target = bot_data.cached_target;
 
         let mut move_dir = target - my_pos;
         move_dir.y = 0.0;

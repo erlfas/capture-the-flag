@@ -21,8 +21,8 @@
 | **✅ FIXED** | #11 | **Decimate `post_apocalyptic_battlefield.glb` (736k → 140k)** | `assets/models/` | GPU / Geometry | 81% reduction in triangles & 17.3 MB file size reduction; re-enables backface culling |
 | **✅ FIXED** | #12 | **Decimate bot meshes (38k → 11k vertices) to match player** | `assets/models/` | GPU / Skinning | Cuts total skinned vertex count from ~201k to ~67k per frame |
 | **✅ FIXED** | #13 | **Optimize `Cargo.toml` release profile (`panic = "abort"`, LTO)** | `Cargo.toml` | WASM / Build | Shrinks WASM binary by 30%–50% and removes landing pads |
-| **⏳ NOT FIXED** | #14 | **Trim unused Bevy default features (`default-features = false`)** | `Cargo.toml` | WASM / Binary | Cuts ~25–35 MB of unused crates (gizmos, gilrs, tonemapping LUTs) |
-| **⏳ NOT FIXED** | #15 | **Lazy-load character voice audio instead of 45-file preload** | `index.html` | Network / Audio | Eliminates startup network stampede & 45 browser audio decoders |
+| **✅ FIXED** | #14 | **Trim unused Bevy default features (`default-features = false`)** | `Cargo.toml`, `src/main.rs` | WASM / Binary | Cuts ~25–35 MB of unused crates (gizmos, gilrs, tonemapping LUTs) |
+| **✅ FIXED** | #15 | **Lazy-load character voice audio instead of 45-file preload** | `index.html` | Network / Audio | Eliminates startup network stampede & 45 browser audio decoders |
 
 ---
 
@@ -123,57 +123,39 @@
   Cuts bot skinned vertices by **70.7%** (from 189,529 down to 55,441; total across all 6 characters drops from 201,398 to 67,310 vertices per frame) and shrinks each bot `.glb` file down to **1.3–1.6 MB**.
 
 ### ✅ FIXED: Item #13 — Optimized `Cargo.toml` Release Profile
-* **File Modified**: [`Cargo.toml`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/Cargo.toml#L23-L28)
+* **File Modified**: [`Cargo.toml`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/Cargo.toml#L46-L51)
 * **What Was Changed**:
   Configured `[profile.release]` with `opt-level = "s"`, `lto = "fat"`, `codegen-units = 1`, `panic = "abort"`, and `strip = "symbols"`.
 * **Result**:
   Eliminates stack unwinding landing pads and debug symbol tables from release WASM builds and enables whole-program fat LTO.
 
----
+### ✅ FIXED: Item #14 — Stripped Unused Bevy Default Features
+* **Files Modified**: [`Cargo.toml`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/Cargo.toml#L7-L30), [`src/main.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/main.rs#L65-L70)
+* **What Was Changed**:
+  1. Set `default-features = false` on `bevy` and explicitly enabled only the required features (`animation`, `bevy_asset`, `bevy_audio`, `bevy_color`, `bevy_core_pipeline`, `bevy_gltf`, `bevy_pbr`, `bevy_picking`, `bevy_render`, `bevy_scene`, `bevy_sprite`, `bevy_state`, `bevy_text`, `bevy_ui`, `bevy_ui_picking_backend`, `bevy_window`, `bevy_winit`, `jpeg`, `mp3`, `png`, `webgl2`, `x11`).
+  2. Stripped unused default features (`multi_threaded`, `tonemapping_luts` with KTX2/ZSTD LUTs, `smaa_luts`, `bevy_gilrs`, `bevy_gizmos`, `bevy_mesh_picking_backend`, `bevy_sprite_picking_backend`, `custom_cursor`, `default_font`, `hdr`, `sysinfo_plugin`, `vorbis`, and Android features).
+  3. Configured `Tonemapping::SomewhatBoringDisplayTransform` on `Camera3d` in `src/main.rs` so analytical shader tonemapping is used without requiring embedded 3D KTX2 LUT textures.
+* **Result**:
+  Eliminates ~25–35 MB of unused dependencies and embedded LUT/font binaries from compilation and final WASM output.
 
-## 3. Category A: UI & ECS Systems (Pending Fixes)
+### ✅ FIXED: Item #15 — Lazy-Loaded Character Voices in `index.html`
+* **File Modified**: [`index.html`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/index.html#L187-L197)
+* **What Was Changed**:
+  Removed the synchronous creation of 39 character voice `Audio` elements (`preload = "auto"`) from `preloadGameAudio()`. Only the 6-instance `punch.mp3` pool is preloaded at startup, while character voice callouts are lazy-loaded and memoized on demand in `window.__voiceAudioCache` via `window.playGameVoice`.
+* **Result**:
+  Eliminates the 45-file network stampede and browser media decoder spike during initial WASM page load.
 
-### ⏳ NOT FIXED: Guard Material Mutation in `update_hologram_visuals`
-* **Target File**: [`src/koth.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/koth.rs#L980-L1005)
-* **Status**: **NOT FIXED**
-* **Root Cause**:
-  Calls `materials.get_mut(mat_handle)` unconditionally every frame to adjust emissive and base color, continuously forcing Bevy's renderer to re-upload uniform buffer objects (UBOs) to the GPU.
-* **Fix**:
-  Track delivery state changes with a local boolean or change detection, and only mutate the material on state transitions.
-
-### ⏳ NOT FIXED: Time-Slice AI Decision Logic
-* **Target File**: [`src/ai.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/ai.rs#L185-L498)
-* **Status**: **NOT FIXED**
-* **Root Cause**:
-  All 5 bots evaluate all behaviors (target search, priority math, trigonometry, uphill slope lookahead) every frame (60–120 Hz) on a single thread. Also allocates a heap vector every frame (`let char_snapshots: Vec<...> = ...collect()`).
-* **Fix**:
-  - Run the tactical decision tree (target selection, ramp selection) on a 10 Hz fixed timer (`0.1s`).
-  - Keep frame-rate updates strictly for smooth velocity steering and terrain following.
-  - Replace dynamic `Vec` heap allocation with a fixed stack array `[(Entity, Vec3, Vec3, Team); 6]`.
-
----
-
-## 4. Category D: WASM Compilation, Browser Environment & Cargo Profiles (Pending Fixes)
-
-### ⏳ NOT FIXED: Item #14 — Strip Unused Bevy Default Features
-* **Target File**: [`Cargo.toml`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/Cargo.toml#L7-L8)
-* **Status**: **NOT FIXED**
-* **Root Cause**:
-  `default-features = true` compiles unused crates: `multi_threaded`, `tonemapping_luts` (with `ktx2` & `zstd`), `smaa_luts`, `bevy_gilrs`, `bevy_gizmos`, `bevy_sprite`, `bevy_mesh_picking_backend`, `default_font`, `vorbis`, and `hdr`.
-* **Fix**:
-  Set `default-features = false` and explicitly specify only the required Bevy features (`bevy_core_pipeline`, `bevy_render`, `bevy_pbr`, `bevy_gltf`, `bevy_ui`, `bevy_text`, `bevy_animation`, `bevy_audio`, `webgl2`, `mp3`, `jpeg`, `png`). Reduces binary size by ~25–35 MB.
-
-### ⏳ NOT FIXED: Item #15 — Lazy-Load Character Voices in `index.html`
-* **Target File**: [`index.html`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/index.html#L322-L335)
-* **Status**: **NOT FIXED**
-* **Root Cause**:
-  `preloadGameAudio()` creates **45 `Audio` elements** with `preload = "auto"` synchronously during script initialization, saturating browser network connections and allocating 45 media decoders while loading the WASM binary.
-* **Fix**:
-  Preload only `punch.mp3`; load character voice clips on demand via memoized lazy loading.
+### ✅ FIXED: Guarded Material Mutation in `update_hologram_visuals` & Time-Sliced AI Decisions
+* **Files Modified**: [`src/koth.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/koth.rs#L978-L1016), [`src/ai.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/ai.rs#L15-L445)
+* **What Was Changed**:
+  1. Added `Local<Option<bool>>` state tracking in `update_hologram_visuals` so `materials.get_mut` is only invoked when the flag delivery state transitions, and guarded `transform.translation` with a distance threshold.
+  2. Replaced the per-frame `Vec` heap allocation (`char_snapshots`) in `update_bot_behaviors` with a fixed stack array `[(Entity, Vec3, Vec3, Team); 6]`, and time-sliced bot tactical target/ramp selection to 10 Hz (`0.10s` `decision_timer`).
+* **Result**:
+  Eliminates redundant per-frame GPU material uniform buffer uploads and per-frame AI heap allocations.
 
 ---
 
-## 5. Master Checklist
+## 3. Master Checklist
 
 - [x] **Item #1**: Remove `SweptCcd` on all 6 characters in `src/player.rs` and `src/ai.rs`. *(✅ FIXED)*
 - [x] **Item #2**: Cache skeletal bones (`CharacterBones`) and eliminate per-frame heap allocations in `src/player.rs`. *(✅ FIXED)*
@@ -188,5 +170,5 @@
 - [x] **Item #11**: Decimate `post_apocalyptic_battlefield.glb` from 736k to 140k triangles. *(✅ FIXED)*
 - [x] **Item #12**: Decimate bot character meshes from 38k to 11k vertices. *(✅ FIXED)*
 - [x] **Item #13**: Optimize `Cargo.toml` release profile (`panic = "abort"`, LTO). *(✅ FIXED)*
-- [ ] **Item #14**: Strip unused Bevy default features in `Cargo.toml`. *(⏳ NOT FIXED)*
-- [ ] **Item #15**: Implement on-demand voice loading in `index.html`. *(⏳ NOT FIXED)*
+- [x] **Item #14**: Strip unused Bevy default features in `Cargo.toml`. *(✅ FIXED)*
+- [x] **Item #15**: Implement on-demand voice loading in `index.html`. *(✅ FIXED)*
