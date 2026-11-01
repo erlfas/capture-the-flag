@@ -1,0 +1,52 @@
+[
+  {
+    "id": "scene_01",
+    "file": "audio/scene_01.mp3",
+    "text": "Welcome to the Cyber-Athletic Coliseum. A high-voltage, three-versus-three Capture the Flag arena, engineered from the ground up in Rust, Bevy, and WebAssembly."
+  },
+  {
+    "id": "scene_02",
+    "file": "audio/scene_02.mp3",
+    "text": "Inside the sixty-by-forty-two meter Delta Sector Compound, Blue Squad and Red Squad clash across elevated platforms, central ruins, and a flooded sewer trench. First team to five captures rules the arena."
+  },
+  {
+    "id": "scene_03",
+    "file": "audio/scene_03.mp3",
+    "text": "The runtime pairs a lightweight HTML5 host with a compiled WebAssembly core. JavaScript manages the cinematic intro and low-latency audio pools, while Bevy drives the WebGL2 canvas through a wasm-bindgen bridge."
+  },
+  {
+    "id": "scene_04",
+    "file": "audio/scene_04.mp3",
+    "text": "Every gameplay domain is isolated as a modular Bevy plugin. Arena, Capture the Flag, Player, AI, Combat, Camera, and UI systems operate on shared Entity-Component data with zero tight coupling."
+  },
+  {
+    "id": "scene_05",
+    "file": "audio/scene_05.mp3",
+    "text": "Each frame executes a deterministic pipeline. Input and AI feed into combat and scoring chains, followed by Avian 3D physics substeps, boundary clamping, and procedural skeletal bone overrides."
+  },
+  {
+    "id": "scene_06",
+    "file": "audio/scene_06.mp3",
+    "text": "Flags transition dynamically between base, carrier, and dropped states. Meanwhile, a five-tier radio arbitrator filters competing combat events, ensuring only the highest-priority tactical callout hits the airwaves."
+  },
+  {
+    "id": "scene_07",
+    "file": "audio/scene_07.mp3",
+    "text": "To sustain sixty frames per second in the browser, expensive terrain raycasts are replaced by an O-of-one bilinear heightfield. A three-layer camera spring-arm prevents wall clipping and elevates smoothly near perimeter fences."
+  },
+  {
+    "id": "scene_08",
+    "file": "audio/scene_08.mp3",
+    "text": "Character models combine world-space retargeted animations with procedural PostUpdate inverse kinematics\u2014locking arm swing to footfalls and driving explosive kinetic shockwave punches."
+  },
+  {
+    "id": "scene_09",
+    "file": "audio/scene_09.mp3",
+    "text": "Five autonomous bots evaluate a real-time tactical decision tree\u2014scaling from Rookie to Mastermind to lead targets, screen allied flag carriers, and route across elevated platform ramps."
+  },
+  {
+    "id": "scene_10",
+    "file": "audio/scene_10.mp3",
+    "text": "Compilation syncs seamlessly from Windows to native WSL2 storage. Trunk and wasm-bindgen package the optimized binary, verified by exact process monitors and served live to your browser."
+  }
+]

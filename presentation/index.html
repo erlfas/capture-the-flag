@@ -1,0 +1,1918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Cyber-Athletic Coliseum — Cinematic Architecture Presentation</title>
+    <style>
+        :root {
+            --bg-void: #050811;
+            --bg-panel: rgba(8, 15, 28, 0.82);
+            --bg-panel-strong: rgba(6, 12, 24, 0.94);
+            --cyan: #00f0ff;
+            --cyan-dim: rgba(0, 240, 255, 0.25);
+            --cyan-glow: rgba(0, 240, 255, 0.55);
+            --blue-team: #1e90ff;
+            --red-team: #ff3338;
+            --amber: #ffb800;
+            --emerald: #00ff88;
+            --text-main: #edf4ff;
+            --text-muted: #7f95b5;
+            --chamfer: polygon(
+                0 12px, 12px 0,
+                calc(100% - 12px) 0, 100% 12px,
+                100% calc(100% - 12px), calc(100% - 12px) 100%,
+                12px 100%, 0 calc(100% - 12px)
+            );
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        html, body {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background: var(--bg-void);
+            color: var(--text-main);
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+        }
+
+        /* ==========================================================================
+           FIXED THEME BACKGROUND: PARALLAX STORM CLOUDS + HOLOGRAPHIC PERSPECTIVE GRID
+           ========================================================================== */
+        #bg-layer {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            overflow: hidden;
+            background:
+                radial-gradient(circle at 50% 25%, rgba(0, 240, 255, 0.10) 0%, transparent 60%),
+                radial-gradient(circle at 18% 60%, rgba(30, 144, 255, 0.10) 0%, transparent 45%),
+                radial-gradient(circle at 82% 60%, rgba(255, 51, 56, 0.10) 0%, transparent 45%),
+                linear-gradient(180deg, #04070e 0%, #091322 55%, #050811 100%);
+        }
+
+        .storm-parallax {
+            position: absolute;
+            top: -5%;
+            left: -50%;
+            width: 200%;
+            height: 60%;
+            background-image: url('../assets/ui/storm_clouds_layer1.png');
+            background-repeat: repeat-x;
+            background-size: 50% 100%;
+            opacity: 0.22;
+            filter: contrast(1.15) brightness(0.8);
+            animation: drift-clouds 90s linear infinite;
+            pointer-events: none;
+        }
+
+        .storm-parallax.layer2 {
+            background-image: url('../assets/ui/storm_clouds_layer2.png');
+            top: 4%;
+            opacity: 0.16;
+            animation: drift-clouds 55s linear infinite reverse;
+        }
+
+        @keyframes drift-clouds {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(25%); }
+        }
+
+        .holo-grid {
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(0, 240, 255, 0.045) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 240, 255, 0.045) 1px, transparent 1px);
+            background-size: 48px 48px;
+            mask-image: radial-gradient(ellipse at 50% 50%, black 35%, transparent 85%);
+            -webkit-mask-image: radial-gradient(ellipse at 50% 50%, black 35%, transparent 85%);
+        }
+
+        /* ==========================================================================
+           GLOBAL LASER SCANLINE SWEEP (FIXED SLIDE TRANSITION EFFECT)
+           ========================================================================== */
+        #laser-sweep {
+            position: fixed;
+            left: 0;
+            right: 0;
+            top: -10%;
+            height: 4px;
+            background: linear-gradient(90deg, transparent 0%, var(--cyan) 20%, #fff 50%, var(--cyan) 80%, transparent 100%);
+            box-shadow: 0 0 28px 6px var(--cyan-glow);
+            z-index: 900;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #laser-sweep.sweeping {
+            animation: laser-scan 0.95s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        @keyframes laser-scan {
+            0% { top: 6%; opacity: 0.95; }
+            85% { opacity: 0.75; }
+            100% { top: 92%; opacity: 0; }
+        }
+
+        /* ==========================================================================
+           TOP TELEMETRY HUD BAR
+           ========================================================================== */
+        #top-hud {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 62px;
+            padding: 0 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: linear-gradient(180deg, rgba(5, 9, 18, 0.95) 0%, rgba(5, 9, 18, 0.55) 100%);
+            border-bottom: 1px solid var(--cyan-dim);
+            z-index: 500;
+            backdrop-filter: blur(10px);
+        }
+
+        .hud-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .scene-badge {
+            background: rgba(0, 240, 255, 0.12);
+            border: 1px solid var(--cyan);
+            color: var(--cyan);
+            padding: 5px 12px;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 2px;
+            clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+            box-shadow: 0 0 14px rgba(0, 240, 255, 0.25);
+        }
+
+        #hud-scene-title {
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: 2.5px;
+            text-transform: uppercase;
+            color: var(--text-main);
+            text-shadow: 0 0 12px rgba(0, 240, 255, 0.35);
+        }
+
+        .hud-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .voice-viz-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(8, 16, 30, 0.85);
+            border: 1px solid var(--cyan-dim);
+            border-radius: 4px;
+            padding: 5px 12px;
+        }
+
+        .voice-viz-label {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            color: var(--cyan);
+            text-transform: uppercase;
+        }
+
+        #voice-canvas {
+            width: 110px;
+            height: 24px;
+            display: block;
+        }
+
+        .telemetry-pill {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            color: var(--emerald);
+            border: 1px solid rgba(0, 255, 136, 0.35);
+            background: rgba(0, 255, 136, 0.08);
+            padding: 5px 11px;
+            border-radius: 4px;
+        }
+
+        /* ==========================================================================
+           MAIN STAGE & FIXED SLIDE CONTAINERS
+           ========================================================================== */
+        #stage-wrapper {
+            position: fixed;
+            top: 62px;
+            bottom: 92px;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 18px 34px;
+        }
+
+        .slide {
+            position: absolute;
+            inset: 18px 34px;
+            opacity: 0;
+            visibility: hidden;
+            transform: scale(0.965) translateY(10px);
+            filter: blur(8px);
+            transition:
+                opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.65s cubic-bezier(0.16, 1, 0.3, 1),
+                filter 0.65s cubic-bezier(0.16, 1, 0.3, 1),
+                visibility 0.65s;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .slide.active {
+            opacity: 1;
+            visibility: visible;
+            transform: scale(1) translateY(0);
+            filter: blur(0);
+        }
+
+        /* Unified Chamfered Holographic Card */
+        .holo-card {
+            background: var(--bg-panel);
+            border: 1px solid var(--cyan-dim);
+            clip-path: var(--chamfer);
+            box-shadow: inset 0 0 30px rgba(0, 240, 255, 0.05), 0 12px 36px rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(12px);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .holo-card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+            opacity: 0.7;
+        }
+
+        /* Animated SVG Energy Conduit Paths (Fixed Theme across all diagrams) */
+        .conduit-track {
+            fill: none;
+            stroke: rgba(0, 240, 255, 0.18);
+            stroke-width: 2.5;
+        }
+
+        .conduit-pulse {
+            fill: none;
+            stroke: var(--cyan);
+            stroke-width: 3;
+            stroke-linecap: round;
+            stroke-dasharray: 14 28;
+            animation: flow-Forward 1.2s linear infinite;
+            filter: drop-shadow(0 0 6px var(--cyan));
+        }
+
+        .conduit-pulse.red {
+            stroke: var(--red-team);
+            filter: drop-shadow(0 0 6px var(--red-team));
+        }
+
+        .conduit-pulse.amber {
+            stroke: var(--amber);
+            filter: drop-shadow(0 0 6px var(--amber));
+        }
+
+        .conduit-pulse.emerald {
+            stroke: var(--emerald);
+            filter: drop-shadow(0 0 6px var(--emerald));
+        }
+
+        @keyframes flow-Forward {
+            to { stroke-dashoffset: -42; }
+        }
+
+        @keyframes pulse-ring {
+            0%, 100% { transform: scale(1); opacity: 0.75; }
+            50% { transform: scale(1.12); opacity: 1; }
+        }
+
+        @keyframes float-slow {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-6px); }
+        }
+
+        /* Minimal Tag Badges */
+        .kpi-row {
+            display: flex;
+            gap: 14px;
+            justify-content: center;
+            margin-top: 14px;
+        }
+
+        .kpi-badge {
+            background: rgba(8, 18, 34, 0.9);
+            border: 1px solid var(--cyan-dim);
+            clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+            padding: 8px 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .kpi-val {
+            font-size: 16px;
+            font-weight: 800;
+            color: var(--cyan);
+            letter-spacing: 1.5px;
+        }
+
+        .kpi-lbl {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* ==========================================================================
+           SCENE-SPECIFIC VISUAL LAYOUTS (HEAVY ILLUSTRATIONS, MINIMAL TEXT)
+           ========================================================================== */
+
+        /* SCENE 1: COLD OPEN & VIDEO STAGE */
+        .s1-grid {
+            display: grid;
+            grid-template-columns: 1.45fr 1fr;
+            gap: 24px;
+            height: 100%;
+            align-items: stretch;
+        }
+
+        .video-box {
+            position: relative;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+        }
+
+        .video-box video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.9;
+        }
+
+        .video-hud-overlay {
+            position: absolute;
+            inset: 16px;
+            border: 1px solid rgba(0, 240, 255, 0.35);
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 14px;
+        }
+
+        .s1-hero-panel {
+            padding: 28px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .hero-title {
+            font-size: 38px;
+            font-weight: 900;
+            letter-spacing: 3px;
+            line-height: 1.08;
+            text-transform: uppercase;
+            background: linear-gradient(90deg, #ffffff 0%, var(--cyan) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-sub {
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            color: var(--amber);
+            text-transform: uppercase;
+            margin-top: 8px;
+        }
+
+        .stack-emblems {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin: 18px 0;
+        }
+
+        .emblem-card {
+            background: rgba(0, 240, 255, 0.06);
+            border: 1px solid var(--cyan-dim);
+            padding: 14px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: transform 0.3s, border-color 0.3s;
+        }
+
+        .emblem-card.lit {
+            border-color: var(--cyan);
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        /* SCENE 2: ARENA & 3V3 SQUAD ROSTER */
+        .s2-layout {
+            display: grid;
+            grid-template-columns: 230px 1fr 230px;
+            gap: 20px;
+            height: 100%;
+            align-items: stretch;
+        }
+
+        .squad-column {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            justify-content: space-between;
+        }
+
+        .operator-card {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            background: var(--bg-panel);
+            clip-path: var(--chamfer);
+            border: 1px solid rgba(30, 144, 255, 0.45);
+            position: relative;
+        }
+
+        .operator-card.red {
+            border-color: rgba(255, 51, 56, 0.45);
+            flex-direction: row-reverse;
+            text-align: right;
+        }
+
+        .operator-portrait {
+            width: 68px;
+            height: 68px;
+            border-radius: 6px;
+            object-fit: cover;
+            object-position: top center;
+            border: 2px solid var(--blue-team);
+            background: #0a1220;
+            flex-shrink: 0;
+        }
+
+        .operator-card.red .operator-portrait {
+            border-color: var(--red-team);
+        }
+
+        .op-name {
+            font-size: 16px;
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+        }
+
+        .op-role {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: var(--cyan);
+            text-transform: uppercase;
+            margin-top: 3px;
+        }
+
+        .operator-card.red .op-role {
+            color: #ff7b7e;
+        }
+
+        .arena-map-stage {
+            position: relative;
+            background-image: url('../art/scene/post_apocalyptic_scene.jpg');
+            background-size: cover;
+            background-position: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .arena-map-stage::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle, rgba(5, 10, 20, 0.35) 0%, rgba(5, 10, 20, 0.82) 100%);
+        }
+
+        .arena-svg-overlay {
+            position: relative;
+            z-index: 2;
+            width: 94%;
+            height: 90%;
+        }
+
+        /* SCENE 7 & 8 VISUAL CARDS */
+        .split-stage {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 22px;
+            height: 100%;
+        }
+
+        .compare-strip {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: auto;
+        }
+
+        .snap-box {
+            position: relative;
+            height: 135px;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid var(--cyan-dim);
+        }
+
+        .snap-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .snap-tag {
+            position: absolute;
+            bottom: 6px;
+            left: 6px;
+            padding: 3px 8px;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            background: rgba(5, 9, 18, 0.88);
+            border-left: 3px solid var(--cyan);
+            text-transform: uppercase;
+        }
+
+        .snap-tag.warn {
+            border-left-color: var(--red-team);
+            color: #ff9a9c;
+        }
+
+        .snap-tag.ok {
+            border-left-color: var(--emerald);
+            color: var(--emerald);
+        }
+
+        /* ==========================================================================
+           BOTTOM CINEMA TELEPROMPTER & CONTROL DOCK
+           ========================================================================== */
+        #bottom-dock {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 92px;
+            background: linear-gradient(0deg, rgba(4, 8, 16, 0.98) 0%, rgba(6, 12, 24, 0.86) 100%);
+            border-top: 1px solid var(--cyan-dim);
+            z-index: 500;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 10px 28px 12px;
+            backdrop-filter: blur(12px);
+        }
+
+        #subtitle-bar {
+            text-align: center;
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: 0.6px;
+            color: #e2f1ff;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        #subtitle-bar span.speaker-tag {
+            color: var(--cyan);
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            margin-right: 8px;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        .controls-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+        }
+
+        .btn-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .cyber-btn {
+            background: rgba(0, 240, 255, 0.08);
+            border: 1px solid var(--cyan-dim);
+            color: var(--text-main);
+            padding: 6px 14px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .cyber-btn:hover {
+            background: rgba(0, 240, 255, 0.22);
+            border-color: var(--cyan);
+            box-shadow: 0 0 14px rgba(0, 240, 255, 0.4);
+        }
+
+        .cyber-btn.active {
+            background: rgba(0, 240, 255, 0.25);
+            border-color: var(--cyan);
+            color: var(--cyan);
+        }
+
+        .cyber-btn.launch-game {
+            border-color: rgba(0, 255, 136, 0.55);
+            background: rgba(0, 255, 136, 0.12);
+            color: var(--emerald);
+            text-decoration: none;
+        }
+
+        /* Scene Segmented Timeline Scrubber */
+        #timeline-dots {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 6px;
+            max-width: 680px;
+        }
+
+        .seg-pill {
+            height: 8px;
+            background: rgba(255, 255, 255, 0.12);
+            border-radius: 2px;
+            overflow: hidden;
+            cursor: pointer;
+            position: relative;
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            transition: transform 0.15s;
+        }
+
+        .seg-pill:hover {
+            transform: scaleY(1.4);
+            border-color: var(--cyan);
+        }
+
+        .seg-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--blue-team), var(--cyan));
+            box-shadow: 0 0 8px var(--cyan);
+        }
+
+        .seg-pill.done .seg-fill {
+            width: 100%;
+        }
+
+        /* Start Cinema Overlay (Unlocks Browser AudioContext & Autoplay) */
+        #cinema-start-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 2000;
+            background: radial-gradient(circle at 50% 45%, rgba(8, 22, 42, 0.94) 0%, rgba(3, 6, 12, 0.98) 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+            transition: opacity 0.6s ease, visibility 0.6s ease;
+        }
+
+        #cinema-start-overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .start-card {
+            padding: 40px 56px;
+            text-align: center;
+            max-width: 680px;
+        }
+
+        .start-btn-big {
+            margin-top: 26px;
+            padding: 16px 38px;
+            font-size: 15px;
+            font-weight: 800;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: #040810;
+            background: linear-gradient(90deg, var(--cyan), #5cf6ff);
+            border: none;
+            clip-path: var(--chamfer);
+            cursor: pointer;
+            box-shadow: 0 0 35px rgba(0, 240, 255, 0.6);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .start-btn-big:hover {
+            transform: scale(1.04);
+            box-shadow: 0 0 50px rgba(0, 240, 255, 0.9);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- FIXED PARALLAX BACKGROUND & HOLOGRAPHIC GRID -->
+    <div id="bg-layer">
+        <div class="storm-parallax"></div>
+        <div class="storm-parallax layer2"></div>
+        <div class="holo-grid"></div>
+    </div>
+
+    <!-- FIXED LASER SCANLINE SWEEP -->
+    <div id="laser-sweep"></div>
+
+    <!-- TOP TELEMETRY HUD -->
+    <header id="top-hud">
+        <div class="hud-left">
+            <div class="scene-badge" id="hud-scene-num">SCENE 01 // 10</div>
+            <div id="hud-scene-title">CYBER-ATHLETIC COLISEUM</div>
+        </div>
+        <div class="hud-right">
+            <div class="voice-viz-box" title="ElevenLabs Deep Bass Narrator Spectrum">
+                <span class="voice-viz-label">NARRATOR BASS</span>
+                <canvas id="voice-canvas" width="110" height="24"></canvas>
+            </div>
+            <div class="telemetry-pill">RUST • BEVY 0.15 • WASM32</div>
+        </div>
+    </header>
+
+    <!-- ==========================================================================
+         MAIN 10-SCENE VISUAL STAGE (MINIMAL TEXT, HEAVY ANIMATED ILLUSTRATIONS)
+         ========================================================================== -->
+    <main id="stage-wrapper">
+
+        <!-- SCENE 01: COLD OPEN & TITLE -->
+        <section class="slide active" data-title="01 // CYBER-ATHLETIC COLISEUM">
+            <div class="s1-grid">
+                <div class="holo-card video-box">
+                    <video id="s1-video" src="../video/intro.mp4" muted loop playsinline preload="auto"></video>
+                    <div class="video-hud-overlay">
+                        <div style="display:flex; justify-content:space-between; font-size:11px; letter-spacing:2px; color:var(--cyan); font-weight:700;">
+                            <span>REC // DELTA SECTOR COMPOUND</span>
+                            <span>CAM_01 [LIVE FEED]</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:flex-end;">
+                            <span style="background:rgba(5,10,20,0.85); padding:5px 10px; border-left:3px solid var(--cyan); font-size:11px; letter-spacing:1.5px;">3V3 CAPTURE THE FLAG • FIRST TO 5</span>
+                            <button class="cyber-btn" style="pointer-events:auto;" onclick="playSampleVoice('../assets/voices/anders/match_start.mp3')">🔊 ANDERS RADIO CALL</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="holo-card s1-hero-panel">
+                    <div>
+                        <div class="hero-sub">DELTA SECTOR // TACTICAL BRIEFING</div>
+                        <h1 class="hero-title" style="margin-top:8px;">CYBER-ATHLETIC<br/>COLISEUM</h1>
+                    </div>
+
+                    <!-- Animated Core Engine Architecture Emblem SVG -->
+                    <svg viewBox="0 0 420 210" style="width:100%; height:195px;">
+                        <defs>
+                            <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
+                                <stop offset="0%" stop-color="#00f0ff" stop-opacity="0.35"/>
+                                <stop offset="100%" stop-color="#00f0ff" stop-opacity="0"/>
+                            </radialGradient>
+                        </defs>
+                        <circle cx="210" cy="105" r="85" fill="url(#coreGlow)"/>
+                        <circle cx="210" cy="105" r="64" fill="none" stroke="rgba(0,240,255,0.25)" stroke-width="1.5" stroke-dasharray="6 6"/>
+
+                        <!-- Energy Conduits from 4 Tech Pillars into Core -->
+                        <path class="conduit-track" d="M 65 45 L 165 85 M 355 45 L 255 85 M 65 165 L 165 125 M 355 165 L 255 125"/>
+                        <path class="conduit-pulse" d="M 65 45 L 165 85 M 355 45 L 255 85 M 65 165 L 165 125 M 355 165 L 255 125"/>
+
+                        <!-- Center Core Hexagon -->
+                        <polygon points="210,55 255,80 255,130 210,155 165,130 165,80" fill="#071426" stroke="#00f0ff" stroke-width="2.5"/>
+                        <text x="210" y="102" text-anchor="middle" fill="#00f0ff" font-size="13" font-weight="900" letter-spacing="2">3V3 CTF</text>
+                        <text x="210" y="120" text-anchor="middle" fill="#edf4ff" font-size="10" font-weight="700" letter-spacing="1.5">60 FPS WEBGL2</text>
+
+                        <!-- 4 Corner Nodes -->
+                        <g transform="translate(10, 22)">
+                            <rect width="105" height="44" rx="4" fill="#081528" stroke="#1e90ff" stroke-width="1.8"/>
+                            <text x="52" y="20" text-anchor="middle" fill="#00f0ff" font-size="11" font-weight="800">RUST 2021</text>
+                            <text x="52" y="35" text-anchor="middle" fill="#8fa8c8" font-size="9" font-weight="700">ZERO-GC MEMORY</text>
+                        </g>
+                        <g transform="translate(305, 22)">
+                            <rect width="105" height="44" rx="4" fill="#081528" stroke="#00f0ff" stroke-width="1.8"/>
+                            <text x="52" y="20" text-anchor="middle" fill="#00f0ff" font-size="11" font-weight="800">BEVY 0.15.3</text>
+                            <text x="52" y="35" text-anchor="middle" fill="#8fa8c8" font-size="9" font-weight="700">DATA ECS ENGINE</text>
+                        </g>
+                        <g transform="translate(10, 142)">
+                            <rect width="105" height="44" rx="4" fill="#081528" stroke="#ffb800" stroke-width="1.8"/>
+                            <text x="52" y="20" text-anchor="middle" fill="#ffb800" font-size="11" font-weight="800">AVIAN 3D 0.2</text>
+                            <text x="52" y="35" text-anchor="middle" fill="#8fa8c8" font-size="9" font-weight="700">RIGID PHYSICS</text>
+                        </g>
+                        <g transform="translate(305, 142)">
+                            <rect width="105" height="44" rx="4" fill="#081528" stroke="#00ff88" stroke-width="1.8"/>
+                            <text x="52" y="20" text-anchor="middle" fill="#00ff88" font-size="11" font-weight="800">TRUNK WASM</text>
+                            <text x="52" y="35" text-anchor="middle" fill="#8fa8c8" font-size="9" font-weight="700">BROWSER NATIVE</text>
+                        </g>
+                    </svg>
+
+                    <div class="kpi-row" style="margin-top:0;">
+                        <div class="kpi-badge"><span class="kpi-val">07:42</span><span class="kpi-lbl">MATCH CLOCK</span></div>
+                        <div class="kpi-badge"><span class="kpi-val">5 PTS</span><span class="kpi-lbl">WIN TARGET</span></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SCENE 02: ARENA TOPOGRAPHY & 3V3 SQUAD ROSTER -->
+        <section class="slide" data-title="02 // DELTA SECTOR ARENA & 3V3 SQUADS">
+            <div class="s2-layout">
+                <!-- BLUE SQUAD -->
+                <div class="squad-column">
+                    <div style="font-size:12px; font-weight:900; letter-spacing:2px; color:var(--blue-team); text-align:center;">BLUE SQUAD // WEST BASE</div>
+                    <div class="operator-card">
+                        <img class="operator-portrait" src="../art/test_anders.png" alt="Anders"/>
+                        <div>
+                            <div class="op-name">ANDERS</div>
+                            <div class="op-role">HUMAN PLAYER • LEADER</div>
+                        </div>
+                    </div>
+                    <div class="operator-card">
+                        <img class="operator-portrait" src="../players/morten-t-pose-blue.jpg" alt="Morten"/>
+                        <div>
+                            <div class="op-name">MORTEN</div>
+                            <div class="op-role">AI VANGUARD STRIKER</div>
+                        </div>
+                    </div>
+                    <div class="operator-card">
+                        <img class="operator-portrait" src="../players/jonas-t-pose-blue.jpg" alt="Jonas"/>
+                        <div>
+                            <div class="op-name">JONAS</div>
+                            <div class="op-role">AI BASE DEFENDER</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- INTERACTIVE HOLOGRAPHIC ARENA TOPOGRAPHY MAP -->
+                <div class="holo-card arena-map-stage">
+                    <svg class="arena-svg-overlay" viewBox="0 0 700 420">
+                        <!-- Angled Perimeter Fence Polygon matching playable_min_x(z) / playable_max_x(z) -->
+                        <polygon points="65,45 635,45 655,310 625,375 75,375 45,310"
+                                 fill="rgba(6, 16, 32, 0.65)" stroke="#00f0ff" stroke-width="2" stroke-dasharray="10 5"/>
+                        <text x="350" y="32" text-anchor="middle" fill="#00f0ff" font-size="11" font-weight="800" letter-spacing="3">ANGLED BARBED-WIRE PERIMETER (60M × 42M)</text>
+
+                        <!-- North Shipping Containers -->
+                        <g transform="translate(215, 95) rotate(18)">
+                            <rect x="-48" y="-20" width="96" height="40" fill="rgba(255,184,0,0.18)" stroke="#ffb800" stroke-width="2"/>
+                            <text x="0" y="4" text-anchor="middle" fill="#ffb800" font-size="9" font-weight="800">CONTAINER A</text>
+                        </g>
+                        <g transform="translate(435, 95) rotate(-12)">
+                            <rect x="-48" y="-20" width="96" height="40" fill="rgba(255,184,0,0.18)" stroke="#ffb800" stroke-width="2"/>
+                            <text x="0" y="4" text-anchor="middle" fill="#ffb800" font-size="9" font-weight="800">CONTAINER B</text>
+                        </g>
+
+                        <!-- Attack & Capture Energy Vectors -->
+                        <path class="conduit-track" d="M 145 210 C 260 140, 440 140, 555 210"/>
+                        <path class="conduit-pulse" d="M 145 210 C 260 140, 440 140, 555 210"/>
+
+                        <path class="conduit-track" d="M 555 235 C 440 305, 260 305, 145 235"/>
+                        <path class="conduit-pulse red" d="M 555 235 C 440 305, 260 305, 145 235"/>
+
+                        <!-- West Blue Platform -->
+                        <rect x="75" y="145" width="130" height="150" rx="8" fill="rgba(30, 144, 255, 0.22)" stroke="#1e90ff" stroke-width="2.5"/>
+                        <circle cx="140" cy="220" r="28" fill="rgba(30, 144, 255, 0.35)" stroke="#00f0ff" stroke-width="2"/>
+                        <text x="140" y="217" text-anchor="middle" fill="#fff" font-size="11" font-weight="900">BLUE FLAG</text>
+                        <text x="140" y="232" text-anchor="middle" fill="#00f0ff" font-size="9" font-weight="700">Y = +2.55M</text>
+                        <!-- Blue Ramps -->
+                        <rect x="205" y="162" width="38" height="26" fill="rgba(0,240,255,0.2)" stroke="#00f0ff" stroke-width="1.2"/>
+                        <rect x="205" y="252" width="38" height="26" fill="rgba(0,240,255,0.2)" stroke="#00f0ff" stroke-width="1.2"/>
+
+                        <!-- Central Hologram Courtyard & Sewer Trench -->
+                        <circle cx="350" cy="220" r="46" fill="rgba(0, 240, 255, 0.10)" stroke="#00f0ff" stroke-width="2" stroke-dasharray="6 4"/>
+                        <text x="350" y="216" text-anchor="middle" fill="#00f0ff" font-size="11" font-weight="900">COURTYARD</text>
+                        <text x="350" y="231" text-anchor="middle" fill="#9rb8d8" font-size="9" font-weight="700">Y = +0.10M</text>
+
+                        <!-- Sewer Canal Trench -->
+                        <path d="M 310 290 L 365 365" stroke="#00ff88" stroke-width="14" stroke-linecap="round" opacity="0.35"/>
+                        <text x="340" y="345" text-anchor="middle" fill="#00ff88" font-size="9" font-weight="800">SEWER TRENCH (-2.2M)</text>
+
+                        <!-- East Red Platform -->
+                        <rect x="495" y="145" width="130" height="150" rx="8" fill="rgba(255, 51, 56, 0.22)" stroke="#ff3338" stroke-width="2.5"/>
+                        <circle cx="560" cy="220" r="28" fill="rgba(255, 51, 56, 0.35)" stroke="#ff3338" stroke-width="2"/>
+                        <text x="560" y="217" text-anchor="middle" fill="#fff" font-size="11" font-weight="900">RED FLAG</text>
+                        <text x="560" y="232" text-anchor="middle" fill="#ffb800" font-size="9" font-weight="700">Y = +2.55M</text>
+                        <!-- Red West Ramp & South Stairs -->
+                        <rect x="457" y="205" width="38" height="30" fill="rgba(255,51,56,0.25)" stroke="#ff3338" stroke-width="1.2"/>
+                        <rect x="542" y="295" width="36" height="42" fill="rgba(255,51,56,0.25)" stroke="#ff3338" stroke-width="1.2"/>
+                    </svg>
+                </div>
+
+                <!-- RED SQUAD -->
+                <div class="squad-column">
+                    <div style="font-size:12px; font-weight:900; letter-spacing:2px; color:var(--red-team); text-align:center;">RED SQUAD // EAST BASE</div>
+                    <div class="operator-card red">
+                        <img class="operator-portrait" src="../players/siri-t-pose-red.jpg" alt="Siri"/>
+                        <div>
+                            <div class="op-name">SIRI</div>
+                            <div class="op-role">LEAD FLAG RUNNER</div>
+                        </div>
+                    </div>
+                    <div class="operator-card red">
+                        <img class="operator-portrait" src="../players/lisa-t-pose-red.jpg" alt="Lisa"/>
+                        <div>
+                            <div class="op-name">LISA</div>
+                            <div class="op-role">FLANKER / SCOUT</div>
+                        </div>
+                    </div>
+                    <div class="operator-card red">
+                        <img class="operator-portrait" src="../players/per-t-pose-red.jpg" alt="Per"/>
+                        <div>
+                            <div class="op-name">PER</div>
+                            <div class="op-role">HEAVY ENFORCER</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SCENE 03: DUAL-LAYER HYBRID RUNTIME (HTML5 + WASM) -->
+        <section class="slide" data-title="03 // DUAL-LAYER HYBRID BROWSER RUNTIME">
+            <div class="holo-card" style="height:100%; padding:24px; display:flex; flex-direction:column; justify-content:space-between;">
+                <svg viewBox="0 0 1000 390" style="width:100%; height:85%;">
+                    <!-- LEFT: HTML5 / JS HOST -->
+                    <rect x="30" y="25" width="330" height="340" rx="10" fill="rgba(10, 24, 48, 0.85)" stroke="#1e90ff" stroke-width="2"/>
+                    <text x="195" y="58" text-anchor="middle" fill="#1e90ff" font-size="15" font-weight="900" letter-spacing="2">HTML5 HOST (INDEX.HTML)</text>
+
+                    <rect x="60" y="82" width="270" height="64" rx="6" fill="#071224" stroke="#00f0ff" stroke-width="1.5"/>
+                    <text x="195" y="110" text-anchor="middle" fill="#fff" font-size="13" font-weight="800">INTRO VIDEO OVERLAY</text>
+                    <text x="195" y="130" text-anchor="middle" fill="#00f0ff" font-size="10" font-weight="700">video/intro.mp4 • Skip Handler</text>
+
+                    <rect x="60" y="168" width="270" height="64" rx="6" fill="#071224" stroke="#ffb800" stroke-width="1.5"/>
+                    <text x="195" y="196" text-anchor="middle" fill="#fff" font-size="13" font-weight="800">HTML5 AUDIO POOL &amp; CACHE</text>
+                    <text x="195" y="216" text-anchor="middle" fill="#ffb800" font-size="10" font-weight="700">6× punch.mp3 Pool • 45 Voice Clips</text>
+
+                    <rect x="60" y="254" width="270" height="64" rx="6" fill="#071224" stroke="#00ff88" stroke-width="1.5"/>
+                    <text x="195" y="282" text-anchor="middle" fill="#fff" font-size="13" font-weight="800">WEBGL2 CANVAS (#BEVY)</text>
+                    <text x="195" y="302" text-anchor="middle" fill="#00ff88" font-size="10" font-weight="700">100vw × 100vh • Pointer Lock</text>
+
+                    <!-- CENTER: WASM-BINDGEN FFI BRIDGE -->
+                    <rect x="425" y="75" width="150" height="240" rx="10" fill="rgba(0, 240, 255, 0.08)" stroke="#00f0ff" stroke-width="2.5"/>
+                    <text x="500" y="112" text-anchor="middle" fill="#00f0ff" font-size="13" font-weight="900" letter-spacing="1.5">#[WASM_BINDGEN]</text>
+                    <text x="500" y="130" text-anchor="middle" fill="#9ab4d4" font-size="10" font-weight="700">FFI BRIDGE (types.rs)</text>
+
+                    <text x="500" y="172" text-anchor="middle" fill="#fff" font-size="10" font-family="monospace">is_match_started_js()</text>
+                    <text x="500" y="205" text-anchor="middle" fill="#ffb800" font-size="10" font-family="monospace">play_sfx_js()</text>
+                    <text x="500" y="238" text-anchor="middle" fill="#ffb800" font-size="10" font-family="monospace">play_voice_js()</text>
+                    <text x="500" y="271" text-anchor="middle" fill="#00ff88" font-size="10" font-family="monospace">return_to_intro_js()</text>
+
+                    <!-- RIGHT: RUST / BEVY WASM ENGINE -->
+                    <rect x="640" y="25" width="330" height="340" rx="10" fill="rgba(10, 24, 48, 0.85)" stroke="#00ff88" stroke-width="2"/>
+                    <text x="805" y="58" text-anchor="middle" fill="#00ff88" font-size="15" font-weight="900" letter-spacing="2">BEVY 0.15 WASM CORE</text>
+
+                    <rect x="670" y="82" width="270" height="64" rx="6" fill="#071224" stroke="#00f0ff" stroke-width="1.5"/>
+                    <text x="805" y="110" text-anchor="middle" fill="#fff" font-size="13" font-weight="800">KOTH &amp; MATCH STATE</text>
+                    <text x="805" y="130" text-anchor="middle" fill="#00f0ff" font-size="10" font-weight="700">KothManager • PauseState Resource</text>
+
+                    <rect x="670" y="168" width="270" height="64" rx="6" fill="#071224" stroke="#ffb800" stroke-width="1.5"/>
+                    <text x="805" y="196" text-anchor="middle" fill="#fff" font-size="13" font-weight="800">COMBAT &amp; VOICE ARBITRATOR</text>
+                    <text x="805" y="216" text-anchor="middle" fill="#ffb800" font-size="10" font-weight="700">Priority Callout Queue • Hit Events</text>
+
+                    <rect x="670" y="254" width="270" height="64" rx="6" fill="#071224" stroke="#00ff88" stroke-width="1.5"/>
+                    <text x="805" y="282" text-anchor="middle" fill="#fff" font-size="13" font-weight="800">PBR &amp; AVIAN3D SOLVER</text>
+                    <text x="805" y="302" text-anchor="middle" fill="#00ff88" font-size="10" font-weight="700">SubstepCount(2) • GLB Skinning</text>
+
+                    <!-- Animated Bi-Directional Conduits -->
+                    <path class="conduit-track" d="M 330 114 L 670 114 M 670 200 L 330 200 M 670 286 L 330 286"/>
+                    <path class="conduit-pulse" d="M 330 114 L 670 114"/>
+                    <path class="conduit-pulse amber" d="M 670 200 L 330 200"/>
+                    <path class="conduit-pulse emerald" d="M 670 286 L 330 286"/>
+                </svg>
+
+                <div class="kpi-row">
+                    <div class="kpi-badge"><span class="kpi-val">ZERO LATENCY</span><span class="kpi-lbl">6× PRELOADED PUNCH POOL</span></div>
+                    <div class="kpi-badge"><span class="kpi-val">INLINE_JS FFI</span><span class="kpi-lbl">DIRECT WINDOW BRIDGE</span></div>
+                    <div class="kpi-badge"><span class="kpi-val">ASSET_META: NEVER</span><span class="kpi-lbl">CLEAN WASM ASSET LOADS</span></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SCENE 04: MODULAR ECS PLUGIN ARCHITECTURE -->
+        <section class="slide" data-title="04 // DOMAIN-DRIVEN BEVY ECS PLUGINS">
+            <div class="holo-card" style="height:100%; padding:20px; display:flex; flex-direction:column; justify-content:space-between;">
+                <svg viewBox="0 0 1000 400" style="width:100%; height:88%;">
+                    <!-- Conduits from Central ECS World to 7 Domain Plugins -->
+                    <path class="conduit-track" d="
+                        M 500 200 L 500 55
+                        M 500 200 L 790 85
+                        M 500 200 L 850 225
+                        M 500 200 L 690 345
+                        M 500 200 L 310 345
+                        M 500 200 L 150 225
+                        M 500 200 L 210 85
+                    "/>
+                    <path class="conduit-pulse" d="
+                        M 500 200 L 500 55
+                        M 500 200 L 790 85
+                        M 500 200 L 850 225
+                        M 500 200 L 690 345
+                        M 500 200 L 310 345
+                        M 500 200 L 150 225
+                        M 500 200 L 210 85
+                    "/>
+
+                    <!-- Central Bevy ECS World Hub -->
+                    <circle cx="500" cy="200" r="68" fill="#061428" stroke="#00f0ff" stroke-width="3"/>
+                    <circle cx="500" cy="200" r="56" fill="none" stroke="rgba(0,240,255,0.35)" stroke-width="1.5" stroke-dasharray="5 5"/>
+                    <text x="500" y="192" text-anchor="middle" fill="#00f0ff" font-size="14" font-weight="900" letter-spacing="1.5">BEVY ECS WORLD</text>
+                    <text x="500" y="210" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">types.rs + main.rs</text>
+                    <text x="500" y="225" text-anchor="middle" fill="#00ff88" font-size="9" font-weight="700">Avian3D Physics</text>
+
+                    <!-- 1. ArenaPlugin (Top) -->
+                    <g transform="translate(405, 14)">
+                        <rect width="190" height="64" rx="6" fill="#08162b" stroke="#00f0ff" stroke-width="2"/>
+                        <text x="95" y="26" text-anchor="middle" fill="#00f0ff" font-size="13" font-weight="900">ARENA PLUGIN</text>
+                        <text x="95" y="45" text-anchor="middle" fill="#bfd4f2" font-size="10" font-weight="700">GLB • Trimesh • Sky • Water</text>
+                    </g>
+
+                    <!-- 2. KothPlugin (Top Right) -->
+                    <g transform="translate(695, 48)">
+                        <rect width="195" height="64" rx="6" fill="#08162b" stroke="#ffb800" stroke-width="2"/>
+                        <text x="97" y="26" text-anchor="middle" fill="#ffb800" font-size="13" font-weight="900">KOTH / CTF PLUGIN</text>
+                        <text x="97" y="45" text-anchor="middle" fill="#bfd4f2" font-size="10" font-weight="700">Flags • Scoring • Voice Arbiter</text>
+                    </g>
+
+                    <!-- 3. PlayerPlugin (Mid Right) -->
+                    <g transform="translate(745, 192)">
+                        <rect width="205" height="64" rx="6" fill="#08162b" stroke="#1e90ff" stroke-width="2"/>
+                        <text x="102" y="26" text-anchor="middle" fill="#1e90ff" font-size="13" font-weight="900">PLAYER PLUGIN</text>
+                        <text x="102" y="45" text-anchor="middle" fill="#bfd4f2" font-size="10" font-weight="700">WASD • Magnetism • Bone IK</text>
+                    </g>
+
+                    <!-- 4. AiPlugin (Bottom Right) -->
+                    <g transform="translate(595, 314)">
+                        <rect width="195" height="64" rx="6" fill="#08162b" stroke="#ff3338" stroke-width="2"/>
+                        <text x="97" y="26" text-anchor="middle" fill="#ff3338" font-size="13" font-weight="900">AI BOT PLUGIN</text>
+                        <text x="97" y="45" text-anchor="middle" fill="#bfd4f2" font-size="10" font-weight="700">5 Bots • IQ Scaling • Ramps</text>
+                    </g>
+
+                    <!-- 5. CombatPlugin (Bottom Left) -->
+                    <g transform="translate(210, 314)">
+                        <rect width="195" height="64" rx="6" fill="#08162b" stroke="#ffb800" stroke-width="2"/>
+                        <text x="97" y="26" text-anchor="middle" fill="#ffb800" font-size="13" font-weight="900">COMBAT PLUGIN</text>
+                        <text x="97" y="45" text-anchor="middle" fill="#bfd4f2" font-size="10" font-weight="700">165° Shove Arc • Shockwaves</text>
+                    </g>
+
+                    <!-- 6. CameraPlugin (Mid Left) -->
+                    <g transform="translate(50, 192)">
+                        <rect width="205" height="64" rx="6" fill="#08162b" stroke="#00ff88" stroke-width="2"/>
+                        <text x="102" y="26" text-anchor="middle" fill="#00ff88" font-size="13" font-weight="900">CAMERA PLUGIN</text>
+                        <text x="102" y="45" text-anchor="middle" fill="#bfd4f2" font-size="10" font-weight="700">3rd-Person • Isometric • Ray Arm</text>
+                    </g>
+
+                    <!-- 7. UiPlugin (Top Left) -->
+                    <g transform="translate(110, 48)">
+                        <rect width="195" height="64" rx="6" fill="#08162b" stroke="#00f0ff" stroke-width="2"/>
+                        <text x="97" y="26" text-anchor="middle" fill="#00f0ff" font-size="13" font-weight="900">UI &amp; HUD PLUGIN</text>
+                        <text x="97" y="45" text-anchor="middle" fill="#bfd4f2" font-size="10" font-weight="700">Scoreboard • 3D Tags • Modals</text>
+                    </g>
+                </svg>
+
+                <div class="kpi-row">
+                    <div class="kpi-badge"><span class="kpi-val">9 MODULES</span><span class="kpi-lbl">CLEAN SEPARATION</span></div>
+                    <div class="kpi-badge"><span class="kpi-val">7 PLUGINS</span><span class="kpi-lbl">PLUG-AND-PLAY ECS</span></div>
+                    <div class="kpi-badge"><span class="kpi-val">SHARED TYPES</span><span class="kpi-lbl">HEALTH • STAMINA • STAGGER</span></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SCENE 05: DETERMINISTIC 16.6MS FRAME PIPELINE -->
+        <section class="slide" data-title="05 // 16.6MS DETERMINISTIC FRAME PIPELINE">
+            <div class="holo-card" style="height:100%; padding:24px; display:flex; flex-direction:column; justify-content:space-between;">
+                <svg viewBox="0 0 1000 380" style="width:100%; height:85%;">
+                    <!-- Main Horizontal Conduit Spine -->
+                    <path class="conduit-track" d="M 60 190 L 940 190" stroke-width="5"/>
+                    <path class="conduit-pulse" d="M 60 190 L 940 190" stroke-width="5"/>
+
+                    <!-- STAGE 1: INPUT & LOCOMOTION -->
+                    <g transform="translate(30, 55)">
+                        <rect width="205" height="270" rx="8" fill="#071529" stroke="#1e90ff" stroke-width="2"/>
+                        <rect width="205" height="36" rx="6" fill="rgba(30,144,255,0.22)"/>
+                        <text x="102" y="23" text-anchor="middle" fill="#00f0ff" font-size="12" font-weight="900">1. UPDATE: LOCOMOTION</text>
+
+                        <rect x="18" y="56" width="169" height="46" rx="4" fill="#0a1d36" stroke="#1e90ff"/>
+                        <text x="102" y="77" text-anchor="middle" fill="#fff" font-size="11" font-weight="800">update_camera</text>
+                        <text x="102" y="92" text-anchor="middle" fill="#89a7cc" font-size="9">Spring-Arm &amp; Yaw</text>
+
+                        <rect x="18" y="116" width="169" height="46" rx="4" fill="#0a1d36" stroke="#1e90ff"/>
+                        <text x="102" y="137" text-anchor="middle" fill="#fff" font-size="11" font-weight="800">handle_player_movement</text>
+                        <text x="102" y="152" text-anchor="middle" fill="#89a7cc" font-size="9">WASD + Magnetic Lunge</text>
+
+                        <rect x="18" y="176" width="169" height="46" rx="4" fill="#0a1d36" stroke="#1e90ff"/>
+                        <text x="102" y="197" text-anchor="middle" fill="#fff" font-size="11" font-weight="800">update_bot_behaviors</text>
+                        <text x="102" y="212" text-anchor="middle" fill="#89a7cc" font-size="9">5 AI Tactical Trees</text>
+                    </g>
+
+                    <!-- STAGE 2: CHAINED COMBAT & CTF -->
+                    <g transform="translate(275, 55)">
+                        <rect width="205" height="270" rx="8" fill="#071529" stroke="#ffb800" stroke-width="2"/>
+                        <rect width="205" height="36" rx="6" fill="rgba(255,184,0,0.22)"/>
+                        <text x="102" y="23" text-anchor="middle" fill="#ffb800" font-size="12" font-weight="900">2. UPDATE: .CHAIN()</text>
+
+                        <rect x="18" y="56" width="169" height="46" rx="4" fill="#0a1d36" stroke="#ffb800"/>
+                        <text x="102" y="77" text-anchor="middle" fill="#fff" font-size="11" font-weight="800">check_tackle_hits</text>
+                        <text x="102" y="92" text-anchor="middle" fill="#89a7cc" font-size="9">Knockback + Shockwave</text>
+
+                        <rect x="18" y="116" width="169" height="46" rx="4" fill="#0a1d36" stroke="#ffb800"/>
+                        <text x="102" y="137" text-anchor="middle" fill="#fff" font-size="11" font-weight="800">update_ctf_flags</text>
+                        <text x="102" y="152" text-anchor="middle" fill="#89a7cc" font-size="9">Steal • Drop • Score</text>
+
+                        <rect x="18" y="176" width="169" height="46" rx="4" fill="#0a1d36" stroke="#ffb800"/>
+                        <text x="102" y="197" text-anchor="middle" fill="#fff" font-size="11" font-weight="800">arbitrate_voice</text>
+                        <text x="102" y="212" text-anchor="middle" fill="#89a7cc" font-size="9">Single-Speaker Filter</text>
+                    </g>
+
+                    <!-- STAGE 3: AVIAN3D PHYSICS SOLVER -->
+                    <g transform="translate(520, 55)">
+                        <rect width="205" height="270" rx="8" fill="#071529" stroke="#00ff88" stroke-width="2"/>
+                        <rect width="205" height="36" rx="6" fill="rgba(0,255,136,0.22)"/>
+                        <text x="102" y="23" text-anchor="middle" fill="#00ff88" font-size="12" font-weight="900">3. PHYSICS SCHEDULE</text>
+
+                        <rect x="18" y="56" width="169" height="72" rx="4" fill="#0a1d36" stroke="#00ff88"/>
+                        <text x="102" y="84" text-anchor="middle" fill="#00ff88" font-size="12" font-weight="900">Avian3D Substeps (2×)</text>
+                        <text x="102" y="104" text-anchor="middle" fill="#89a7cc" font-size="9">120Hz Capsule vs Trimesh</text>
+
+                        <rect x="18" y="146" width="169" height="76" rx="4" fill="#0a1d36" stroke="#00ff88"/>
+                        <text x="102" y="174" text-anchor="middle" fill="#fff" font-size="11" font-weight="800">handle_fallout_respawns</text>
+                        <text x="102" y="192" text-anchor="middle" fill="#89a7cc" font-size="9">After PhysicsSet::Sync</text>
+                        <text x="102" y="207" text-anchor="middle" fill="#00ff88" font-size="9">Fence &amp; Container Clamp</text>
+                    </g>
+
+                    <!-- STAGE 4: POSTUPDATE SKELETAL IK -->
+                    <g transform="translate(765, 55)">
+                        <rect width="205" height="270" rx="8" fill="#071529" stroke="#00f0ff" stroke-width="2"/>
+                        <rect width="205" height="36" rx="6" fill="rgba(0,240,255,0.22)"/>
+                        <text x="102" y="23" text-anchor="middle" fill="#00f0ff" font-size="12" font-weight="900">4. POST-UPDATE IK</text>
+
+                        <rect x="18" y="56" width="169" height="46" rx="4" fill="#0a1d36" stroke="#00f0ff"/>
+                        <text x="102" y="77" text-anchor="middle" fill="#fff" font-size="11" font-weight="800">animate_targets</text>
+                        <text x="102" y="92" text-anchor="middle" fill="#89a7cc" font-size="9">GLB Idle / Run Blend</text>
+
+                        <rect x="18" y="116" width="169" height="46" rx="4" fill="#0a1d36" stroke="#00f0ff"/>
+                        <text x="102" y="137" text-anchor="middle" fill="#00f0ff" font-size="11" font-weight="800">apply_punch_pose</text>
+                        <text x="102" y="152" text-anchor="middle" fill="#89a7cc" font-size="9">90° Arm Swing &amp; Punch</text>
+
+                        <rect x="18" y="176" width="169" height="46" rx="4" fill="#0a1d36" stroke="#00f0ff"/>
+                        <text x="102" y="197" text-anchor="middle" fill="#fff" font-size="11" font-weight="800">TransformPropagate</text>
+                        <text x="102" y="212" text-anchor="middle" fill="#89a7cc" font-size="9">Final GPU Skinning Matrices</text>
+                    </g>
+                </svg>
+
+                <div class="kpi-row">
+                    <div class="kpi-badge"><span class="kpi-val">16.6 MS</span><span class="kpi-lbl">FRAME BUDGET</span></div>
+                    <div class="kpi-badge"><span class="kpi-val">2 SUBSTEPS</span><span class="kpi-lbl">66% LESS PHYSICS CPU</span></div>
+                    <div class="kpi-badge"><span class="kpi-val">ZERO THRASHING</span><span class="kpi-lbl">GUARDED TAFFY UI NODES</span></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SCENE 06: CTF STATE MACHINE & 5-TIER VOICE ARBITRATOR -->
+        <section class="slide" data-title="06 // FLAG STATE MACHINE & RADIO ARBITRATOR">
+            <div class="split-stage">
+                <!-- LEFT: CTF FLAG STATE TRIANGLE -->
+                <div class="holo-card" style="padding:20px; display:flex; flex-direction:column; justify-content:space-between;">
+                    <div style="font-size:13px; font-weight:900; letter-spacing:2px; color:var(--cyan); text-align:center;">CAPTURE THE FLAG STATE MACHINE (koth.rs)</div>
+                    <svg viewBox="0 0 460 320" style="width:100%; height:82%;">
+                        <!-- Triangle Conduits -->
+                        <path class="conduit-track" d="M 230 65 L 380 250 L 80 250 Z"/>
+                        <path class="conduit-pulse" d="M 230 65 L 380 250 L 80 250 Z"/>
+
+                        <!-- State 1: AtBase -->
+                        <g transform="translate(155, 22)">
+                            <rect width="150" height="58" rx="8" fill="#08182f" stroke="#00ff88" stroke-width="2.5"/>
+                            <text x="75" y="26" text-anchor="middle" fill="#00ff88" font-size="13" font-weight="900">FlagState::AtBase</text>
+                            <text x="75" y="44" text-anchor="middle" fill="#a8c2e0" font-size="9" font-weight="700">Touch Radius &lt;= 2.4m</text>
+                        </g>
+
+                        <!-- State 2: CarriedBy -->
+                        <g transform="translate(295, 232)">
+                            <rect width="155" height="62" rx="8" fill="#08182f" stroke="#00f0ff" stroke-width="2.5"/>
+                            <text x="77" y="26" text-anchor="middle" fill="#00f0ff" font-size="13" font-weight="900">CarriedBy(Entity)</text>
+                            <text x="77" y="45" text-anchor="middle" fill="#a8c2e0" font-size="9" font-weight="700">0.90× Speed • Score &lt;= 4.2m</text>
+                        </g>
+
+                        <!-- State 3: Dropped -->
+                        <g transform="translate(10, 232)">
+                            <rect width="155" height="62" rx="8" fill="#08182f" stroke="#ffb800" stroke-width="2.5"/>
+                            <text x="77" y="26" text-anchor="middle" fill="#ffb800" font-size="13" font-weight="900">FlagState::Dropped</text>
+                            <text x="77" y="45" text-anchor="middle" fill="#a8c2e0" font-size="9" font-weight="700">15s Auto-Return • 1.1s Lock</text>
+                        </g>
+
+                        <!-- Transition Labels -->
+                        <text x="348" y="148" text-anchor="middle" fill="#00f0ff" font-size="10" font-weight="800">ENEMY STEALS</text>
+                        <text x="230" y="285" text-anchor="middle" fill="#ff3338" font-size="10" font-weight="800">TACKLED (STAGGER &gt; 0)</text>
+                        <text x="108" y="148" text-anchor="middle" fill="#00ff88" font-size="10" font-weight="800">ALLY TOUCH / 15S</text>
+                    </svg>
+                    <div style="display:flex; justify-content:center; gap:10px;">
+                        <button class="cyber-btn" onclick="playSampleVoice('../assets/voices/siri/took_flag.mp3')">🔊 SIRI: TOOK FLAG</button>
+                        <button class="cyber-btn" onclick="playSampleVoice('../assets/voices/anders/captured_flag.mp3')">🔊 ANDERS: CAPTURED</button>
+                    </div>
+                </div>
+
+                <!-- RIGHT: 5-TIER VOICE PRIORITY PYRAMID -->
+                <div class="holo-card" style="padding:20px; display:flex; flex-direction:column; justify-content:space-between;">
+                    <div style="font-size:13px; font-weight:900; letter-spacing:2px; color:var(--amber); text-align:center;">5-TIER RADIO CALLOUT ARBITRATOR</div>
+                    <svg viewBox="0 0 460 320" style="width:100%; height:82%;">
+                        <!-- Tier 5 (Top) -->
+                        <polygon points="230,18 300,66 160,66" fill="rgba(0,255,136,0.25)" stroke="#00ff88" stroke-width="2"/>
+                        <text x="230" y="50" text-anchor="middle" fill="#00ff88" font-size="11" font-weight="900">5. MATCH VICTORY</text>
+
+                        <!-- Tier 4 -->
+                        <polygon points="155,74 305,74 335,122 125,122" fill="rgba(0,240,255,0.22)" stroke="#00f0ff" stroke-width="2"/>
+                        <text x="230" y="103" text-anchor="middle" fill="#00f0ff" font-size="12" font-weight="900">4. FLAG CAPTURE (+1 PT)</text>
+
+                        <!-- Tier 3 -->
+                        <polygon points="120,130 340,130 370,178 90,178" fill="rgba(30,144,255,0.22)" stroke="#1e90ff" stroke-width="2"/>
+                        <text x="230" y="159" text-anchor="middle" fill="#fff" font-size="12" font-weight="800">3. FLAG STOLEN / DROPPED / RETURNED</text>
+
+                        <!-- Tier 2 -->
+                        <polygon points="85,186 375,186 405,234 55,234" fill="rgba(255,184,0,0.18)" stroke="#ffb800" stroke-width="1.8"/>
+                        <text x="230" y="215" text-anchor="middle" fill="#ffb800" font-size="11" font-weight="800">2. TACTICAL SQUAD COMMS (6S COOLDOWN)</text>
+
+                        <!-- Tier 1 (Base) -->
+                        <polygon points="50,242 410,242 440,290 20,290" fill="rgba(255,51,56,0.16)" stroke="#ff3338" stroke-width="1.8"/>
+                        <text x="230" y="271" text-anchor="middle" fill="#ff9a9c" font-size="11" font-weight="800">1. COMBAT TACKLE BARKS (&lt;14M TO PLAYER)</text>
+                    </svg>
+                    <div class="kpi-row" style="margin-top:0;">
+                        <div class="kpi-badge"><span class="kpi-val">1 SPEAKER MAX</span><span class="kpi-lbl">ZERO AUDIO OVERLAP</span></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SCENE 07: ZERO-RAYCAST TERRAIN & 3-LAYER CAMERA -->
+        <section class="slide" data-title="07 // O(1) TERRAIN HEIGHTFIELD & SPRING-ARM CAMERA">
+            <div class="split-stage">
+                <!-- LEFT: BILINEAR HEIGHTFIELD + CONTAINER CLAMP -->
+                <div class="holo-card" style="padding:20px; display:flex; flex-direction:column; justify-content:space-between;">
+                    <div style="font-size:13px; font-weight:900; letter-spacing:2px; color:var(--cyan); text-align:center;">O(1) BILINEAR HEIGHTFIELD (121 × 85 GRID)</div>
+                    <svg viewBox="0 0 460 190" style="width:100%; height:175px;">
+                        <!-- Isometric Wireframe Terrain Grid Illustration -->
+                        <g stroke="rgba(0,240,255,0.32)" stroke-width="1.2" fill="none">
+                            <path d="M 40 135 L 150 55 L 420 55 L 310 135 Z"/>
+                            <path d="M 75 110 L 345 110 M 112 82 L 382 82"/>
+                            <path d="M 110 135 L 220 55 M 180 135 L 290 55 M 250 135 L 360 55"/>
+                        </g>
+                        <!-- Sampled Bilinear Quad Highlight -->
+                        <polygon points="180,110 250,110 285,82 215,82" fill="rgba(0,255,136,0.28)" stroke="#00ff88" stroke-width="2.5"/>
+                        <circle cx="232" cy="96" r="6" fill="#00ff88"/>
+                        <line x1="232" y1="96" x2="232" y2="28" stroke="#00ff88" stroke-width="2.5" stroke-dasharray="4 3"/>
+                        <rect x="145" y="6" width="175" height="28" rx="4" fill="#061526" stroke="#00ff88"/>
+                        <text x="232" y="24" text-anchor="middle" fill="#00ff88" font-size="11" font-weight="900">sample_terrain_height(x,z)</text>
+                        <text x="230" y="168" text-anchor="middle" fill="#00f0ff" font-size="11" font-weight="800">ELIMINATES 60 RAYCASTS/SEC INTO 20,160-TRI BVH</text>
+                    </svg>
+
+                    <div class="compare-strip">
+                        <div class="snap-box">
+                            <img src="../INSIDE CONTAINER.png" alt="Hollow Container Bug"/>
+                            <div class="snap-tag warn">BEFORE: HOLLOW CONTAINER</div>
+                        </div>
+                        <div class="snap-box">
+                            <img src="../bad_skies.png" alt="Primitive Clouds vs 360 Dome"/>
+                            <div class="snap-tag ok">FIXED: 2-DOME SKY &amp; SOLID BOXES</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RIGHT: 3-LAYER CAMERA ANTI-OCCLUSION -->
+                <div class="holo-card" style="padding:20px; display:flex; flex-direction:column; justify-content:space-between;">
+                    <div style="font-size:13px; font-weight:900; letter-spacing:2px; color:var(--emerald); text-align:center;">3-LAYER CAMERA ANTI-OCCLUSION (camera.rs)</div>
+                    <svg viewBox="0 0 460 260" style="width:100%; height:240px;">
+                        <!-- Ground & Perimeter Fence Wall -->
+                        <line x1="30" y1="220" x2="430" y2="220" stroke="#00f0ff" stroke-width="2"/>
+                        <rect x="85" y="45" width="16" height="175" fill="rgba(255,51,56,0.35)" stroke="#ff3338" stroke-width="2"/>
+                        <text x="93" y="34" text-anchor="middle" fill="#ff3338" font-size="10" font-weight="900">6.2M FENCE WALL</text>
+
+                        <!-- Player Capsule -->
+                        <rect x="205" y="155" width="26" height="65" rx="13" fill="rgba(30,144,255,0.4)" stroke="#1e90ff" stroke-width="2.5"/>
+                        <text x="218" y="242" text-anchor="middle" fill="#00f0ff" font-size="11" font-weight="800">PLAYER</text>
+
+                        <!-- Blocked Ideal Camera (Outside Fence) -->
+                        <circle cx="48" cy="145" r="10" fill="none" stroke="#ff3338" stroke-width="2" stroke-dasharray="3 3"/>
+                        <line x1="205" y1="168" x2="48" y2="145" stroke="rgba(255,51,56,0.4)" stroke-width="2" stroke-dasharray="5 5"/>
+                        <text x="48" y="172" text-anchor="middle" fill="#ff3338" font-size="9" font-weight="800">BLOCKED (6.5M)</text>
+
+                        <!-- Elevated Compressed Camera (+5.2m Lift Arc) -->
+                        <path class="conduit-track" d="M 105 145 Q 115 65 145 55"/>
+                        <path class="conduit-pulse emerald" d="M 105 145 Q 115 65 145 55"/>
+                        <circle cx="145" cy="55" r="12" fill="#071e26" stroke="#00ff88" stroke-width="3"/>
+                        <line x1="145" y1="55" x2="245" y2="175" stroke="#00ff88" stroke-width="2" stroke-dasharray="6 4"/>
+                        <text x="265" y="55" fill="#00ff88" font-size="11" font-weight="900">WALL COMPRESSION LIFT (+5.2M)</text>
+                        <text x="265" y="72" fill="#a8c5e5" font-size="10" font-weight="700">1. GameLayer::Obstacle Raycast</text>
+                        <text x="265" y="88" fill="#a8c5e5" font-size="10" font-weight="700">2. Inner Fence XZ Clamp</text>
+                        <text x="265" y="104" fill="#a8c5e5" font-size="10" font-weight="700">3. Top-Down Pitch &amp; Ledge Lift</text>
+                    </svg>
+
+                    <div class="kpi-row" style="margin-top:0;">
+                        <div class="kpi-badge"><span class="kpi-val">TAB / V</span><span class="kpi-lbl">3RD-PERSON ↔ ISOMETRIC</span></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SCENE 08: SKELETAL RETARGETING & PROCEDURAL IK PUNCH -->
+        <section class="slide" data-title="08 // SKELETAL RETARGETING & PROCEDURAL PUNCH IK">
+            <div class="split-stage">
+                <!-- LEFT: BEFORE/AFTER RIGGING & WORLD-SPACE RETARGETING -->
+                <div class="holo-card" style="padding:20px; display:flex; flex-direction:column; justify-content:space-between;">
+                    <div style="font-size:13px; font-weight:900; letter-spacing:2px; color:var(--cyan); text-align:center;">POST-UPDATE MODEL-SPACE BONE IK (player.rs)</div>
+                    <div class="compare-strip" style="margin-top:8px;">
+                        <div class="snap-box" style="height:175px;">
+                            <img src="../invisible_characters.png" alt="Missing JPEG Feature"/>
+                            <div class="snap-tag warn">ISSUE 1: MISSING JPEG FEATURE</div>
+                        </div>
+                        <div class="snap-box" style="height:175px;">
+                            <img src="../arms_streight_down.png" alt="Straight Arms in GLB"/>
+                            <div class="snap-tag warn">ISSUE 2: 24° DROOPING ARMS</div>
+                        </div>
+                    </div>
+                    <svg viewBox="0 0 460 125" style="width:100%; height:120px;">
+                        <rect x="10" y="12" width="440" height="100" rx="8" fill="#071528" stroke="#00f0ff" stroke-width="1.8"/>
+                        <text x="230" y="38" text-anchor="middle" fill="#00f0ff" font-size="12" font-weight="900">FIX: CACHED CHARACTERBONES + CONTRALATERAL 90° PUMP</text>
+                        <text x="230" y="62" text-anchor="middle" fill="#fff" font-size="11" font-family="monospace">leg_swing = (LeftUpLeg.z - RightUpLeg.z).clamp(-1, 1)</text>
+                        <text x="230" y="86" text-anchor="middle" fill="#00ff88" font-size="10" font-weight="800">Cached Entity IDs • Stack-Only [Entity; 16] Chain • Zero Heap Allocs</text>
+                    </svg>
+                </div>
+
+                <!-- RIGHT: ANIMATED KINETIC PUNCH & SHOCKWAVE TORUS -->
+                <div class="holo-card" style="padding:20px; display:flex; flex-direction:column; justify-content:space-between;">
+                    <div style="font-size:13px; font-weight:900; letter-spacing:2px; color:var(--amber); text-align:center;">MAGNETIC LUNGE &amp; 3D KINETIC SHOCKWAVE</div>
+                    <svg viewBox="0 0 460 250" style="width:100%; height:230px;">
+                        <!-- 7m Magnetic Cone -->
+                        <polygon points="95,130 355,45 355,215" fill="rgba(0,240,255,0.08)" stroke="#00f0ff" stroke-width="1.5" stroke-dasharray="6 4"/>
+                        <text x="245" y="36" text-anchor="middle" fill="#00f0ff" font-size="10" font-weight="800">7.0M MAGNETIC TARGET CONE (165° HIT ARC)</text>
+
+                        <!-- Attacker Skeleton Node -->
+                        <circle cx="95" cy="95" r="14" fill="#1e90ff"/>
+                        <line x1="95" y1="109" x2="95" y2="165" stroke="#1e90ff" stroke-width="6" stroke-linecap="round"/>
+                        <!-- Right Cross Punch Arm Extended -->
+                        <line x1="95" y1="120" x2="195" y2="120" stroke="#00f0ff" stroke-width="6" stroke-linecap="round"/>
+                        <circle cx="198" cy="120" r="8" fill="#fff" stroke="#00f0ff" stroke-width="3"/>
+
+                        <!-- Expanding 3D Shockwave Torus Rings -->
+                        <ellipse cx="220" cy="120" rx="14" ry="42" fill="none" stroke="#00f0ff" stroke-width="3.5" opacity="0.95"/>
+                        <ellipse cx="248" cy="120" rx="20" ry="64" fill="none" stroke="#00f0ff" stroke-width="2.2" opacity="0.55"/>
+
+                        <!-- Knockback Vector & Target -->
+                        <path class="conduit-track" d="M 225 120 L 385 95"/>
+                        <path class="conduit-pulse red" d="M 225 120 L 385 95"/>
+                        <circle cx="385" cy="95" r="16" fill="#ff3338"/>
+                        <text x="385" y="135" text-anchor="middle" fill="#ff3338" font-size="11" font-weight="900">17.2 M/S KNOCKBACK</text>
+                        <text x="385" y="152" text-anchor="middle" fill="#ffb800" font-size="10" font-weight="800">+ DROPS FLAG!</text>
+                    </svg>
+                    <div style="display:flex; justify-content:center;">
+                        <button class="cyber-btn" onclick="playSampleVoice('../music/punch.mp3')">💥 TRIGGER PUNCH SFX (punch.mp3)</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SCENE 09: IQ-SCALED BOT AI DECISION TREE -->
+        <section class="slide" data-title="09 // IQ-SCALED BOT AUTONOMY (AI.RS)">
+            <div class="holo-card" style="height:100%; padding:22px; display:flex; flex-direction:column; justify-content:space-between;">
+                <svg viewBox="0 0 1000 385" style="width:100%; height:86%;">
+                    <!-- Conduits across AI Decision Tree -->
+                    <path class="conduit-track" d="
+                        M 160 190 L 310 75
+                        M 160 190 L 310 150
+                        M 160 190 L 310 225
+                        M 160 190 L 310 305
+                        M 550 75 L 730 190
+                        M 550 150 L 730 190
+                        M 550 225 L 730 190
+                        M 550 305 L 730 190
+                    "/>
+                    <path class="conduit-pulse" d="
+                        M 160 190 L 310 75
+                        M 160 190 L 310 150
+                        M 160 190 L 310 225
+                        M 160 190 L 310 305
+                        M 550 75 L 730 190
+                        M 550 150 L 730 190
+                        M 550 225 L 730 190
+                        M 550 305 L 730 190
+                    "/>
+
+                    <!-- Left: AI Intelligence Multiplier Dial -->
+                    <g transform="translate(25, 95)">
+                        <rect width="175" height="190" rx="10" fill="#071528" stroke="#00f0ff" stroke-width="2.5"/>
+                        <text x="87" y="32" text-anchor="middle" fill="#00f0ff" font-size="13" font-weight="900">AI IQ MULTIPLIER</text>
+                        <circle cx="87" cy="105" r="46" fill="none" stroke="rgba(0,240,255,0.2)" stroke-width="8"/>
+                        <path d="M 50 132 A 46 46 0 1 1 128 128" fill="none" stroke="#00ff88" stroke-width="8" stroke-linecap="round"/>
+                        <text x="87" y="108" text-anchor="middle" fill="#fff" font-size="14" font-weight="900">0.4× – 1.7×</text>
+                        <text x="87" y="168" text-anchor="middle" fill="#00ff88" font-size="10" font-weight="800">ROOKIE → MASTERMIND</text>
+                    </g>
+
+                    <!-- Priority Branches (Center) -->
+                    <g transform="translate(310, 45)">
+                        <rect width="245" height="54" rx="6" fill="#08182e" stroke="#00ff88" stroke-width="2"/>
+                        <text x="122" y="24" text-anchor="middle" fill="#00ff88" font-size="12" font-weight="900">1. CARRYING ENEMY FLAG?</text>
+                        <text x="122" y="42" text-anchor="middle" fill="#b8d0ec" font-size="10">Sprint Home to Capture Circle</text>
+                    </g>
+
+                    <g transform="translate(310, 122)">
+                        <rect width="245" height="54" rx="6" fill="#08182e" stroke="#ff3338" stroke-width="2"/>
+                        <text x="122" y="24" text-anchor="middle" fill="#ff3338" font-size="12" font-weight="900">2. ENEMY IN TACKLE RANGE?</text>
+                        <text x="122" y="42" text-anchor="middle" fill="#b8d0ec" font-size="10">Velocity-Led Lunge (Prioritize Carrier)</text>
+                    </g>
+
+                    <g transform="translate(310, 199)">
+                        <rect width="245" height="54" rx="6" fill="#08182e" stroke="#ffb800" stroke-width="2"/>
+                        <text x="122" y="24" text-anchor="middle" fill="#ffb800" font-size="12" font-weight="900">3. OWN FLAG STOLEN / ESCORT?</text>
+                        <text x="122" y="42" text-anchor="middle" fill="#b8d0ec" font-size="10">Chase Thief or Screen Allied Carrier</text>
+                    </g>
+
+                    <g transform="translate(310, 276)">
+                        <rect width="245" height="54" rx="6" fill="#08182e" stroke="#1e90ff" stroke-width="2"/>
+                        <text x="122" y="24" text-anchor="middle" fill="#00f0ff" font-size="12" font-weight="900">4. ATTACKER VS DEFENDER</text>
+                        <text x="122" y="42" text-anchor="middle" fill="#b8d0ec" font-size="10">Raid Enemy Deck or Patrol Base</text>
+                    </g>
+
+                    <!-- Right: Waypoint Ramp Router -->
+                    <g transform="translate(690, 85)">
+                        <rect width="275" height="210" rx="10" fill="#071528" stroke="#00ff88" stroke-width="2.5"/>
+                        <text x="137" y="30" text-anchor="middle" fill="#00ff88" font-size="12" font-weight="900">route_via_platform_ramp()</text>
+                        <!-- Mini Ramp Elevation Graphic -->
+                        <path d="M 35 165 L 115 165 L 185 95 L 245 95" fill="none" stroke="#00f0ff" stroke-width="4"/>
+                        <circle cx="65" cy="152" r="8" fill="#ffb800"/>
+                        <circle cx="150" cy="118" r="8" fill="#00ff88"/>
+                        <circle cx="220" cy="82" r="10" fill="#ff3338"/>
+                        <text x="137" y="192" text-anchor="middle" fill="#b8d0ec" font-size="10" font-weight="700">Routes Ground Bots (y &lt; 1.8m) via Ramps/Stairs</text>
+                    </g>
+                </svg>
+
+                <div class="kpi-row">
+                    <div class="kpi-badge"><span class="kpi-val">PREDICTIVE AIM</span><span class="kpi-lbl">LEADS MOVING TARGETS</span></div>
+                    <div class="kpi-badge"><span class="kpi-val">STAMINA SAVE</span><span class="kpi-lbl">RESERVES 20+ FOR TACKLE</span></div>
+                    <div class="kpi-badge"><span class="kpi-val">CARRIER ESCORT</span><span class="kpi-lbl">SCREENS AT IQ &gt;= 1.2×</span></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SCENE 10: WINDOWS -> WSL 2 -> TRUNK COMPILATION & LIVE SERVER -->
+        <section class="slide" data-title="10 // COMPILATION & LIVE DEV SERVER PIPELINE">
+            <div class="holo-card" style="height:100%; padding:24px; display:flex; flex-direction:column; justify-content:space-between;">
+                <svg viewBox="0 0 1000 360" style="width:100%; height:82%;">
+                    <!-- Pipeline Conduits -->
+                    <path class="conduit-track" d="M 220 175 L 285 175 M 485 175 L 550 175 M 750 175 L 810 175" stroke-width="4"/>
+                    <path class="conduit-pulse emerald" d="M 220 175 L 285 175 M 485 175 L 550 175 M 750 175 L 810 175" stroke-width="4"/>
+
+                    <!-- Station 1: Windows Workspace -->
+                    <g transform="translate(20, 75)">
+                        <rect width="200" height="200" rx="10" fill="#071528" stroke="#1e90ff" stroke-width="2.2"/>
+                        <text x="100" y="36" text-anchor="middle" fill="#1e90ff" font-size="13" font-weight="900">1. WINDOWS NTFS</text>
+                        <text x="100" y="65" text-anchor="middle" fill="#fff" font-size="11" font-weight="800">Active IDE Workspace</text>
+                        <text x="100" y="95" text-anchor="middle" fill="#89a7cc" font-size="10">src/*.rs • index.html</text>
+                        <text x="100" y="115" text-anchor="middle" fill="#89a7cc" font-size="10">assets/ • video/ • music/</text>
+                        <rect x="24" y="142" width="152" height="34" rx="4" fill="rgba(30,144,255,0.15)" stroke="#1e90ff"/>
+                        <text x="100" y="163" text-anchor="middle" fill="#00f0ff" font-size="10" font-weight="800">rsync -av --delete</text>
+                    </g>
+
+                    <!-- Station 2: WSL 2 Native Ext4 -->
+                    <g transform="translate(285, 75)">
+                        <rect width="200" height="200" rx="10" fill="#071528" stroke="#00f0ff" stroke-width="2.2"/>
+                        <text x="100" y="36" text-anchor="middle" fill="#00f0ff" font-size="13" font-weight="900">2. WSL 2 NATIVE EXT4</text>
+                        <text x="100" y="65" text-anchor="middle" fill="#fff" font-size="11" font-weight="800">~/repos/cyber_coliseum</text>
+                        <text x="100" y="95" text-anchor="middle" fill="#89a7cc" font-size="10">Fast Linux I/O • Zero Locks</text>
+                        <text x="100" y="115" text-anchor="middle" fill="#89a7cc" font-size="10">CARGO_TARGET_DIR</text>
+                        <rect x="24" y="142" width="152" height="34" rx="4" fill="rgba(0,240,255,0.15)" stroke="#00f0ff"/>
+                        <text x="100" y="163" text-anchor="middle" fill="#00f0ff" font-size="10" font-weight="800">start_server.sh daemon</text>
+                    </g>
+
+                    <!-- Station 3: Trunk & Wasm-Bindgen -->
+                    <g transform="translate(550, 75)">
+                        <rect width="200" height="200" rx="10" fill="#071528" stroke="#ffb800" stroke-width="2.2"/>
+                        <text x="100" y="36" text-anchor="middle" fill="#ffb800" font-size="13" font-weight="900">3. TRUNK COMPILER</text>
+                        <text x="100" y="65" text-anchor="middle" fill="#fff" font-size="11" font-weight="800">wasm32-unknown-unknown</text>
+                        <text x="100" y="95" text-anchor="middle" fill="#89a7cc" font-size="10">wasm-bindgen JS Glue</text>
+                        <text x="100" y="115" text-anchor="middle" fill="#89a7cc" font-size="10">wasm-opt -Os + Thin LTO</text>
+                        <rect x="24" y="142" width="152" height="34" rx="4" fill="rgba(255,184,0,0.15)" stroke="#ffb800"/>
+                        <text x="100" y="163" text-anchor="middle" fill="#ffb800" font-size="10" font-weight="800">pgrep -x 'rustc|...'</text>
+                    </g>
+
+                    <!-- Station 4: Live HTTP 200 Server -->
+                    <g transform="translate(810, 75)">
+                        <rect width="170" height="200" rx="10" fill="#071528" stroke="#00ff88" stroke-width="2.5"/>
+                        <text x="85" y="36" text-anchor="middle" fill="#00ff88" font-size="13" font-weight="900">4. READY (8080)</text>
+                        <circle cx="85" cy="95" r="32" fill="rgba(0,255,136,0.18)" stroke="#00ff88" stroke-width="2.5"/>
+                        <text x="85" y="99" text-anchor="middle" fill="#00ff88" font-size="12" font-weight="900">HTTP 200</text>
+                        <text x="85" y="155" text-anchor="middle" fill="#fff" font-size="10" font-weight="800">localhost:8080</text>
+                        <text x="85" y="175" text-anchor="middle" fill="#00ff88" font-size="9" font-weight="700">60 FPS IN BROWSER</text>
+                    </g>
+                </svg>
+
+                <div class="kpi-row" style="align-items:center;">
+                    <div class="kpi-badge"><span class="kpi-val">PGREP -X</span><span class="kpi-lbl">ZERO SELF-MATCH LOOPS</span></div>
+                    <div class="kpi-badge"><span class="kpi-val">ISDAEMON: TRUE</span><span class="kpi-lbl">PERSISTENT WSL VM</span></div>
+                    <a href="http://localhost:8080" target="_blank" class="cyber-btn launch-game" style="padding:10px 22px; font-size:13px;">🚀 LAUNCH LIVE GAME (LOCALHOST:8080)</a>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- BOTTOM CINEMA SUBTITLE & TIMELINE DOCK -->
+    <footer id="bottom-dock">
+        <div id="subtitle-bar">
+            <span class="speaker-tag">[NARRATOR // BRIAN]</span>
+            <span id="subtitle-text">Click "Start Cinematic Presentation" to begin synchronized ElevenLabs narration and visual telemetry.</span>
+        </div>
+
+        <div class="controls-row">
+            <div class="btn-group">
+                <button class="cyber-btn" id="btn-prev" onclick="prevScene()">⏮ PREV</button>
+                <button class="cyber-btn active" id="btn-play" onclick="togglePlayPause()">⏸ PAUSE</button>
+                <button class="cyber-btn" id="btn-next" onclick="nextScene()">NEXT ⏭</button>
+            </div>
+
+            <div id="timeline-dots"></div>
+
+            <div class="btn-group">
+                <button class="cyber-btn active" id="btn-auto" onclick="toggleAutoAdvance()">AUTO-ADVANCE: ON</button>
+                <button class="cyber-btn active" id="btn-music" onclick="toggleBgMusic()">🎵 BGM: ON</button>
+                <a href="http://localhost:8080" target="_blank" class="cyber-btn launch-game">▶ PLAY GAME</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- INITIAL CLICK-TO-START CINEMA OVERLAY -->
+    <div id="cinema-start-overlay">
+        <div class="holo-card start-card">
+            <div style="font-size:12px; font-weight:800; letter-spacing:3px; color:var(--cyan);">DELTA SECTOR TACTICAL BRIEFING</div>
+            <h1 class="hero-title" style="font-size:34px; margin:12px 0;">CYBER-ATHLETIC COLISEUM</h1>
+            <p style="color:var(--text-muted); font-size:14px; line-height:1.6;">
+                10-Scene Self-Playing Architectural Presentation featuring <strong style="color:#fff;">ElevenLabs Deep Bass Narration</strong>,
+                synchronized game soundtrack ducking, and interactive holographic telemetry.
+            </p>
+            <button class="start-btn-big" onclick="beginPresentation()">▶ START CINEMATIC PRESENTATION</button>
+        </div>
+    </div>
+
+    <script>
+        const SCENES_DATA = [
+            {
+                file: "audio/scene_01.mp3",
+                text: "Welcome to the Cyber-Athletic Coliseum. A high-voltage, three-versus-three Capture the Flag arena, engineered from the ground up in Rust, Bevy, and WebAssembly.",
+                sfxAfter: "../assets/voices/anders/match_start.mp3"
+            },
+            {
+                file: "audio/scene_02.mp3",
+                text: "Inside the sixty-by-forty-two meter Delta Sector Compound, Blue Squad and Red Squad clash across elevated platforms, central ruins, and a flooded sewer trench. First team to five captures rules the arena."
+            },
+            {
+                file: "audio/scene_03.mp3",
+                text: "The runtime pairs a lightweight HTML5 host with a compiled WebAssembly core. JavaScript manages the cinematic intro and low-latency audio pools, while Bevy drives the WebGL2 canvas through a wasm-bindgen bridge."
+            },
+            {
+                file: "audio/scene_04.mp3",
+                text: "Every gameplay domain is isolated as a modular Bevy plugin. Arena, Capture the Flag, Player, AI, Combat, Camera, and UI systems operate on shared Entity-Component data with zero tight coupling."
+            },
+            {
+                file: "audio/scene_05.mp3",
+                text: "Each frame executes a deterministic pipeline. Input and AI feed into combat and scoring chains, followed by Avian 3D physics substeps, boundary clamping, and procedural skeletal bone overrides."
+            },
+            {
+                file: "audio/scene_06.mp3",
+                text: "Flags transition dynamically between base, carrier, and dropped states. Meanwhile, a five-tier radio arbitrator filters competing combat events, ensuring only the highest-priority tactical callout hits the airwaves.",
+                sfxMid: "../assets/voices/siri/took_flag.mp3"
+            },
+            {
+                file: "audio/scene_07.mp3",
+                text: "To sustain sixty frames per second in the browser, expensive terrain raycasts are replaced by an O-of-one bilinear heightfield. A three-layer camera spring-arm prevents wall clipping and elevates smoothly near perimeter fences."
+            },
+            {
+                file: "audio/scene_08.mp3",
+                text: "Character models combine world-space retargeted animations with procedural PostUpdate inverse kinematics—locking arm swing to footfalls and driving explosive kinetic shockwave punches.",
+                sfxMid: "../music/punch.mp3"
+            },
+            {
+                file: "audio/scene_09.mp3",
+                text: "Five autonomous bots evaluate a real-time tactical decision tree—scaling from Rookie to Mastermind to lead targets, screen allied flag carriers, and route across elevated platform ramps."
+            },
+            {
+                file: "audio/scene_10.mp3",
+                text: "Compilation syncs seamlessly from Windows to native WSL2 storage. Trunk and wasm-bindgen package the optimized binary, verified by exact process monitors and served live to your browser.",
+                sfxAfter: "../assets/voices/anders/victory.mp3"
+            }
+        ];
+
+        const slides = Array.from(document.querySelectorAll(".slide"));
+        const timelineDots = document.getElementById("timeline-dots");
+        const hudSceneNum = document.getElementById("hud-scene-num");
+        const hudSceneTitle = document.getElementById("hud-scene-title");
+        const subtitleText = document.getElementById("subtitle-text");
+        const laserSweep = document.getElementById("laser-sweep");
+        const s1Video = document.getElementById("s1-video");
+
+        let currentIdx = 0;
+        let isPlaying = false;
+        let autoAdvance = true;
+        let bgmEnabled = true;
+        let advanceTimeout = null;
+
+        // Background music & Narrator Audio
+        const bgmAudio = new Audio("../music/Breach_at_Sector_Nine.mp3");
+        bgmAudio.loop = true;
+        bgmAudio.volume = 0.14;
+
+        const narratorAudio = new Audio();
+        narratorAudio.preload = "auto";
+
+        const sampleAudio = new Audio();
+
+        // Web Audio API Spectrum Visualizer for Narrator Bass Voice
+        let audioCtx = null;
+        let analyser = null;
+        let dataArray = null;
+        let sourceConnected = false;
+
+        // Build 10 segmented progress pills
+        SCENES_DATA.forEach((_, idx) => {
+            const pill = document.createElement("div");
+            pill.className = "seg-pill";
+            pill.title = `Jump to Scene ${idx + 1}`;
+            pill.innerHTML = `<div class="seg-fill" id="seg-fill-${idx}"></div>`;
+            pill.addEventListener("click", () => goToScene(idx));
+            timelineDots.appendChild(pill);
+        });
+
+        function setupAudioVisualizer() {
+            if (sourceConnected || window.location.protocol === "file:") return;
+            try {
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new Ctx();
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 64;
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+                const src = audioCtx.createMediaElementSource(narratorAudio);
+                src.connect(analyser);
+                analyser.connect(audioCtx.destination);
+                sourceConnected = true;
+            } catch (e) {
+                console.warn("Visualizer fallback mode:", e);
+            }
+        }
+
+        function renderSpectrum() {
+            requestAnimationFrame(renderSpectrum);
+            const canvas = document.getElementById("voice-canvas");
+            if (!canvas) return;
+            const ctx = canvas.getContext("2d");
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const bars = 16;
+            const barWidth = 5;
+            const gap = 2;
+
+            if (analyser && !narratorAudio.paused) {
+                analyser.getByteFrequencyData(dataArray);
+                for (let i = 0; i < bars; i++) {
+                    const val = dataArray[i] || 18;
+                    const h = Math.max(3, (val / 255) * canvas.height);
+                    ctx.fillStyle = i < 6 ? "#00f0ff" : "#1e90ff";
+                    ctx.fillRect(i * (barWidth + gap), canvas.height - h, barWidth, h);
+                }
+            } else if (!narratorAudio.paused) {
+                // Synthetic bass pulse if file:// CORS blocks MediaElementSource
+                const t = performance.now() * 0.012;
+                for (let i = 0; i < bars; i++) {
+                    const wave = Math.abs(Math.sin(t + i * 0.45) * Math.cos(t * 0.7 - i * 0.2));
+                    const h = Math.max(3, wave * canvas.height * (i < 6 ? 0.95 : 0.65));
+                    ctx.fillStyle = i < 6 ? "#00f0ff" : "#1e90ff";
+                    ctx.fillRect(i * (barWidth + gap), canvas.height - h, barWidth, h);
+                }
+            } else {
+                for (let i = 0; i < bars; i++) {
+                    ctx.fillStyle = "rgba(0, 240, 255, 0.25)";
+                    ctx.fillRect(i * (barWidth + gap), canvas.height - 3, barWidth, 3);
+                }
+            }
+
+            // Update active timeline pill fill
+            if (narratorAudio.duration > 0) {
+                const pct = Math.min(100, (narratorAudio.currentTime / narratorAudio.duration) * 100);
+                const activeFill = document.getElementById(`seg-fill-${currentIdx}`);
+                if (activeFill) activeFill.style.width = `${pct}%`;
+            }
+        }
+        requestAnimationFrame(renderSpectrum);
+
+        function triggerLaserSweep() {
+            laserSweep.classList.remove("sweeping");
+            void laserSweep.offsetWidth;
+            laserSweep.classList.add("sweeping");
+        }
+
+        function playSampleVoice(url) {
+            try {
+                sampleAudio.src = url;
+                sampleAudio.volume = 0.85;
+                sampleAudio.currentTime = 0;
+                sampleAudio.play().catch(() => {});
+            } catch (_) {}
+        }
+
+        function beginPresentation() {
+            document.getElementById("cinema-start-overlay").classList.add("hidden");
+            setupAudioVisualizer();
+            if (audioCtx && audioCtx.state === "suspended") {
+                audioCtx.resume().catch(() => {});
+            }
+            isPlaying = true;
+            if (bgmEnabled) {
+                bgmAudio.play().catch(() => {});
+            }
+            if (s1Video) {
+                s1Video.play().catch(() => {});
+            }
+            goToScene(0);
+        }
+
+        function goToScene(index) {
+            if (advanceTimeout) {
+                clearTimeout(advanceTimeout);
+                advanceTimeout = null;
+            }
+            currentIdx = (index + slides.length) % slides.length;
+
+            slides.forEach((sl, idx) => {
+                sl.classList.toggle("active", idx === currentIdx);
+                const pill = timelineDots.children[idx];
+                const fill = document.getElementById(`seg-fill-${idx}`);
+                if (idx < currentIdx) {
+                    pill.classList.add("done");
+                    if (fill) fill.style.width = "100%";
+                } else if (idx > currentIdx) {
+                    pill.classList.remove("done");
+                    if (fill) fill.style.width = "0%";
+                } else {
+                    pill.classList.remove("done");
+                    if (fill) fill.style.width = "0%";
+                }
+            });
+
+            const numStr = String(currentIdx + 1).padStart(2, "0");
+            hudSceneNum.textContent = `SCENE ${numStr} // 10`;
+            hudSceneTitle.textContent = slides[currentIdx].dataset.title.replace(/^\d+\s*\/\/\s*/, "");
+
+            triggerLaserSweep();
+
+            const sceneInfo = SCENES_DATA[currentIdx];
+            subtitleText.textContent = `« ${sceneInfo.text} »`;
+
+            if (currentIdx === 0 && s1Video) {
+                s1Video.currentTime = 0;
+                s1Video.play().catch(() => {});
+            }
+
+            if (isPlaying) {
+                narratorAudio.src = sceneInfo.file;
+                narratorAudio.volume = 1.0;
+                bgmAudio.volume = bgmEnabled ? 0.12 : 0.0;
+                narratorAudio.play().catch((err) => {
+                    console.warn("Narrator playback notice:", err);
+                });
+            }
+        }
+
+        narratorAudio.addEventListener("ended", () => {
+            // Swell background music slightly between slides
+            if (bgmEnabled) bgmAudio.volume = 0.24;
+
+            const sceneInfo = SCENES_DATA[currentIdx];
+            if (sceneInfo && sceneInfo.sfxMid) {
+                playSampleVoice(sceneInfo.sfxMid);
+            }
+
+            if (autoAdvance && isPlaying) {
+                advanceTimeout = setTimeout(() => {
+                    if (currentIdx < slides.length - 1) {
+                        goToScene(currentIdx + 1);
+                    } else {
+                        if (sceneInfo && sceneInfo.sfxAfter) {
+                            playSampleVoice(sceneInfo.sfxAfter);
+                        }
+                    }
+                }, 1400);
+            }
+        });
+
+        function togglePlayPause() {
+            const btn = document.getElementById("btn-play");
+            if (isPlaying) {
+                isPlaying = false;
+                narratorAudio.pause();
+                bgmAudio.pause();
+                if (advanceTimeout) clearTimeout(advanceTimeout);
+                btn.textContent = "▶ PLAY";
+                btn.classList.remove("active");
+            } else {
+                isPlaying = true;
+                if (bgmEnabled) bgmAudio.play().catch(() => {});
+                if (narratorAudio.src) {
+                    narratorAudio.play().catch(() => {});
+                } else {
+                    goToScene(currentIdx);
+                }
+                btn.textContent = "⏸ PAUSE";
+                btn.classList.add("active");
+            }
+        }
+
+        function nextScene() {
+            goToScene(currentIdx + 1);
+        }
+
+        function prevScene() {
+            goToScene(currentIdx - 1);
+        }
+
+        function toggleAutoAdvance() {
+            autoAdvance = !autoAdvance;
+            const btn = document.getElementById("btn-auto");
+            btn.textContent = `AUTO-ADVANCE: ${autoAdvance ? "ON" : "OFF"}`;
+            btn.classList.toggle("active", autoAdvance);
+        }
+
+        function toggleBgMusic() {
+            bgmEnabled = !bgmEnabled;
+            const btn = document.getElementById("btn-music");
+            btn.textContent = `🎵 BGM: ${bgmEnabled ? "ON" : "OFF"}`;
+            btn.classList.toggle("active", bgmEnabled);
+            if (bgmEnabled && isPlaying) {
+                bgmAudio.volume = 0.14;
+                bgmAudio.play().catch(() => {});
+            } else {
+                bgmAudio.pause();
+            }
+        }
+
+        window.addEventListener("keydown", (e) => {
+            if (e.code === "ArrowRight") {
+                e.preventDefault();
+                nextScene();
+            } else if (e.code === "ArrowLeft") {
+                e.preventDefault();
+                prevScene();
+            } else if (e.code === "Space") {
+                e.preventDefault();
+                const overlay = document.getElementById("cinema-start-overlay");
+                if (!overlay.classList.contains("hidden")) {
+                    beginPresentation();
+                } else {
+                    togglePlayPause();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
