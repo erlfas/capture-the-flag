@@ -96,6 +96,81 @@ graph TD
 
 ---
 
+## The Build & Packaging Pipeline
+
+The game is written in Rust and targets WebAssembly (`wasm32-unknown-unknown`) using [Trunk](https://trunkrs.dev/) as the build tool and asset bundler.
+
+### 1. Prerequisites
+- **Rust Toolchain (1.80+)**: Installed via `rustup`.
+- **Wasm Target**:
+  ```bash
+  rustup target add wasm32-unknown-unknown
+  ```
+- **Trunk Bundler**:
+  ```bash
+  cargo install trunk
+  ```
+
+### 2. Compilation Stages
+1. **Rust to Wasm (`cargo build --target wasm32-unknown-unknown`)**:
+   - Compiled using the profile settings in `Cargo.toml`.
+   - In development (`[profile.dev]`), package dependencies are built at `opt-level = 3` for playable physics and 3D rendering speeds, while workspace code builds at `opt-level = 1` for fast turnarounds.
+   - For release builds (`[profile.release]`), `opt-level = "s"` and `lto = "thin"` minimize binary download sizes.
+2. **JavaScript Bindings (`wasm-bindgen`)**:
+   - Trunk runs `wasm-bindgen` to generate JavaScript glue code linking browser APIs (Canvas, WebGL2, Audio, DOM events) to the Rust Wasm binary.
+3. **Asset & HTML Bundling**:
+   - Trunk parses `index.html`, injects the generated Wasm loader scripts, pulls in all game assets from `assets/` (glTF models, textures, audio), and writes the distribution output to the `dist/` directory.
+
+### 3. WSL 2 Filesystem Optimization
+- Compiling Bevy Wasm directly on the Windows NTFS filesystem through the 9P bridge can be slow and trigger file-lock issues.
+- The repository is mirrored to the native WSL 2 ext4 filesystem (`~/repos/cyber_coliseum_koth`) using an isolated `CARGO_TARGET_DIR=~/cargo_target`, achieving rapid incremental builds (~20x faster) and reliable file-watching.
+
+---
+
+## How to Run & Develop
+
+### 1. Syncing Files from Windows to WSL
+If you edit code or assets in the Windows workspace (`C:\Users\ErlendHeggelund\Documents\antigravity\fervent-curie`), sync them to the native WSL repository before building:
+
+```powershell
+wsl.exe -e bash -c "rsync -av --exclude='target' --exclude='dist' --exclude='.git' /mnt/c/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/ ~/repos/cyber_coliseum_koth/"
+```
+
+### 2. Launching the Development Server
+
+#### Option A: From Windows PowerShell (One-Liner)
+```powershell
+wsl.exe -e bash -c "source ~/.cargo/env && cd ~/repos/cyber_coliseum_koth && CARGO_TARGET_DIR=~/cargo_target trunk serve --port 8080 --address 0.0.0.0"
+```
+
+#### Option B: From an Interactive WSL (Ubuntu) Terminal
+```bash
+source ~/.cargo/env
+cd ~/repos/cyber_coliseum_koth
+CARGO_TARGET_DIR=~/cargo_target trunk serve --port 8080 --address 0.0.0.0
+```
+
+### 3. Playing the Game
+Once Trunk displays `INFO ✅ success`:
+- Open **[http://localhost:8080](http://localhost:8080)** (or `http://127.0.0.1:8080`) in any modern browser.
+- Trunk automatically detects file modifications, recompiles changed crates, and hot-reloads the browser page.
+
+### 4. Building for Production / Release
+To produce an optimized static build in `dist/`:
+```bash
+cd ~/repos/cyber_coliseum_koth
+trunk build --release
+```
+
+### 5. Stopping the Server
+- **In an interactive terminal**: Press `Ctrl + C`.
+- **From Windows PowerShell**:
+  ```powershell
+  wsl.exe -e bash -c "pkill -f 'trunk serve'"
+  ```
+
+---
+
 ## Controls & Gameplay Rules
 
 ### Controls
@@ -118,15 +193,32 @@ graph TD
 
 ---
 
-## How to Run & Develop
+## Project Structure
 
-### Running the Development Server
-From inside the WSL project directory:
-```bash
-cd ~/repos/cyber_coliseum_koth
-trunk serve --port 8080 --address 0.0.0.0
+```text
+cyber_coliseum_koth/
+├── Cargo.toml                      # Crate metadata, Bevy/Avian3D dependencies, optimization profiles
+├── Trunk.toml                      # Trunk bundler settings (port 8080, address 0.0.0.0, dist output)
+├── index.html                      # HTML5 canvas viewport, loading overlay, and Wasm bootstrap
+├── SERVER_GUIDE.md                 # Standalone reference for starting, syncing, and stopping the server
+├── KEY_LESSONS_LEARNED.md          # Technical documentation on 3D decimation, sky domes & camera occlusion
+│
+├── src/                            # Rust game logic & ECS systems
+│   ├── main.rs                     # Entry point, DefaultPlugins & PhysicsPlugins setup
+│   ├── types.rs                    # Shared components, resources, states, and Team definitions
+│   ├── arena.rs                    # 3D compound environment, lighting, sky dome & boundaries
+│   ├── terrain_heights.rs          # Procedural elevation and compound ground contour data
+│   ├── player.rs                   # Player movement, inputs, sprint stamina, and animations
+│   ├── ai.rs                       # Autonomous bot behavior, zone navigation & target selection
+│   ├── combat.rs                   # Kinetic tackle ability, knockbacks, and stagger states
+│   ├── koth.rs                     # King of the Hill capture logic, scoring & 45s zone rotation
+│   ├── camera.rs                   # Dual-mode camera (isometric & 3rd-person) with occlusion recovery
+│   └── ui.rs                       # Tactical HUD, scoreboards, overhead vitals & alert banners
+│
+├── assets/                         # Runtime game assets served to the browser
+│   ├── models/                     # glTF 3D meshes (compound arena, character models)
+│   ├── audio/                      # Sound effects and voice lines (.mp3)
+│   └── textures/                   # Sky panoramas and terrain textures
+│
+└── dist/                           # Generated output from Trunk (Wasm binary, JS glue, bundled assets)
 ```
-Then open your browser at:
-👉 **[http://127.0.0.1:8080](http://127.0.0.1:8080)**
-
-*(Make sure to do a hard refresh `Ctrl + F5` if switching from an earlier build).*

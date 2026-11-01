@@ -126,7 +126,6 @@ fn spawn_single_bot(
             Transform::from_translation(spawn_pos)
                 .with_rotation(Quat::from_rotation_y(initial_yaw)),
         ))
-        .insert(SweptCcd::default())
         .id();
 
     spawn_character_visuals(

@@ -174,7 +174,6 @@ fn spawn_player(
             Transform::from_translation(spawn_pos)
                 .with_rotation(Quat::from_rotation_y(std::f32::consts::FRAC_PI_2)),
         ))
-        .insert(SweptCcd::default())
         .id();
 
     spawn_character_visuals(
