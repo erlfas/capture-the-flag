@@ -1,4 +1,14 @@
+use avian3d::prelude::PhysicsLayer;
 use bevy::prelude::*;
+
+#[derive(PhysicsLayer, Clone, Copy, Debug, Default)]
+pub enum GameLayer {
+    #[default]
+    Default,
+    Terrain,
+    Obstacle,
+    Character,
+}
 
 #[derive(Resource, Debug, Clone)]
 pub struct PauseState {

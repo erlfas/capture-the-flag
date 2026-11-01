@@ -6,7 +6,7 @@ use bevy::window::{CursorGrabMode, PrimaryWindow};
 use crate::arena::{playable_max_x, playable_min_x, PLAYABLE_MAX_Z, PLAYABLE_MIN_Z};
 use crate::player::Player;
 use crate::terrain_heights::sample_terrain_height;
-use crate::types::{Character, PauseState};
+use crate::types::PauseState;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum CameraMode {
@@ -94,13 +94,17 @@ fn handle_cursor_lock(
     mut primary_window: Query<&mut Window, With<PrimaryWindow>>,
     camera_query: Query<&OrbitCamera>,
 ) {
-    let Ok(mut window) = primary_window.get_single_mut() else {
+    let Ok(window) = primary_window.get_single_mut() else {
         return;
     };
 
     if pause_state.is_paused || pause_state.exited {
-        window.cursor_options.grab_mode = CursorGrabMode::None;
-        window.cursor_options.visible = true;
+        if window.cursor_options.grab_mode != CursorGrabMode::None || !window.cursor_options.visible
+        {
+            let mut window = window;
+            window.cursor_options.grab_mode = CursorGrabMode::None;
+            window.cursor_options.visible = true;
+        }
         return;
     }
 
@@ -111,13 +115,23 @@ fn handle_cursor_lock(
 
     // Only lock cursor on Left-Click in Third-Person mode; in Tactical Overview mode keep cursor free
     if mouse_buttons.just_pressed(MouseButton::Left) && is_third_person {
-        window.cursor_options.grab_mode = CursorGrabMode::Locked;
-        window.cursor_options.visible = false;
+        if window.cursor_options.grab_mode != CursorGrabMode::Locked
+            || window.cursor_options.visible
+        {
+            let mut window = window;
+            window.cursor_options.grab_mode = CursorGrabMode::Locked;
+            window.cursor_options.visible = false;
+        }
+        return;
     }
 
     if keys.just_pressed(KeyCode::Escape) || !is_third_person {
-        window.cursor_options.grab_mode = CursorGrabMode::None;
-        window.cursor_options.visible = true;
+        if window.cursor_options.grab_mode != CursorGrabMode::None || !window.cursor_options.visible
+        {
+            let mut window = window;
+            window.cursor_options.grab_mode = CursorGrabMode::None;
+            window.cursor_options.visible = true;
+        }
     }
 }
 
@@ -132,7 +146,6 @@ fn update_camera(
     mut mouse_wheel: EventReader<MouseWheel>,
     mut primary_window: Query<&mut Window, With<PrimaryWindow>>,
     player_query: Query<Entity, With<Player>>,
-    character_entities: Query<Entity, With<Character>>,
     transforms: Query<&Transform, Without<OrbitCamera>>,
     mut camera_query: Query<(&mut OrbitCamera, &mut Transform)>,
 ) {
@@ -188,8 +201,12 @@ fn update_camera(
                     CameraMode::ThirdPersonAction
                 }
                 CameraMode::ThirdPersonAction => {
-                    window.cursor_options.grab_mode = CursorGrabMode::None;
-                    window.cursor_options.visible = true;
+                    if window.cursor_options.grab_mode != CursorGrabMode::None
+                        || !window.cursor_options.visible
+                    {
+                        window.cursor_options.grab_mode = CursorGrabMode::None;
+                        window.cursor_options.visible = true;
+                    }
                     CameraMode::TacticalIsometric
                 }
             };
@@ -319,8 +336,8 @@ fn update_camera(
             let horiz_dir = ideal_horiz / ideal_horiz_dist;
 
             // A) Physics Raycast Spring-Arm: pull camera in front of interior walls / shipping containers
-            let excluded: Vec<Entity> = character_entities.iter().collect();
-            let filter = SpatialQueryFilter::from_excluded_entities(excluded);
+            //    Uses GameLayer::Obstacle mask (zero heap allocations, skips 20,160-tri terrain BVH)
+            let filter = SpatialQueryFilter::from_mask(crate::types::GameLayer::Obstacle);
             let ray_vec = desired_cam_pos - focus_point;
             let ray_len = ray_vec.length();
             if ray_len > 0.1 {

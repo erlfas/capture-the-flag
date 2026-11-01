@@ -39,6 +39,7 @@ fn main() {
         )
         // Avian3D ECS Physics Plugin with realistic Earth gravity (9.81 m/s²)
         .add_plugins(PhysicsPlugins::default())
+        .insert_resource(SubstepCount(2))
         .insert_resource(Gravity(Vec3::new(0.0, -9.81, 0.0)))
         .init_resource::<types::PauseState>()
         // Game Systems
@@ -83,10 +84,19 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn handle_background_music_match_start(
     koth: Res<koth::KothManager>,
     pause_state: Res<types::PauseState>,
+    mut physics_time: ResMut<Time<Physics>>,
     music_query: Query<&AudioSink, With<BackgroundMusic>>,
     voice_query: Query<&AudioSink, (With<koth::ActiveVoiceAudio>, Without<BackgroundMusic>)>,
 ) {
     let should_pause_all = !koth.match_started || pause_state.is_paused || pause_state.exited;
+
+    if should_pause_all {
+        if !physics_time.is_paused() {
+            physics_time.pause();
+        }
+    } else if physics_time.is_paused() {
+        physics_time.unpause();
+    }
 
     for sink in music_query.iter() {
         if should_pause_all || pause_state.music_muted {

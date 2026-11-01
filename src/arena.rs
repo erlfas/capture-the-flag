@@ -220,6 +220,10 @@ fn setup_arena(
         Transform::IDENTITY,
         RigidBody::Static,
         Collider::trimesh(terrain_verts, terrain_indices),
+        CollisionLayers::new(
+            crate::types::GameLayer::Terrain,
+            [crate::types::GameLayer::Character],
+        ),
     ));
 
     // Outer Safety Floor Collider well below the deepest trench (top at y = -3.8m)
@@ -227,6 +231,10 @@ fn setup_arena(
         Transform::from_xyz(0.0, -4.3, 0.0),
         RigidBody::Static,
         Collider::cuboid(68.0, 1.0, 52.0),
+        CollisionLayers::new(
+            crate::types::GameLayer::Terrain,
+            [crate::types::GameLayer::Character],
+        ),
     ));
 
     // =========================================================================
@@ -241,6 +249,13 @@ fn setup_arena(
             .with_rotation(Quat::from_rotation_y(-0.2134)),
         RigidBody::Static,
         Collider::cuboid(6.20, 3.60, 2.65),
+        CollisionLayers::new(
+            crate::types::GameLayer::Obstacle,
+            [
+                crate::types::GameLayer::Default,
+                crate::types::GameLayer::Character,
+            ],
+        ),
     ));
 
     // Left-North Olive/Rust Shipping Container (near Blue Base, x ≈ -9.84, z ≈ -10.86)
@@ -249,6 +264,13 @@ fn setup_arena(
             .with_rotation(Quat::from_rotation_y(0.7419)),
         RigidBody::Static,
         Collider::cuboid(6.25, 3.60, 2.60),
+        CollisionLayers::new(
+            crate::types::GameLayer::Obstacle,
+            [
+                crate::types::GameLayer::Default,
+                crate::types::GameLayer::Character,
+            ],
+        ),
     ));
 
     // Plateau Objective Markers (all ground, platform, ramp, staircase, shipping container,
@@ -275,12 +297,20 @@ fn setup_arena(
         Transform::from_xyz(-32.25, 10.0, -2.0).with_rotation(Quat::from_rotation_y(-0.044)),
         RigidBody::Static,
         Collider::cuboid(20.0, 30.0, 42.0),
+        CollisionLayers::new(
+            crate::types::GameLayer::Terrain,
+            [crate::types::GameLayer::Character],
+        ),
     ));
     // South-West corner barrier (z > 11.0): inner face at x = -21.65
     commands.spawn((
         Transform::from_xyz(-31.65, 10.0, 18.0),
         RigidBody::Static,
         Collider::cuboid(20.0, 30.0, 16.0),
+        CollisionLayers::new(
+            crate::types::GameLayer::Terrain,
+            [crate::types::GameLayer::Character],
+        ),
     ));
 
     // East angled fence barrier (z from -20 to 11.5): inner face follows playable_max_x(z)
@@ -288,12 +318,20 @@ fn setup_arena(
         Transform::from_xyz(31.40, 10.0, -2.0).with_rotation(Quat::from_rotation_y(0.052)),
         RigidBody::Static,
         Collider::cuboid(20.0, 30.0, 42.0),
+        CollisionLayers::new(
+            crate::types::GameLayer::Terrain,
+            [crate::types::GameLayer::Character],
+        ),
     ));
     // South-East corner barrier (z > 11.0): inner face at x = 20.80
     commands.spawn((
         Transform::from_xyz(30.80, 10.0, 18.0),
         RigidBody::Static,
         Collider::cuboid(20.0, 30.0, 16.0),
+        CollisionLayers::new(
+            crate::types::GameLayer::Terrain,
+            [crate::types::GameLayer::Character],
+        ),
     ));
 
     // North barrier: inner face at z = PLAYABLE_MIN_Z (-14.6), 24m deep, 30m high, 75m wide
@@ -301,6 +339,10 @@ fn setup_arena(
         Transform::from_xyz(0.0, 10.0, PLAYABLE_MIN_Z - 12.0),
         RigidBody::Static,
         Collider::cuboid(75.0, 30.0, 24.0),
+        CollisionLayers::new(
+            crate::types::GameLayer::Terrain,
+            [crate::types::GameLayer::Character],
+        ),
     ));
 
     // South barrier: inner face at z = PLAYABLE_MAX_Z (16.0), 24m deep, 30m high, 75m wide
@@ -308,6 +350,10 @@ fn setup_arena(
         Transform::from_xyz(0.0, 10.0, PLAYABLE_MAX_Z + 12.0),
         RigidBody::Static,
         Collider::cuboid(75.0, 30.0, 24.0),
+        CollisionLayers::new(
+            crate::types::GameLayer::Terrain,
+            [crate::types::GameLayer::Character],
+        ),
     ));
 
     // =========================================================================

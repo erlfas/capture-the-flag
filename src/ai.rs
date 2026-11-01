@@ -115,13 +115,24 @@ fn spawn_single_bot(
                 ..default()
             },
             StaggerState::default(),
-            RigidBody::Dynamic,
-            Collider::capsule(0.35, 1.2),
-            LockedAxes::ROTATION_LOCKED,
-            Friction::new(0.45),
-            Restitution::new(0.0),
-            LinearVelocity::default(),
-            AngularVelocity::default(),
+            (
+                RigidBody::Dynamic,
+                Collider::capsule(0.35, 1.2),
+                CollisionLayers::new(
+                    crate::types::GameLayer::Character,
+                    [
+                        crate::types::GameLayer::Default,
+                        crate::types::GameLayer::Terrain,
+                        crate::types::GameLayer::Obstacle,
+                        crate::types::GameLayer::Character,
+                    ],
+                ),
+                LockedAxes::ROTATION_LOCKED,
+                Friction::new(0.45),
+                Restitution::new(0.0),
+                LinearVelocity::default(),
+                AngularVelocity::default(),
+            ),
             Visibility::default(),
             Transform::from_translation(spawn_pos)
                 .with_rotation(Quat::from_rotation_y(initial_yaw)),

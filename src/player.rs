@@ -13,7 +13,7 @@ pub const PLAYER_SPEED: f32 = 8.8;
 pub const SPRINT_MULTIPLIER: f32 = 1.55;
 #[allow(dead_code)]
 pub const JUMP_IMPULSE: f32 = 5.4;
-pub const TACKLE_IMPULSE: f32 = 19.5;
+pub const TACKLE_IMPULSE: f32 = 16.8;
 pub const TACKLE_COOLDOWN: f32 = 1.15;
 
 #[derive(Component)]
@@ -175,13 +175,24 @@ fn spawn_player(
                 ..default()
             },
             StaggerState::default(),
-            RigidBody::Dynamic,
-            Collider::capsule(0.35, 1.2),
-            LockedAxes::ROTATION_LOCKED,
-            Friction::new(0.45),
-            Restitution::new(0.0),
-            LinearVelocity::default(),
-            AngularVelocity::default(),
+            (
+                RigidBody::Dynamic,
+                Collider::capsule(0.35, 1.2),
+                CollisionLayers::new(
+                    crate::types::GameLayer::Character,
+                    [
+                        crate::types::GameLayer::Default,
+                        crate::types::GameLayer::Terrain,
+                        crate::types::GameLayer::Obstacle,
+                        crate::types::GameLayer::Character,
+                    ],
+                ),
+                LockedAxes::ROTATION_LOCKED,
+                Friction::new(0.45),
+                Restitution::new(0.0),
+                LinearVelocity::default(),
+                AngularVelocity::default(),
+            ),
             Visibility::default(),
             Transform::from_translation(spawn_pos)
                 .with_rotation(Quat::from_rotation_y(std::f32::consts::FRAC_PI_2)),
@@ -213,7 +224,6 @@ fn handle_player_movement(
     time: Res<Time>,
     koth: Res<KothManager>,
     pause_state: Res<PauseState>,
-    spatial_query: SpatialQuery,
     camera_query: Query<&OrbitCamera>,
     enemies_query: Query<(&Transform, &Character), Without<Player>>,
     mut player_query: Query<
@@ -254,17 +264,12 @@ fn handle_player_movement(
 
     let dt = time.delta_secs();
 
-    // Downward raycast from capsule center (0.95m to soles of boots + 0.12m ground margin = 1.07m)
-    // combined with exact 3D model terrain height check so jumping works on all slopes and stairs
-    let filter = SpatialQueryFilter::from_excluded_entities([player_ent]);
+    // Fast bilinear 3D terrain height ground check (eliminates 60 raycasts/sec into 20k terrain trimesh)
     let terrain_y = crate::terrain_heights::sample_terrain_height(
         transform.translation.x,
         transform.translation.z,
     );
-    let is_grounded = spatial_query
-        .cast_ray(transform.translation, Dir3::NEG_Y, 1.07, true, &filter)
-        .is_some()
-        || transform.translation.y <= terrain_y + 1.02;
+    let is_grounded = transform.translation.y <= terrain_y + 1.05;
 
     // Apply snappy extra downward gravity during descent so jumps feel athletic and responsive
     if !is_grounded && lin_vel.y < 0.0 {
@@ -328,7 +333,7 @@ fn handle_player_movement(
         || space_punch;
     if tackle_pressed && tackle.cooldown <= 0.0 && stamina.current >= TACKLE_STAMINA_COST {
         tackle.is_tackling = true;
-        tackle.tackle_timer = 0.30;
+        tackle.tackle_timer = 0.26;
         tackle.punch_anim_timer = 0.42;
         tackle.cooldown = TACKLE_COOLDOWN;
         stamina.current -= TACKLE_STAMINA_COST;
@@ -370,15 +375,16 @@ fn handle_player_movement(
         let lunge_vel = best_dir * effective_tackle_impulse;
         lin_vel.x = lunge_vel.x;
         lin_vel.z = lunge_vel.z;
-        if is_grounded && lin_vel.y < 1.0 {
-            lin_vel.y = 1.0;
+        if is_grounded && lin_vel.y > 0.0 {
+            // Keep player grounded during punch lunge instead of popping into the air
+            lin_vel.y = 0.0;
         }
     }
 
     // Sustain forward drive during an active shove/tackle lunge
     if tackle.is_tackling {
         let lunge_dir = (transform.rotation * Vec3::Z).normalize_or(forward_dir);
-        let sustain_speed = effective_tackle_impulse * 0.88;
+        let sustain_speed = effective_tackle_impulse * 0.85;
         lin_vel.x = lunge_dir.x * sustain_speed;
         lin_vel.z = lunge_dir.z * sustain_speed;
 
@@ -389,8 +395,11 @@ fn handle_player_movement(
             );
             let dh = ahead_y - terrain_y;
             if dh > 0.01 && dh < 0.85 {
-                lin_vel.y = lin_vel.y.max((sustain_speed * (dh / 0.50)).clamp(0.0, 3.8));
+                lin_vel.y = lin_vel.y.max((sustain_speed * (dh / 0.50)).clamp(0.0, 1.4));
             }
+        } else {
+            // Apply downward gravity during aerial tackle so lunging off ridges stays grounded rather than floating
+            lin_vel.y -= 8.0 * dt;
         }
         return;
     }

@@ -12,9 +12,9 @@
 | **✅ FIXED** | #2 | **Cache skeletal bone entities & remove per-frame heap allocs** | `src/player.rs` | CPU / Anim | Eliminates ~600 string matches & 48–84 heap allocs per frame |
 | **✅ FIXED** | #3 | **Guard UI `Text` & nametag mutations to stop Taffy layout thrashing** | `src/ui.rs` | UI / Layout | Stops full-tree flexbox recalculation & font re-rasterization |
 | **✅ FIXED** | #4 | **Deduplicate `handle_fallout_respawns` from `Update`** | `src/arena.rs` | Systems | Halves terrain sampling & box collision clamping passes |
-| **⏳ NOT FIXED** | #5 | **Replace downward ground raycast with `sample_terrain_height`** | `src/player.rs` | Physics / CPU | Eliminates 60 raycasts/sec into 20k-triangle trimesh |
-| **⏳ NOT FIXED** | #6 | **Add `CollisionLayers` & optimize camera spring-arm raycast** | `src/camera.rs`, `src/types.rs` | Physics / Raycasts | Stops camera ray from traversing 20k terrain BVH; eliminates heap alloc |
-| **⏳ NOT FIXED** | #7 | **Tune Avian physics solver substeps (`SubstepCount(2)`)** | `src/main.rs` | Physics | Halves contact solver CPU time on single-threaded WASM |
+| **✅ FIXED** | #5 | **Replace downward ground raycast with `sample_terrain_height`** | `src/player.rs` | Physics / CPU | Eliminates 60 raycasts/sec into 20k-triangle trimesh |
+| **✅ FIXED** | #6 | **Add `CollisionLayers` & optimize camera spring-arm raycast** | `src/camera.rs`, `src/types.rs` | Physics / Raycasts | Stops camera ray from traversing 20k terrain BVH; eliminates heap alloc |
+| **✅ FIXED** | #7 | **Tune Avian physics solver substeps (`SubstepCount(2)`)** | `src/main.rs` | Physics | Halves contact solver CPU time on single-threaded WASM |
 | **⏳ NOT FIXED** | #8 | **Fix sky dome backface culling & consolidate cloud layers** | `src/arena.rs` | GPU / Fillrate | Cuts transparent sky passes from 8 to 2 fullscreen passes |
 | **⏳ NOT FIXED** | #9 | **Consolidate sewer water effects (135 entities → 2–3 meshes)** | `src/arena.rs` | GPU / Draw Calls | Eliminates ~125 unbatched draw calls & 129 transform updates |
 | **⏳ NOT FIXED** | #10 | **Downscale 4K bot character textures to 1024×1024** | `assets/models/` | GPU / VRAM | Saves ~450 MB uncompressed VRAM & ~40 MB download payload |
@@ -60,6 +60,30 @@
 * **Result**:
   Halves per-frame boundary trigonometry, box container ejection calculations, and bilinear `sample_terrain_height` terrain lookups across all 6 characters.
 
+### ✅ FIXED: Item #5 — Replaced Downward Ground Raycast with `sample_terrain_height`
+* **File Modified**: [`src/player.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/player.rs#L210-L265)
+* **What Was Changed**:
+  Removed `SpatialQueryFilter`, `spatial_query.cast_ray`, and `spatial_query: SpatialQuery` system parameter in `handle_player_movement`. Ground detection now relies directly on pre-computed bilinear terrain height sampling: `transform.translation.y <= terrain_y + 1.05`.
+* **Result**:
+  Completely eliminates 60 expensive ray traversals per second into the 20,160-triangle terrain mesh BVH and frees Bevy from fetching `SpatialQuery` for the player movement system.
+
+### ✅ FIXED: Item #6 — Added `CollisionLayers` & Optimized Camera Spring-Arm Raycast
+* **Files Modified**: [`src/types.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/types.rs#L1-L12), [`src/arena.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/arena.rs#L219-L355), [`src/player.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/player.rs#L178-L188), [`src/ai.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/ai.rs#L118-L128), [`src/camera.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/camera.rs#L90-L355)
+* **What Was Changed**:
+  1. Defined `GameLayer` (`Default`, `Terrain`, `Obstacle`, `Character`) in `src/types.rs` and assigned `CollisionLayers` across all static arena colliders, shipping containers, player, and bots.
+  2. Replaced the per-frame `character_entities.iter().collect::<Vec<Entity>>()` heap allocation and `SpatialQueryFilter::from_excluded_entities` in `update_camera` with a stack-only `SpatialQueryFilter::from_mask(GameLayer::Obstacle)` filter.
+  3. Guarded `Window.cursor_options` mutations in `handle_cursor_lock` and `update_camera` so `Window` is only marked mutated when cursor state transitions.
+* **Result**:
+  Eliminates per-frame `Vec` + `HashSet` heap allocations and prevents the camera spring-arm raycast from traversing the 20,160-triangle terrain BVH every frame.
+
+### ✅ FIXED: Item #7 — Tuned Avian Solver Substeps (`SubstepCount(2)`) & Paused Background Physics
+* **File Modified**: [`src/main.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/main.rs#L40-L105)
+* **What Was Changed**:
+  1. Inserted `.insert_resource(SubstepCount(2))` in `main.rs`, reducing Avian3D physics solver iterations from 6 substeps/frame (360 Hz) down to 2 substeps/frame (120 Hz).
+  2. Added `Time<Physics>` pause/unpause synchronization in `handle_background_music_match_start` so physics substeps do not run while the game is on the pre-match intro screen or paused.
+* **Result**:
+  Cuts narrowphase contact solver CPU time by ~66% during gameplay and 100% while paused or on the title screen.
+
 ---
 
 ## 3. Category A: UI & ECS Systems (Pending Fixes)
@@ -85,19 +109,6 @@
 ---
 
 ## 4. Category B: Physics, Colliders & Spatial Queries (Pending Fixes)
-
-### ⏳ NOT FIXED: Item #5 — Remove Redundant Downward Ground Raycast
-* **Target File**: [`src/player.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/player.rs#L253-L258)
-* **Status**: **NOT FIXED**
-* **Root Cause**:
-  `player.rs` fires a downward raycast into the 20,160-triangle terrain mesh every frame to check `is_grounded`, even though the exact bilinear height is computed on the preceding line:
-  ```rust
-  let terrain_y = crate::terrain_heights::sample_terrain_height(transform.translation.x, transform.translation.z);
-  let is_grounded = spatial_query.cast_ray(transform.translation, Dir3::NEG_Y, 1.07, true, &filter).is_some()
-      || transform.translation.y <= terrain_y + 1.02;
-  ```
-* **Fix**:
-  Remove `spatial_query.cast_ray` completely and rely directly on `transform.translation.y <= terrain_y + 1.05`, eliminating 60 expensive trimesh BVH ray traversals per second.
 
 ### ⏳ NOT FIXED: Item #6 — Add `CollisionLayers` & Fix Camera Spring-Arm Raycast
 * **Target Files**: [`src/camera.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/camera.rs#L322-L337), [`src/types.rs`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/src/types.rs)
@@ -216,9 +227,9 @@
 - [x] **Item #2**: Cache skeletal bones (`CharacterBones`) and eliminate per-frame heap allocations in `src/player.rs`. *(✅ FIXED)*
 - [x] **Item #3**: Guard UI `Text` and nametag mutations against Taffy flexbox layout thrashing in `src/ui.rs`. *(✅ FIXED)*
 - [x] **Item #4**: Remove duplicate `handle_fallout_respawns` registration from `src/arena.rs`. *(✅ FIXED)*
-- [ ] **Item #5**: Remove redundant downward ground raycast in `src/player.rs`. *(⏳ NOT FIXED)*
-- [ ] **Item #6**: Add `CollisionLayers` and optimize camera spring-arm raycast in `src/camera.rs` & `src/types.rs`. *(⏳ NOT FIXED)*
-- [ ] **Item #7**: Set `SubstepCount(2)` in `src/main.rs`. *(⏳ NOT FIXED)*
+- [x] **Item #5**: Remove redundant downward ground raycast in `src/player.rs`. *(✅ FIXED)*
+- [x] **Item #6**: Add `CollisionLayers` and optimize camera spring-arm raycast in `src/camera.rs` & `src/types.rs`. *(✅ FIXED)*
+- [x] **Item #7**: Set `SubstepCount(2)` in `src/main.rs`. *(✅ FIXED)*
 - [ ] **Item #8**: Enable backface culling on sky domes and reduce cloud layers in `src/arena.rs`. *(⏳ NOT FIXED)*
 - [ ] **Item #9**: Consolidate sewer water effects (135 entities → 2–3 meshes) in `src/arena.rs`. *(⏳ NOT FIXED)*
 - [ ] **Item #10**: Downscale bot textures from 4K to 1024×1024 in `assets/models/`. *(⏳ NOT FIXED)*
