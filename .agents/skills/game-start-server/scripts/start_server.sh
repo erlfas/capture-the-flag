@@ -152,6 +152,21 @@ case "$ACTION" in
         echo "=========================================================="
         ;;
 
+    daemon)
+        echo "=========================================================="
+        echo " [Game Server] Starting Persistent Foreground Daemon..."
+        echo "=========================================================="
+        ensure_cargo_env
+        cd "$REPO_DIR"
+        if pgrep -x trunk > /dev/null 2>&1; then
+            pkill -x trunk || true
+            sleep 1
+        fi
+        sync_workspace
+        echo "--> Running 'trunk serve' in foreground (keep WSL session alive with IsDaemon=true)..."
+        exec env CARGO_TARGET_DIR="$TARGET_DIR" trunk serve --address "$ADDRESS" --port "$PORT"
+        ;;
+
     logs)
         if [ -f "$LOG_FILE" ]; then
             tail -n 50 "$LOG_FILE"

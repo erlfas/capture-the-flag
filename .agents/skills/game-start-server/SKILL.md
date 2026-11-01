@@ -12,17 +12,25 @@ This skill synchronizes the game workspace from Windows to native WSL 2 (ext4), 
 
 ## Quick Execution
 
-Execute the helper script from PowerShell via `wsl.exe`:
+> [!IMPORTANT]
+> **Critical WSL Lifecycle Rule (`IsDaemon: true`)**:
+> Windows Subsystem for Linux (WSL 2) automatically terminates background processes (`nohup ... &`) a few seconds after the last interactive `wsl.exe` process exits!
+> Therefore, whenever starting or restarting the server via `run_command`, **always use the `daemon` mode with `IsDaemon: true`** so the `wsl.exe` process stays open in the background and keeps the WSL VM alive, followed by a quick `status` check.
 
-### 1. Start Server (Default)
-Syncs latest edits and starts `trunk serve` if not already running (or confirms existing instance):
+### 1. Start or Restart Server (Recommended — Persistent Daemon)
+Call `run_command` with **`IsDaemon: true`** and `WaitMsBeforeAsync: 5000`:
 ```powershell
-wsl.exe -e bash /mnt/c/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/.agents/skills/game-start-server/scripts/start_server.sh start
+wsl.exe -e bash /mnt/c/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/.agents/skills/game-start-server/scripts/start_server.sh daemon
+```
+Then verify readiness with a normal (`IsDaemon: false`) status or wait-dev call:
+```powershell
+wsl.exe -e bash /mnt/c/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/.agents/skills/game-compile-and-wait/scripts/build_and_wait.sh wait-dev
 ```
 
-### 2. Restart Server
-Stops any existing Trunk process, syncs fresh workspace files, restarts `trunk serve`, and waits for HTTP 200:
+### 2. Legacy Start / Restart (Only when another WSL terminal is already open)
+Syncs latest edits and starts/restarts `trunk serve` via `nohup`:
 ```powershell
+wsl.exe -e bash /mnt/c/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/.agents/skills/game-start-server/scripts/start_server.sh start
 wsl.exe -e bash /mnt/c/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/.agents/skills/game-start-server/scripts/start_server.sh restart
 ```
 

@@ -84,19 +84,10 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn handle_background_music_match_start(
     koth: Res<koth::KothManager>,
     pause_state: Res<types::PauseState>,
-    mut physics_time: ResMut<Time<Physics>>,
     music_query: Query<&AudioSink, With<BackgroundMusic>>,
     voice_query: Query<&AudioSink, (With<koth::ActiveVoiceAudio>, Without<BackgroundMusic>)>,
 ) {
     let should_pause_all = !koth.match_started || pause_state.is_paused || pause_state.exited;
-
-    if should_pause_all {
-        if !physics_time.is_paused() {
-            physics_time.pause();
-        }
-    } else if physics_time.is_paused() {
-        physics_time.unpause();
-    }
 
     for sink in music_query.iter() {
         if should_pause_all || pause_state.music_muted {
