@@ -19,8 +19,8 @@
 | **✅ FIXED** | #9 | **Consolidate sewer water effects (135 entities → 2–3 meshes)** | `src/arena.rs` | GPU / Draw Calls | Eliminates ~125 unbatched draw calls & 129 transform updates |
 | **✅ FIXED** | #10 | **Downscale 4K bot character textures to 1024×1024** | `assets/models/` | GPU / VRAM | Saves ~472 MB uncompressed VRAM & ~38.3 MB download payload |
 | **✅ FIXED** | #11 | **Decimate `post_apocalyptic_battlefield.glb` (736k → 140k)** | `assets/models/` | GPU / Geometry | 81% reduction in triangles & 17.3 MB file size reduction; re-enables backface culling |
-| **⏳ NOT FIXED** | #12 | **Decimate bot meshes (38k → 10k vertices) to match player** | `assets/models/` | GPU / Skinning | Cuts skinned vertex count from ~200k to ~65k per frame |
-| **⏳ NOT FIXED** | #13 | **Optimize `Cargo.toml` release profile (`panic = "abort"`, LTO)** | `Cargo.toml` | WASM / Build | Shrinks WASM binary by 30%–50% and removes landing pads |
+| **✅ FIXED** | #12 | **Decimate bot meshes (38k → 11k vertices) to match player** | `assets/models/` | GPU / Skinning | Cuts total skinned vertex count from ~201k to ~67k per frame |
+| **✅ FIXED** | #13 | **Optimize `Cargo.toml` release profile (`panic = "abort"`, LTO)** | `Cargo.toml` | WASM / Build | Shrinks WASM binary by 30%–50% and removes landing pads |
 | **⏳ NOT FIXED** | #14 | **Trim unused Bevy default features (`default-features = false`)** | `Cargo.toml` | WASM / Binary | Cuts ~25–35 MB of unused crates (gizmos, gilrs, tonemapping LUTs) |
 | **⏳ NOT FIXED** | #15 | **Lazy-load character voice audio instead of 45-file preload** | `index.html` | Network / Audio | Eliminates startup network stampede & 45 browser audio decoders |
 
@@ -114,6 +114,21 @@
 * **Result**:
   Cuts battlefield triangle count by **80.9%**, shrinks `post_apocalyptic_battlefield.glb` from **28.5 MB** to **10.8 MB** (**17.7 MB saved**), and enables hardware backface culling across over 71% of the battlefield geometry.
 
+### ✅ FIXED: Item #12 — Decimated Bot Character Meshes (38k → ~11k Vertices)
+* **Assets Modified**: `assets/models/jonas-blue.glb`, `lisa-red.glb`, `morten-blue.glb`, `per-red.glb`, `siri-red.glb`
+* **What Was Changed**:
+  1. Deduplicated identical split vertices across shared edges and simplified all 5 bot character meshes using `MeshoptSimplifier` while preserving `POSITION`, `NORMAL`, `TEXCOORD_0`, `JOINTS_0`, `WEIGHTS_0`, skeletal skins, and embedded `Idle`/`Run` animations.
+  2. Reduced vertex/triangle counts per bot (`jonas`: 39,896 → 12,591 verts; `lisa`: 37,714 → 11,926 verts; `morten`: 36,775 → 10,708 verts; `per`: 37,611 → 11,201 verts; `siri`: 37,533 → 9,015 verts) to match `main_player.glb` (11,869 verts).
+* **Result**:
+  Cuts bot skinned vertices by **70.7%** (from 189,529 down to 55,441; total across all 6 characters drops from 201,398 to 67,310 vertices per frame) and shrinks each bot `.glb` file down to **1.3–1.6 MB**.
+
+### ✅ FIXED: Item #13 — Optimized `Cargo.toml` Release Profile
+* **File Modified**: [`Cargo.toml`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/Cargo.toml#L23-L28)
+* **What Was Changed**:
+  Configured `[profile.release]` with `opt-level = "s"`, `lto = "fat"`, `codegen-units = 1`, `panic = "abort"`, and `strip = "symbols"`.
+* **Result**:
+  Eliminates stack unwinding landing pads and debug symbol tables from release WASM builds and enables whole-program fat LTO.
+
 ---
 
 ## 3. Category A: UI & ECS Systems (Pending Fixes)
@@ -138,34 +153,7 @@
 
 ---
 
-## 4. Category C: Rendering, Shaders & 3D Assets (Pending Fixes)
-
-### ⏳ NOT FIXED: Item #12 — Decimate Bot Character Meshes (38k → 10k Vertices)
-* **Target Assets**: `assets/models/*.glb`
-* **Status**: **NOT FIXED**
-* **Root Cause**:
-  Each bot model has ~38,000 vertices with 65 skeletal bones (`JOINTS_0`, `WEIGHTS_0`). In WebGL2, evaluating skinning matrices for ~200,000 vertices every frame consumes substantial vertex shading time.
-* **Fix**:
-  Simplify bot meshes to match `main_player.glb` (~11k vertices, ~9k triangles) and merge duplicate vertices along UV seams.
-
----
-
-## 5. Category D: WASM Compilation, Browser Environment & Cargo Profiles (Pending Fixes)
-
-### ⏳ NOT FIXED: Item #13 — Optimize `Cargo.toml` Release Profile
-* **Target File**: [`Cargo.toml`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/Cargo.toml#L23-L25)
-* **Status**: **NOT FIXED**
-* **Root Cause**:
-  Release profile uses `lto = "thin"` without `panic = "abort"`, `codegen-units = 1`, or `strip = "symbols"`. Leaves landing pads, unwind tables, and symbol tables in the compiled WASM binary.
-* **Fix**:
-  ```toml
-  [profile.release]
-  opt-level = "s"
-  lto = "fat"
-  codegen-units = 1
-  panic = "abort"
-  strip = "symbols"
-  ```
+## 4. Category D: WASM Compilation, Browser Environment & Cargo Profiles (Pending Fixes)
 
 ### ⏳ NOT FIXED: Item #14 — Strip Unused Bevy Default Features
 * **Target File**: [`Cargo.toml`](file:///c:/Users/ErlendHeggelund/Documents/antigravity/fervent-curie/Cargo.toml#L7-L8)
@@ -185,7 +173,7 @@
 
 ---
 
-## 6. Master Checklist
+## 5. Master Checklist
 
 - [x] **Item #1**: Remove `SweptCcd` on all 6 characters in `src/player.rs` and `src/ai.rs`. *(✅ FIXED)*
 - [x] **Item #2**: Cache skeletal bones (`CharacterBones`) and eliminate per-frame heap allocations in `src/player.rs`. *(✅ FIXED)*
@@ -198,7 +186,7 @@
 - [x] **Item #9**: Consolidate sewer water effects (135 entities → 2–3 meshes) in `src/arena.rs`. *(✅ FIXED)*
 - [x] **Item #10**: Downscale bot textures from 4K to 1024×1024 in `assets/models/`. *(✅ FIXED)*
 - [x] **Item #11**: Decimate `post_apocalyptic_battlefield.glb` from 736k to 140k triangles. *(✅ FIXED)*
-- [ ] **Item #12**: Decimate bot character meshes from 38k to 10k vertices. *(⏳ NOT FIXED)*
-- [ ] **Item #13**: Optimize `Cargo.toml` release profile (`panic = "abort"`, LTO). *(⏳ NOT FIXED)*
+- [x] **Item #12**: Decimate bot character meshes from 38k to 11k vertices. *(✅ FIXED)*
+- [x] **Item #13**: Optimize `Cargo.toml` release profile (`panic = "abort"`, LTO). *(✅ FIXED)*
 - [ ] **Item #14**: Strip unused Bevy default features in `Cargo.toml`. *(⏳ NOT FIXED)*
 - [ ] **Item #15**: Implement on-demand voice loading in `index.html`. *(⏳ NOT FIXED)*
